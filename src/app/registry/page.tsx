@@ -21,16 +21,18 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { ImagePlus, X, Save, History, Edit3, BadgeInfo } from "lucide-react"
+import { ImagePlus, X, Save, History, Edit3, BadgeInfo, AlertCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { generateProductDescription } from "@/ai/flows/generate-product-description"
 import { appendToSheet, getSheetData } from "@/services/sheets-service"
 import Image from "next/image"
+import { cn } from "@/lib/utils"
 
 export default function RegistryPage() {
   const { toast } = useToast()
   const [loadingAI, setLoadingAI] = React.useState(false)
   const [saving, setSaving] = React.useState(false)
+  const fileInputRef = React.useRef<HTMLInputElement>(null)
   
   const [categories, setCategories] = React.useState(["Sacos", "Pantalones", "Vestidos", "Blusas"])
   const [collections, setCollections] = React.useState(["Invierno 2024", "Verano 2025"])
@@ -51,11 +53,14 @@ export default function RegistryPage() {
   })
 
   const [images, setImages] = React.useState<string[]>([])
+  const [priceError, setPriceError] = React.useState<string | null>(null)
 
+  // Cargar datos dinámicos de la base de datos al montar
   React.useEffect(() => {
-    const fetchLastCode = async () => {
+    const fetchDBData = async () => {
       const data = await getSheetData('PRODUCTOS');
       if (data && data.length > 0) {
+        // 1. Calcular siguiente código
         const lastRow = data[data.length - 1];
         const lastCode = lastRow.Codigo;
         if (lastCode && lastCode.startsWith('P-')) {
@@ -64,10 +69,47 @@ export default function RegistryPage() {
             setForm(prev => ({ ...prev, code: `P-${String(num + 1).padStart(3, '0')}` }));
           }
         }
+
+        // 2. Extraer categorías y colecciones únicas existentes
+        const dbCats = Array.from(new Set(data.map((p: any) => p.Categoria).filter(Boolean)));
+        const dbColls = Array.from(new Set(data.map((p: any) => p.Coleccion).filter(Boolean)));
+        
+        if (dbCats.length > 0) setCategories(prev => Array.from(new Set([...prev, ...dbCats as string[]])));
+        if (dbColls.length > 0) setCollections(prev => Array.from(new Set([...prev, ...dbColls as string[]])));
       }
     };
-    fetchLastCode();
+    fetchDBData();
   }, []);
+
+  // Validación de precios inmediata
+  React.useEffect(() => {
+    const f = Number(form.priceFardo || 0);
+    const m = Number(form.priceMayor || 0);
+    const u = Number(form.priceUnidad || 0);
+
+    if (f > 0 && m > 0 && f >= m) {
+      setPriceError("El precio Fardo debe ser menor al Mayor");
+    } else if (m > 0 && u > 0 && m >= u) {
+      setPriceError("El precio Mayor debe ser menor al de Unidad");
+    } else {
+      setPriceError(null);
+    }
+  }, [form.priceFardo, form.priceMayor, form.priceUnidad]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        toast({ title: "Archivo muy pesado", description: "La imagen debe pesar menos de 2MB", variant: "destructive" });
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImages(prev => [...prev, reader.result as string].slice(0, 4));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleAI = async () => {
     if (!form.name || !form.category) {
@@ -99,15 +141,15 @@ export default function RegistryPage() {
       return
     }
 
+    if (priceError) {
+      toast({ title: "Error de Precios", description: priceError, variant: "destructive" });
+      return;
+    }
+
     setSaving(true)
     try {
       const timestamp = new Date().toISOString();
-      const img1 = images[0] || "";
-      const img2 = images[1] || "";
-      const img3 = images[2] || "";
-      const img4 = images[3] || "";
       
-      // 1. Guardar en PRODUCTOS (Maestro)
       const rowData = [
         timestamp,
         form.code,
@@ -118,12 +160,14 @@ export default function RegistryPage() {
         form.priceFardo,
         form.priceMayor,
         form.priceUnidad,
-        img1, img2, img3, img4,
+        images[0] || "",
+        images[1] || "",
+        images[2] || "",
+        images[3] || "",
         form.description
       ];
       await appendToSheet('PRODUCTOS', rowData);
       
-      // 2. Guardar en CATALOGO_WEB (Público y Seguro)
       const catalogData = [
         form.code,
         form.name,
@@ -131,13 +175,15 @@ export default function RegistryPage() {
         form.priceFardo,
         form.priceMayor,
         form.priceUnidad,
-        img1, img2, img3, img4,
+        images[0] || "",
+        images[1] || "",
+        images[2] || "",
+        images[3] || "",
         form.collection,
         form.description
       ];
       await appendToSheet('CATALOGO_WEB', catalogData);
 
-      // 3. Registrar movimiento inicial
       await appendToSheet('MOVIMIENTOS', [
         Math.random().toString(36).substr(2, 9),
         timestamp,
@@ -149,10 +195,11 @@ export default function RegistryPage() {
 
       toast({ 
         title: "¡Guardado con éxito!", 
-        description: `Prenda ${form.code} registrada y sincronizada con el catálogo web.`,
+        description: `Prenda ${form.code} registrada correctamente.`,
         className: "bg-primary text-white" 
       })
       
+      // Reset y preparar siguiente código
       const nextNum = parseInt(form.code.split('-')[1]) + 1;
       setForm({
         name: "",
@@ -167,7 +214,7 @@ export default function RegistryPage() {
       })
       setImages([])
     } catch (e) {
-      toast({ title: "Error", description: "No se pudo guardar la prenda. Revisa la conexión con el Sheet.", variant: "destructive" })
+      toast({ title: "Error", description: "Error al conectar con la base de datos.", variant: "destructive" })
     } finally {
       setSaving(false)
     }
@@ -244,7 +291,7 @@ export default function RegistryPage() {
                       <SelectValue placeholder="Seleccionar..." />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl">
-                      {categories.map(c => <SelectItem key={c} value={c.toLowerCase()} className="rounded-lg">{c}</SelectItem>)}
+                      {categories.map(c => <SelectItem key={c} value={c} className="rounded-lg">{c}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
@@ -279,7 +326,7 @@ export default function RegistryPage() {
                       <SelectValue placeholder="Seleccionar..." />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl">
-                      {collections.map(c => <SelectItem key={c} value={c.toLowerCase()} className="rounded-lg">{c}</SelectItem>)}
+                      {collections.map(c => <SelectItem key={c} value={c} className="rounded-lg">{c}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
@@ -312,7 +359,7 @@ export default function RegistryPage() {
             <CardHeader className="bg-accent/5 border-b border-accent/10">
               <CardTitle className="text-lg text-accent font-bold">Stock y Precios</CardTitle>
             </CardHeader>
-            <CardContent className="pt-8">
+            <CardContent className="pt-8 space-y-4">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                 <div className="space-y-2">
                   <Label className="text-[10px] uppercase font-black text-primary tracking-widest">CANTIDAD *</Label>
@@ -330,7 +377,7 @@ export default function RegistryPage() {
                     type="number" 
                     value={form.priceFardo}
                     onChange={e => setForm({...form, priceFardo: e.target.value})}
-                    className="border-accent/20 h-11 rounded-xl text-center font-medium"
+                    className={cn("border-accent/20 h-11 rounded-xl text-center font-medium", priceError && "border-destructive")}
                     placeholder=""
                   />
                 </div>
@@ -340,7 +387,7 @@ export default function RegistryPage() {
                     type="number" 
                     value={form.priceMayor}
                     onChange={e => setForm({...form, priceMayor: e.target.value})}
-                    className="border-accent/20 h-11 rounded-xl text-center font-medium"
+                    className={cn("border-accent/20 h-11 rounded-xl text-center font-medium", priceError && "border-destructive")}
                     placeholder=""
                   />
                 </div>
@@ -350,11 +397,17 @@ export default function RegistryPage() {
                     type="number" 
                     value={form.priceUnidad}
                     onChange={e => setForm({...form, priceUnidad: e.target.value})}
-                    className="border-accent/20 h-11 rounded-xl text-center font-medium"
+                    className={cn("border-accent/20 h-11 rounded-xl text-center font-medium", priceError && "border-destructive")}
                     placeholder=""
                   />
                 </div>
               </div>
+              {priceError && (
+                <div className="flex items-center gap-2 text-destructive text-xs font-bold animate-pulse">
+                  <AlertCircle className="w-4 h-4" />
+                  {priceError}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -381,15 +434,24 @@ export default function RegistryPage() {
                   </div>
                 ))}
                 {images.length < 4 && (
-                  <button 
-                    onClick={() => setImages([...images, `https://picsum.photos/seed/${Math.random()}/400/400`])}
-                    className="aspect-square rounded-2xl border-2 border-dashed border-accent/30 flex flex-col items-center justify-center gap-2 text-accent hover:text-primary hover:border-primary transition-all bg-accent/5 group"
-                  >
-                    <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center group-hover:bg-primary/10 transition-colors">
-                      <ImagePlus className="w-6 h-6" />
-                    </div>
-                    <span className="text-[9px] font-black uppercase tracking-widest">Subir Foto</span>
-                  </button>
+                  <>
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden" 
+                      ref={fileInputRef} 
+                      onChange={handleFileChange}
+                    />
+                    <button 
+                      onClick={() => fileInputRef.current?.click()}
+                      className="aspect-square rounded-2xl border-2 border-dashed border-accent/30 flex flex-col items-center justify-center gap-2 text-accent hover:text-primary hover:border-primary transition-all bg-accent/5 group"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center group-hover:bg-primary/10 transition-colors">
+                        <ImagePlus className="w-6 h-6" />
+                      </div>
+                      <span className="text-[9px] font-black uppercase tracking-widest">Subir de Galería</span>
+                    </button>
+                  </>
                 )}
               </div>
             </CardContent>
@@ -398,14 +460,14 @@ export default function RegistryPage() {
           <Button 
             className="w-full h-20 text-2xl font-headline shadow-2xl shadow-primary/30 rounded-[2rem] bg-gradient-to-tr from-primary to-accent hover:opacity-90 active:scale-[0.98] border-none" 
             onClick={handleSave}
-            disabled={saving}
+            disabled={saving || !!priceError}
           >
             <Save className="w-7 h-7 mr-3" />
             {saving ? "GUARDANDO..." : "GUARDAR PRENDA"}
           </Button>
           
           <div className="text-[9px] text-center text-muted-foreground uppercase tracking-[0.3em] font-black px-6 leading-relaxed">
-            * Se sincronizará con tu catálogo web automáticamente *
+            * Sincronización en tiempo real con Catálogo Web *
           </div>
         </div>
       </div>
