@@ -25,7 +25,7 @@ import {
 import { ImagePlus, X, Save, History, Loader2, Sparkles, Settings2, Edit3, Plus, AlertCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useFirestore, useDoc, useCollection } from "@/firebase"
-import { doc, setDoc, collection, query, orderBy, serverTimestamp, updateDoc, addDoc, getDocs,强化, where } from "firebase/firestore"
+import { doc, setDoc, collection, query, orderBy, serverTimestamp, updateDoc, addDoc } from "firebase/firestore"
 import { uploadImageToDrive } from "@/services/sheets-service"
 import Image from "next/image"
 import { errorEmitter } from '@/firebase/error-emitter'
@@ -88,10 +88,11 @@ export default function RegistryPage() {
       if (draft && !editId) {
         setForm(JSON.parse(draft))
       } else if (!editId && !form.code) {
+        // Formato P-001 como valor inicial sugerido
         setForm(prev => ({ ...prev, code: `P-001` }))
       }
     }
-  }, [editingProduct, editId])
+  }, [editingProduct, editId, form.code])
 
   React.useEffect(() => {
     if (!editId) {
@@ -122,7 +123,7 @@ export default function RegistryPage() {
         setNewItemName("")
         toast({ title: "Agregado", description: "Se guardó correctamente." })
       })
-      .catch(() => {
+      .catch((err) => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({ path: colName, operation: 'create' }))
       })
   }
@@ -136,7 +137,7 @@ export default function RegistryPage() {
         setEditingItem(null)
         toast({ title: "Actualizado", description: "Nombre modificado correctamente." })
       })
-      .catch(() => {
+      .catch((err) => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({ path: itemRef.path, operation: 'update' }))
       })
   }
@@ -177,7 +178,7 @@ export default function RegistryPage() {
           toast({ title: "Guardado Exitoso", description: "Prenda registrada en el inventario." })
           router.push('/inventory')
         })
-        .catch(() => {
+        .catch((err) => {
           errorEmitter.emit('permission-error', new FirestorePermissionError({ path: pRef.path, operation: 'write' }))
         })
     } catch (e: any) {
@@ -187,9 +188,11 @@ export default function RegistryPage() {
     }
   }
 
+  // Validación Diva: Fardo < Mayor < Unidad
   const priceError = form.priceFardo && form.priceMayor && form.priceUnidad && 
     !(Number(form.priceFardo) < Number(form.priceMayor) && Number(form.priceMayor) < Number(form.priceUnidad))
 
+  // Campos obligatorios: Nombre, Categoria, Colección, Stock
   const isFormValid = form.name && form.category && form.collection && form.stock !== "" && !priceError
 
   return (
@@ -210,7 +213,9 @@ export default function RegistryPage() {
       {priceError && (
         <div className="bg-destructive/10 border border-destructive/20 p-4 rounded-2xl flex items-center gap-3 text-destructive">
           <AlertCircle className="w-5 h-5" />
-          <span className="text-xs font-black uppercase tracking-widest">Precios incorrectos: Fardo < Mayor < Unidad</span>
+          <span className="text-xs font-black uppercase tracking-widest">
+            Precios incorrectos: Fardo &lt; Mayor &lt; Unidad
+          </span>
         </div>
       )}
 
@@ -219,6 +224,7 @@ export default function RegistryPage() {
           <Card className="border-none shadow-2xl bg-white rounded-[2.5rem] overflow-hidden">
             <CardHeader className="bg-accent/5 border-b border-accent/10 py-6 flex flex-row items-center justify-between px-8">
               <CardTitle className="text-lg text-accent font-black uppercase tracking-widest">Datos Principales</CardTitle>
+              {/* Código P-001 a la derecha del título principal */}
               <div className="bg-primary text-white px-8 py-3 rounded-2xl font-mono font-black text-3xl shadow-lg">
                 {form.code || "P-001"}
               </div>
@@ -243,6 +249,7 @@ export default function RegistryPage() {
                         ))}
                       </SelectContent>
                     </Select>
+                    {/* Botón único para gestionar listas */}
                     <Dialog open={manageType === 'category'} onOpenChange={(o) => setManageType(o ? 'category' : null)}>
                       <DialogTrigger asChild>
                         <Button variant="outline" size="icon" className="h-14 w-14 rounded-2xl border-accent text-accent hover:bg-accent/10 shrink-0">
@@ -255,9 +262,10 @@ export default function RegistryPage() {
                         </DialogHeader>
                         <div className="space-y-6 pt-4">
                           <div className="flex gap-2">
-                            <Input placeholder="Añadir..." value={newItemName} onChange={e => setNewItemName(e.target.value)} className="h-12 rounded-xl" />
+                            <Input placeholder="Añadir nueva..." value={newItemName} onChange={e => setNewItemName(e.target.value)} className="h-12 rounded-xl" />
                             <Button className="bg-primary h-12 w-12 rounded-xl" onClick={handleAddItem}><Plus className="w-5 h-5" /></Button>
                           </div>
+                          {/* Lista para ver y renombrar */}
                           <div className="max-h-60 overflow-y-auto space-y-2 pr-2">
                             {categories.map(cat => (
                               <div key={cat.id} className="flex items-center justify-between p-3 bg-accent/5 rounded-2xl border border-accent/10 group">
@@ -297,6 +305,7 @@ export default function RegistryPage() {
                         ))}
                       </SelectContent>
                     </Select>
+                    {/* Botón único para gestionar listas */}
                     <Dialog open={manageType === 'collection'} onOpenChange={(o) => setManageType(o ? 'collection' : null)}>
                       <DialogTrigger asChild>
                         <Button variant="outline" size="icon" className="h-14 w-14 rounded-2xl border-accent text-accent hover:bg-accent/10 shrink-0">
@@ -309,9 +318,10 @@ export default function RegistryPage() {
                         </DialogHeader>
                         <div className="space-y-6 pt-4">
                           <div className="flex gap-2">
-                            <Input placeholder="Añadir..." value={newItemName} onChange={e => setNewItemName(e.target.value)} className="h-12 rounded-xl" />
+                            <Input placeholder="Añadir nueva..." value={newItemName} onChange={e => setNewItemName(e.target.value)} className="h-12 rounded-xl" />
                             <Button className="bg-primary h-12 w-12 rounded-xl" onClick={handleAddItem}><Plus className="w-5 h-5" /></Button>
                           </div>
+                          {/* Lista para ver y renombrar */}
                           <div className="max-h-60 overflow-y-auto space-y-2 pr-2">
                             {collectionsData.map(col => (
                               <div key={col.id} className="flex items-center justify-between p-3 bg-accent/5 rounded-2xl border border-accent/10 group">
