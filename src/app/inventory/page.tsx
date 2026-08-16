@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -15,7 +14,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Search, Filter, Edit2, ArrowDownRight, ArrowUpRight, Plus } from "lucide-react"
+import { Search, Filter, Edit2, ArrowDownRight, ArrowUpRight, Plus, ExternalLink } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
 import { useCollection, useFirestore } from "@/firebase"
@@ -42,7 +41,7 @@ export default function InventoryPage() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
         <div>
           <h1 className="text-3xl font-headline font-bold text-primary">Inventario Diva</h1>
-          <p className="text-muted-foreground font-medium uppercase tracking-widest text-[10px]">Cloud Sync Realtime • Firebase</p>
+          <p className="text-muted-foreground font-medium uppercase tracking-widest text-[10px]">Cloud Sync Realtime • Firebase & Drive</p>
         </div>
         <div className="flex w-full md:w-auto gap-2">
           <div className="relative flex-1 md:w-64">
@@ -54,7 +53,7 @@ export default function InventoryPage() {
               onChange={e => setSearchQuery(e.target.value)}
             />
           </div>
-          <Button className="rounded-xl bg-primary shadow-lg" onClick={() => router.push('/registry')}>
+          <Button className="rounded-xl bg-primary shadow-lg hover:bg-primary/90" onClick={() => router.push('/registry')}>
             <Plus className="w-4 h-4 mr-2" /> Nueva Prenda
           </Button>
         </div>
@@ -62,8 +61,8 @@ export default function InventoryPage() {
 
       <Tabs defaultValue="all" className="w-full">
         <TabsList className="bg-muted/50 p-1 rounded-2xl mb-6">
-          <TabsTrigger value="all" className="rounded-xl px-6">Stock Actual</TabsTrigger>
-          <TabsTrigger value="movements" className="rounded-xl px-6">Kardex</TabsTrigger>
+          <TabsTrigger value="all" className="rounded-xl px-6 data-[state=active]:bg-primary data-[state=active]:text-white transition-all">Stock Actual</TabsTrigger>
+          <TabsTrigger value="movements" className="rounded-xl px-6 data-[state=active]:bg-primary data-[state=active]:text-white transition-all">Historial Kardex</TabsTrigger>
         </TabsList>
         
         <TabsContent value="all" className="border rounded-[2rem] overflow-hidden bg-card shadow-xl border-none min-h-[400px]">
@@ -85,18 +84,30 @@ export default function InventoryPage() {
                 {filteredProducts.length > 0 ? filteredProducts.map((p) => (
                   <TableRow key={p.id} className="group transition-colors hover:bg-primary/5">
                     <TableCell>
-                      <div className="w-12 h-12 rounded-2xl border border-accent/10 overflow-hidden bg-muted relative shadow-sm">
-                        <Image 
-                          src={(p.images && p.images[0]) || "https://picsum.photos/seed/placeholder/200/200"} 
-                          alt={p.name || ""} 
-                          fill
-                          className="object-cover"
-                        />
+                      <div className="w-12 h-12 rounded-2xl border border-accent/10 overflow-hidden bg-muted relative shadow-sm group-hover:scale-110 transition-transform">
+                        {p.images && p.images[0] ? (
+                          <a href={p.images[0]} target="_blank" rel="noopener noreferrer" title="Ver en Drive">
+                             <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                               <ExternalLink className="w-4 h-4 text-white" />
+                             </div>
+                             {p.images[0].startsWith('data:') ? (
+                               <Image src={p.images[0]} alt="" fill className="object-cover" />
+                             ) : (
+                               <div className="w-full h-full flex items-center justify-center bg-accent/20">
+                                 <Image src="https://picsum.photos/seed/placeholder/200/200" alt="" fill className="object-cover opacity-50" />
+                               </div>
+                             )}
+                          </a>
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-accent/10">
+                             <Image src="https://picsum.photos/seed/empty/200/200" alt="" fill className="object-cover opacity-20" />
+                          </div>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="font-mono text-xs font-bold text-accent">{p.code}</div>
-                      <div className="font-bold text-primary">{p.name}</div>
+                      <div className="font-bold text-primary group-hover:text-primary transition-colors">{p.name}</div>
                     </TableCell>
                     <TableCell>
                       <Badge variant="secondary" className="font-black text-[9px] uppercase tracking-widest bg-accent/10 text-accent border-none">
@@ -118,7 +129,7 @@ export default function InventoryPage() {
                       <Button 
                         variant="ghost" 
                         size="icon" 
-                        className="h-9 w-9 text-primary hover:bg-primary/10 rounded-xl"
+                        className="h-9 w-9 text-primary hover:bg-primary/10 rounded-xl transition-all hover:scale-110"
                         onClick={() => router.push(`/registry?edit=${p.id}`)}
                       >
                         <Edit2 className="w-4 h-4" />
@@ -128,7 +139,7 @@ export default function InventoryPage() {
                 )) : (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center py-20 text-muted-foreground font-medium">
-                      No hay productos registrados en la nube.
+                      No hay productos registrados que coincidan con la búsqueda.
                     </TableCell>
                   </TableRow>
                 )}
@@ -153,8 +164,8 @@ export default function InventoryPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {movements.map((m) => (
-                    <TableRow key={m.id}>
+                  {movements.length > 0 ? movements.map((m) => (
+                    <TableRow key={m.id} className="hover:bg-primary/5 transition-colors">
                       <TableCell className="text-xs font-medium text-muted-foreground">
                         {m.timestamp?.toDate ? m.timestamp.toDate().toLocaleString() : ""}
                       </TableCell>
@@ -175,7 +186,13 @@ export default function InventoryPage() {
                       </TableCell>
                       <TableCell className="text-sm font-medium">{m.reason}</TableCell>
                     </TableRow>
-                  ))}
+                  )) : (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-20 text-muted-foreground font-medium">
+                        Aún no hay movimientos registrados en el Kardex.
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             )}
