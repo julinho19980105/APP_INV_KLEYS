@@ -68,7 +68,6 @@ export default function RegistryPage() {
   const [newItemName, setNewItemName] = React.useState("")
   const [editingItem, setEditingItem] = React.useState<{id: string, name: string} | null>(null)
 
-  // Cargar datos al editar o desde el borrador
   React.useEffect(() => {
     if (editingProduct) {
       setForm({
@@ -88,13 +87,11 @@ export default function RegistryPage() {
       if (draft && !editId) {
         setForm(JSON.parse(draft))
       } else if (!editId) {
-        // Formato P-001 por defecto para nuevos productos
         setForm(prev => ({ ...prev, code: "P-001" }))
       }
     }
   }, [editingProduct, editId])
 
-  // Guardar borrador automáticamente
   React.useEffect(() => {
     if (!editId) {
       localStorage.setItem(DRAFT_KEY, JSON.stringify(form))
@@ -151,7 +148,6 @@ export default function RegistryPage() {
       const imageUrls: string[] = []
       for (const img of localImagePreviews) {
         if (img.file) {
-          // Subida a Drive para evitar costos de Storage
           const driveUrl = await uploadImageToDrive(img.url, `${form.name}_${Date.now()}`)
           if (driveUrl) imageUrls.push(driveUrl)
         } else {
@@ -190,26 +186,18 @@ export default function RegistryPage() {
     }
   }
 
-  // Validación de Precios Diva
   const priceError = form.priceFardo && form.priceMayor && form.priceUnidad && 
     !(Number(form.priceFardo) < Number(form.priceMayor) && Number(form.priceMayor) < Number(form.priceUnidad))
 
-  // Solo Nombre, Categoría, Colección y Stock son obligatorios
   const isFormValid = form.name && form.category && form.collection && form.stock && !priceError
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-20 animate-in fade-in duration-500">
       <div className="flex justify-between items-center">
-        <div className="flex items-center gap-4">
-          <h1 className="text-4xl font-headline font-bold text-primary flex items-center gap-3">
-            {editId ? 'Editar Prenda' : 'Nueva Prenda'}
-            <Sparkles className="text-accent w-6 h-6" />
-          </h1>
-          <div className="bg-accent text-white px-6 py-2 rounded-2xl font-mono font-black text-2xl shadow-lg border-b-4 border-black/10">
-            {form.code}
-          </div>
-        </div>
-        
+        <h1 className="text-4xl font-headline font-bold text-primary flex items-center gap-3">
+          {editId ? 'Editar Prenda' : 'Nueva Prenda'}
+          <Sparkles className="text-accent w-6 h-6" />
+        </h1>
         <Button variant="outline" className="border-accent text-accent bg-white rounded-xl h-10 px-6 font-bold" onClick={() => router.push('/inventory')}>
           <History className="w-4 h-4 mr-2" /> Inventario
         </Button>
@@ -225,8 +213,11 @@ export default function RegistryPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
           <Card className="border-none shadow-2xl bg-white rounded-[2.5rem] overflow-hidden">
-            <CardHeader className="bg-accent/5 border-b border-accent/10 py-6">
+            <CardHeader className="bg-accent/5 border-b border-accent/10 py-6 flex flex-row items-center justify-between">
               <CardTitle className="text-lg text-accent font-black uppercase tracking-widest">Datos Principales</CardTitle>
+              <div className="bg-accent text-white px-6 py-2 rounded-2xl font-mono font-black text-2xl shadow-lg border-b-4 border-black/10">
+                {form.code}
+              </div>
             </CardHeader>
             <CardContent className="space-y-8 pt-8">
               <div className="space-y-2">
@@ -260,10 +251,11 @@ export default function RegistryPage() {
                         </DialogHeader>
                         <div className="space-y-6 py-4">
                           <div className="flex gap-2">
-                            <Input placeholder="Nueva..." value={newItemName} onChange={e => setNewItemName(e.target.value)} className="h-12 rounded-xl" />
+                            <Input placeholder="Nueva categoría..." value={newItemName} onChange={e => setNewItemName(e.target.value)} className="h-12 rounded-xl" />
                             <Button className="bg-primary h-12 w-12 rounded-xl" onClick={handleAddItem}><Plus className="w-5 h-5" /></Button>
                           </div>
-                          <div className="max-h-60 overflow-auto space-y-2">
+                          <div className="max-h-60 overflow-auto space-y-2 border-t pt-4">
+                            <Label className="text-[9px] uppercase font-black text-muted-foreground tracking-widest block mb-2">Registrados (Renombrar)</Label>
                             {categories.map(cat => (
                               <div key={cat.id} className="flex items-center justify-between p-4 bg-accent/5 rounded-2xl border border-accent/10">
                                 {editingItem?.id === cat.id ? (
@@ -311,10 +303,11 @@ export default function RegistryPage() {
                         </DialogHeader>
                         <div className="space-y-6 py-4">
                           <div className="flex gap-2">
-                            <Input placeholder="Nueva..." value={newItemName} onChange={e => setNewItemName(e.target.value)} className="h-12 rounded-xl" />
+                            <Input placeholder="Nueva colección..." value={newItemName} onChange={e => setNewItemName(e.target.value)} className="h-12 rounded-xl" />
                             <Button className="bg-primary h-12 w-12 rounded-xl" onClick={handleAddItem}><Plus className="w-5 h-5" /></Button>
                           </div>
-                          <div className="max-h-60 overflow-auto space-y-2">
+                          <div className="max-h-60 overflow-auto space-y-2 border-t pt-4">
+                             <Label className="text-[9px] uppercase font-black text-muted-foreground tracking-widest block mb-2">Registrados (Renombrar)</Label>
                             {collectionsData.map(col => (
                               <div key={col.id} className="flex items-center justify-between p-4 bg-accent/5 rounded-2xl border border-accent/10">
                                 {editingItem?.id === col.id ? (
