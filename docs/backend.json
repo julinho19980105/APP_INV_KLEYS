@@ -1,0 +1,50 @@
+
+{
+  "entities": {
+    "Product": {
+      "title": "Producto",
+      "description": "Prenda de ropa en el inventario",
+      "type": "object",
+      "properties": {
+        "code": { "type": "string", "description": "Código único del producto" },
+        "name": { "type": "string", "description": "Nombre de la prenda" },
+        "category": { "type": "string", "description": "Categoría de moda" },
+        "collection": { "type": "string", "description": "Colección de temporada" },
+        "stock": { "type": "number", "description": "Cantidad disponible" },
+        "priceFardo": { "type": "number", "description": "Precio por fardo" },
+        "priceMayor": { "type": "number", "description": "Precio al por mayor" },
+        "priceUnidad": { "type": "number", "description": "Precio por unidad" },
+        "images": { "type": "array", "items": { "type": "string" }, "description": "URLs de imágenes en Drive/Storage" },
+        "description": { "type": "string", "description": "Descripción estética" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["code", "name", "category", "collection", "stock"]
+    },
+    "Movement": {
+      "title": "Movimiento de Stock",
+      "description": "Registro de entrada o salida de prendas",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "productCode": { "type": "string" },
+        "type": { "type": "string", "enum": ["in", "out"] },
+        "quantity": { "type": "number" },
+        "reason": { "type": "string" }
+      }
+    }
+  },
+  "auth": {
+    "providers": ["google.com"]
+  },
+  "firestore": {
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Colección maestra de productos"
+    },
+    "/movements/{movementId}": {
+      "schema": "Movement",
+      "description": "Historial de kardex"
+    }
+  }
+}
