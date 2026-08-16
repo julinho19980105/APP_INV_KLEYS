@@ -170,7 +170,7 @@ export default function RegistryPage() {
         const item = localImagePreviews[i];
         if (item.startsWith('data:image')) {
           const url = await uploadImageToDrive(item, `${form.code}_img_${Date.now()}_${i+1}.jpg`);
-          driveImageUrls.push(url);
+          if (url) driveImageUrls.push(url);
         } else {
           driveImageUrls.push(item);
         }
@@ -231,20 +231,7 @@ export default function RegistryPage() {
         ]);
 
         toast({ title: "¡Guardado!", description: `Prenda ${form.code} registrada correctamente.` })
-        
-        const nextNum = parseInt(form.code.split('-')[1]) + 1;
-        setForm({
-          name: "",
-          category: form.category,
-          collection: form.collection,
-          description: "",
-          quantity: "",
-          priceFardo: "",
-          priceMayor: "",
-          priceUnidad: "",
-          code: `P-${String(nextNum).padStart(3, '0')}`
-        })
-        setLocalImagePreviews([])
+        router.push('/inventory')
       }
     } catch (e: any) {
       toast({ title: "Error", description: "Error al sincronizar con Google Drive y Sheets.", variant: "destructive" })
@@ -509,10 +496,6 @@ export default function RegistryPage() {
               </>
             )}
           </Button>
-          
-          <div className="text-[9px] text-center text-muted-foreground uppercase tracking-[0.4em] font-black px-10 leading-relaxed bg-accent/5 py-4 rounded-2xl">
-            * Conectado a Google Drive y Sheets para máxima velocidad *
-          </div>
         </div>
       </div>
     </div>
