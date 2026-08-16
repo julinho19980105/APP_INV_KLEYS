@@ -16,7 +16,12 @@ export const FirebaseClientProvider = ({ children }: { children: React.ReactNode
   if (!services) return null;
 
   return (
-    <FirebaseProvider app={services.app} db={services.db} auth={services.auth}>
+    <FirebaseProvider 
+      app={services.app} 
+      db={services.db} 
+      auth={services.auth} 
+      storage={services.storage}
+    >
       <FirebaseErrorListener />
       {children}
     </FirebaseProvider>
