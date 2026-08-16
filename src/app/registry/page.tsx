@@ -27,7 +27,6 @@ import { useToast } from "@/hooks/use-toast"
 import { useFirestore, useDoc, useCollection } from "@/firebase"
 import { doc, setDoc, collection, query, orderBy, serverTimestamp, updateDoc, addDoc } from "firebase/firestore"
 import { uploadImageToDrive } from "@/services/sheets-service"
-import Image from "next/image"
 import { errorEmitter } from '@/firebase/error-emitter'
 import { FirestorePermissionError } from '@/firebase/errors'
 import { cn } from "@/lib/utils"
@@ -88,11 +87,10 @@ export default function RegistryPage() {
       if (draft && !editId) {
         setForm(JSON.parse(draft))
       } else if (!editId && !form.code) {
-        // Formato P-001 como valor inicial sugerido
         setForm(prev => ({ ...prev, code: `P-001` }))
       }
     }
-  }, [editingProduct, editId, form.code])
+  }, [editingProduct, editId])
 
   React.useEffect(() => {
     if (!editId) {
@@ -150,6 +148,7 @@ export default function RegistryPage() {
       const imageUrls: string[] = []
       for (const img of localImagePreviews) {
         if (img.file) {
+          // Intentamos subir a Drive, si falla guardamos el preview para no perder la imagen visualmente
           const driveUrl = await uploadImageToDrive(img.url, `${form.name}_${Date.now()}`)
           imageUrls.push(driveUrl || img.url)
         } else {
@@ -179,7 +178,7 @@ export default function RegistryPage() {
           router.push('/inventory')
         })
         .catch((err) => {
-          errorEmitter.emit('permission-error', new FirestorePermissionError({ path: pRef.path, operation: 'write' }))
+          errorEmitter.emit('permission-error', new FirestorePermissionError({ path: pRef.path, operation: 'write', requestResourceData: productData }))
         })
     } catch (e: any) {
       toast({ title: "Error al guardar", description: e.message, variant: "destructive" })
@@ -188,11 +187,9 @@ export default function RegistryPage() {
     }
   }
 
-  // Validación Diva: Fardo < Mayor < Unidad
   const priceError = form.priceFardo && form.priceMayor && form.priceUnidad && 
     !(Number(form.priceFardo) < Number(form.priceMayor) && Number(form.priceMayor) < Number(form.priceUnidad))
 
-  // Campos obligatorios: Nombre, Categoria, Colección, Stock
   const isFormValid = form.name && form.category && form.collection && form.stock !== "" && !priceError
 
   return (
@@ -214,7 +211,7 @@ export default function RegistryPage() {
         <div className="bg-destructive/10 border border-destructive/20 p-4 rounded-2xl flex items-center gap-3 text-destructive">
           <AlertCircle className="w-5 h-5" />
           <span className="text-xs font-black uppercase tracking-widest">
-            Precios incorrectos: Fardo &lt; Mayor &lt; Unidad
+            Precios incorrectos: Fardo es menor que Mayor y Mayor es menor que Unidad
           </span>
         </div>
       )}
@@ -224,7 +221,6 @@ export default function RegistryPage() {
           <Card className="border-none shadow-2xl bg-white rounded-[2.5rem] overflow-hidden">
             <CardHeader className="bg-accent/5 border-b border-accent/10 py-6 flex flex-row items-center justify-between px-8">
               <CardTitle className="text-lg text-accent font-black uppercase tracking-widest">Datos Principales</CardTitle>
-              {/* Código P-001 a la derecha del título principal */}
               <div className="bg-primary text-white px-8 py-3 rounded-2xl font-mono font-black text-3xl shadow-lg">
                 {form.code || "P-001"}
               </div>
@@ -249,7 +245,6 @@ export default function RegistryPage() {
                         ))}
                       </SelectContent>
                     </Select>
-                    {/* Botón único para gestionar listas */}
                     <Dialog open={manageType === 'category'} onOpenChange={(o) => setManageType(o ? 'category' : null)}>
                       <DialogTrigger asChild>
                         <Button variant="outline" size="icon" className="h-14 w-14 rounded-2xl border-accent text-accent hover:bg-accent/10 shrink-0">
@@ -265,7 +260,6 @@ export default function RegistryPage() {
                             <Input placeholder="Añadir nueva..." value={newItemName} onChange={e => setNewItemName(e.target.value)} className="h-12 rounded-xl" />
                             <Button className="bg-primary h-12 w-12 rounded-xl" onClick={handleAddItem}><Plus className="w-5 h-5" /></Button>
                           </div>
-                          {/* Lista para ver y renombrar */}
                           <div className="max-h-60 overflow-y-auto space-y-2 pr-2">
                             {categories.map(cat => (
                               <div key={cat.id} className="flex items-center justify-between p-3 bg-accent/5 rounded-2xl border border-accent/10 group">
@@ -305,7 +299,6 @@ export default function RegistryPage() {
                         ))}
                       </SelectContent>
                     </Select>
-                    {/* Botón único para gestionar listas */}
                     <Dialog open={manageType === 'collection'} onOpenChange={(o) => setManageType(o ? 'collection' : null)}>
                       <DialogTrigger asChild>
                         <Button variant="outline" size="icon" className="h-14 w-14 rounded-2xl border-accent text-accent hover:bg-accent/10 shrink-0">
@@ -321,7 +314,6 @@ export default function RegistryPage() {
                             <Input placeholder="Añadir nueva..." value={newItemName} onChange={e => setNewItemName(e.target.value)} className="h-12 rounded-xl" />
                             <Button className="bg-primary h-12 w-12 rounded-xl" onClick={handleAddItem}><Plus className="w-5 h-5" /></Button>
                           </div>
-                          {/* Lista para ver y renombrar */}
                           <div className="max-h-60 overflow-y-auto space-y-2 pr-2">
                             {collectionsData.map(col => (
                               <div key={col.id} className="flex items-center justify-between p-3 bg-accent/5 rounded-2xl border border-accent/10 group">
@@ -389,8 +381,8 @@ export default function RegistryPage() {
             </CardHeader>
             <CardContent className="pt-6 grid grid-cols-2 gap-4 px-8">
                {localImagePreviews.map((img, idx) => (
-                  <div key={idx} className="relative aspect-square rounded-[2rem] overflow-hidden border-2 border-accent/10 group shadow-md">
-                    <Image src={img.url} alt="" fill className="object-cover" />
+                  <div key={idx} className="relative aspect-square rounded-[2rem] overflow-hidden border-2 border-accent/10 group shadow-md bg-muted">
+                    <img src={img.url} alt="" className="w-full h-full object-cover" />
                     <button onClick={() => setLocalImagePreviews(localImagePreviews.filter((_, i) => i !== idx))} className="absolute top-2 right-2 p-2 bg-destructive rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity"><X className="w-4 h-4" /></button>
                   </div>
                 ))}
