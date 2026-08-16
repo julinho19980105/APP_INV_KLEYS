@@ -16,6 +16,7 @@ import {
 import { Trash2, Plus, UserPlus, Search, ShoppingCart, Share2, Save, Printer, Sparkles, XCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { semanticSuggestCustomersProducts } from "@/ai/flows/semantic-suggest-customers-products"
+import { cn } from "@/lib/utils"
 import Image from "next/image"
 
 interface QuoteItem {
