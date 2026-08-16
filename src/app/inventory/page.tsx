@@ -28,19 +28,26 @@ export default function InventoryPage() {
   React.useEffect(() => {
     const fetchData = async () => {
       setLoading(true)
-      const pData = await getSheetData('PRODUCTOS')
-      const mData = await getSheetData('MOVIMIENTOS')
-      setProducts(pData || [])
-      setMovements(mData || [])
+      try {
+        const pData = await getSheetData('PRODUCTOS')
+        const mData = await getSheetData('MOVIMIENTOS')
+        // Aseguramos que los datos sean arreglos para evitar errores de .filter o .map
+        setProducts(Array.isArray(pData) ? pData : [])
+        setMovements(Array.isArray(mData) ? mData : [])
+      } catch (error) {
+        console.error("Error cargando inventario:", error)
+        setProducts([])
+        setMovements([])
+      }
       setLoading(false)
     }
     fetchData()
   }, [])
 
-  const filteredProducts = products.filter(p => 
+  const filteredProducts = Array.isArray(products) ? products.filter(p => 
     p.Nombre?.toLowerCase().includes(query.toLowerCase()) || 
     p.Codigo?.toLowerCase().includes(query.toLowerCase())
-  )
+  ) : []
 
   return (
     <div className="space-y-6">
@@ -74,7 +81,7 @@ export default function InventoryPage() {
         
         <TabsContent value="all" className="border rounded-[2rem] overflow-hidden bg-card shadow-xl border-none min-h-[400px]">
           {loading ? (
-            <div className="p-20 text-center text-accent font-bold">CARGANDO DATOS...</div>
+            <div className="p-20 text-center text-accent font-bold animate-pulse">CARGANDO DATOS...</div>
           ) : (
             <Table>
               <TableHeader>
@@ -89,7 +96,7 @@ export default function InventoryPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredProducts.map((p, idx) => (
+                {filteredProducts.length > 0 ? filteredProducts.map((p, idx) => (
                   <TableRow key={p.Codigo || idx} className="group transition-colors hover:bg-primary/5">
                     <TableCell>
                       <div className="w-12 h-12 rounded-2xl border border-accent/10 overflow-hidden bg-muted relative shadow-sm">
@@ -125,7 +132,13 @@ export default function InventoryPage() {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                )) : (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-20 text-muted-foreground font-medium">
+                      No se encontraron prendas en el inventario.
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           )}
@@ -144,7 +157,7 @@ export default function InventoryPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {movements.map((m, idx) => (
+                {movements.length > 0 ? movements.map((m, idx) => (
                   <TableRow key={m.ID || idx}>
                     <TableCell className="text-xs font-medium text-muted-foreground">
                       {m.Fecha ? new Date(m.Fecha).toLocaleDateString() : ""}
@@ -166,7 +179,13 @@ export default function InventoryPage() {
                     </TableCell>
                     <TableCell className="text-sm font-medium">{m.Motivo}</TableCell>
                   </TableRow>
-                ))}
+                )) : (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-20 text-muted-foreground font-medium">
+                      No hay registros de movimientos.
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </div>

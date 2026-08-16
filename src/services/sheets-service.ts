@@ -9,7 +9,16 @@ export async function getSheetData(sheetName: string) {
   try {
     const response = await fetch(`${API_CONFIG.WEB_APP_URL}?sheet=${sheetName}`);
     if (!response.ok) throw new Error('Error en la respuesta del servidor');
-    return await response.json();
+    
+    const data = await response.json();
+    
+    // Si la API devuelve un objeto de error en lugar de un arreglo
+    if (data && typeof data === 'object' && data.error) {
+      console.warn(`Aviso de Google Sheets (${sheetName}):`, data.error);
+      return [];
+    }
+    
+    return Array.isArray(data) ? data : [];
   } catch (error) {
     console.error(`Error fetching sheet data (${sheetName}):`, error);
     return [];
