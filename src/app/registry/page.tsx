@@ -21,7 +21,7 @@ import {
   DialogTrigger,
   DialogFooter
 } from "@/components/ui/dialog"
-import { ImagePlus, X, Save, History, Plus, Edit3 } from "lucide-react"
+import { ImagePlus, X, Save, History, Plus, Edit3, BadgeInfo } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { generateProductDescription } from "@/ai/flows/generate-product-description"
 import Image from "next/image"
@@ -30,7 +30,6 @@ export default function RegistryPage() {
   const { toast } = useToast()
   const [loadingAI, setLoadingAI] = React.useState(false)
   
-  // Categorías y Colecciones Dinámicas
   const [categories, setCategories] = React.useState(["Sacos", "Pantalones", "Vestidos", "Blusas"])
   const [collections, setCollections] = React.useState(["Invierno 2024", "Verano 2025"])
   
@@ -39,22 +38,20 @@ export default function RegistryPage() {
 
   const [form, setForm] = React.useState({
     name: "",
-    code: "P-001", // Código correlativo inicial
+    code: "P-001",
     category: "",
     collection: "",
     description: "",
-    quantity: 0,
-    priceFardo: 0,
-    priceMayor: 0,
-    priceUnidad: 0,
+    quantity: "" as string | number,
+    priceFardo: "" as string | number,
+    priceMayor: "" as string | number,
+    priceUnidad: "" as string | number,
   })
 
   const [images, setImages] = React.useState<string[]>([])
 
-  // Simular la obtención del siguiente código correlativo
   React.useEffect(() => {
-    // En una app real, esto consultaría el último ID de la base de datos
-    const lastNum = 1 // Mock
+    const lastNum = 1 
     setForm(prev => ({
       ...prev,
       code: `P-${String(lastNum).padStart(3, '0')}`
@@ -82,8 +79,7 @@ export default function RegistryPage() {
   }
 
   const handleSave = () => {
-    // Validación de campos obligatorios
-    if (!form.name || !form.category || !form.collection || form.quantity <= 0) {
+    if (!form.name || !form.category || !form.collection || !form.quantity) {
       toast({ 
         title: "Campos Incompletos", 
         description: "Por favor llene Nombre, Categoría, Colección y Cantidad.", 
@@ -98,14 +94,16 @@ export default function RegistryPage() {
       className: "bg-primary text-white" 
     })
     
-    // Resetear formulario (manteniendo el código correlativo lógico)
     setForm(prev => ({
       ...prev,
       name: "",
       category: "",
       collection: "",
       description: "",
-      quantity: 0,
+      quantity: "",
+      priceFardo: "",
+      priceMayor: "",
+      priceUnidad: "",
       code: `P-${String(parseInt(prev.code.split('-')[1]) + 1).padStart(3, '0')}`
     }))
     setImages([])
@@ -121,10 +119,13 @@ export default function RegistryPage() {
     <div className="max-w-5xl mx-auto space-y-8 pb-20">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
         <div>
-          <h1 className="text-4xl font-headline font-bold text-primary">Registrar Prenda</h1>
-          <p className="text-muted-foreground">Catálogo Maestro StiloStack</p>
+          <h1 className="text-4xl font-headline font-bold text-primary flex items-center gap-3">
+            Registrar Prenda
+            <BadgeInfo className="text-accent w-6 h-6" />
+          </h1>
+          <p className="text-muted-foreground font-medium">Catálogo Maestro StiloStack</p>
         </div>
-        <Button variant="outline" className="border-primary text-primary hover:bg-primary/10">
+        <Button variant="outline" className="border-accent text-accent hover:bg-accent/10 rounded-xl">
           <History className="w-4 h-4 mr-2" />
           Historial
         </Button>
@@ -132,88 +133,87 @@ export default function RegistryPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
-          <Card className="border-none shadow-lg bg-white/80 backdrop-blur-sm">
-            <CardHeader className="bg-primary/5 border-b border-primary/10">
-              <CardTitle className="text-lg text-primary flex items-center gap-2">
-                <Edit3 className="w-5 h-5" /> Datos del Producto
+          <Card className="border-none shadow-xl bg-white overflow-hidden rounded-3xl">
+            <CardHeader className="bg-gradient-to-r from-primary/10 via-accent/5 to-white border-b border-primary/10">
+              <CardTitle className="text-lg text-primary flex items-center justify-between w-full">
+                <div className="flex items-center gap-2">
+                  <Edit3 className="w-5 h-5 text-accent" /> Datos del Producto
+                </div>
+                <div className="font-mono text-xs bg-primary text-white px-3 py-1 rounded-full shadow-inner">
+                  {form.code}
+                </div>
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6 pt-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label className="text-xs uppercase tracking-widest font-bold">Código (No editable)</Label>
-                  <Input value={form.code} readOnly className="bg-muted/50 font-mono text-primary font-bold border-dashed" />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-xs uppercase tracking-widest font-bold">Nombre de Prenda *</Label>
-                  <Input 
-                    value={form.name} 
-                    onChange={e => setForm({...form, name: e.target.value})}
-                    placeholder="Ej. Saco Velvet Premium" 
-                    className="border-primary/20 focus:border-primary"
-                  />
-                </div>
+            <CardContent className="space-y-6 pt-8">
+              <div className="space-y-2">
+                <Label className="text-[10px] uppercase tracking-[0.2em] font-black text-accent">Nombre de Prenda *</Label>
+                <Input 
+                  value={form.name} 
+                  onChange={e => setForm({...form, name: e.target.value})}
+                  placeholder="Ej. Saco Velvet Premium" 
+                  className="h-12 border-primary/20 focus:border-primary rounded-xl text-lg font-medium"
+                />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
-                    <Label className="text-xs uppercase tracking-widest font-bold">Categoría *</Label>
+                    <Label className="text-[10px] uppercase tracking-[0.2em] font-black text-accent">Categoría *</Label>
                     <Dialog>
                       <DialogTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-6 text-[10px] text-primary p-0 px-2">+ Agregar</Button>
+                        <Button variant="ghost" size="sm" className="h-6 text-[9px] text-primary p-0 px-2 font-bold">+ AGREGAR</Button>
                       </DialogTrigger>
-                      <DialogContent>
+                      <DialogContent className="rounded-3xl">
                         <DialogHeader><DialogTitle>Nueva Categoría</DialogTitle></DialogHeader>
-                        <Input value={newCat} onChange={e => setNewCat(e.target.value)} placeholder="Nombre de categoría" />
+                        <Input value={newCat} onChange={e => setNewCat(e.target.value)} placeholder="Nombre de categoría" className="rounded-xl" />
                         <DialogFooter>
                           <Button onClick={() => {
                             if(newCat) {
                               setCategories([...categories, newCat])
                               setNewCat("")
                             }
-                          }}>Guardar</Button>
+                          }} className="rounded-xl">Guardar</Button>
                         </DialogFooter>
                       </DialogContent>
                     </Dialog>
                   </div>
                   <Select value={form.category} onValueChange={v => setForm({...form, category: v})}>
-                    <SelectTrigger className="border-primary/20">
-                      <SelectValue placeholder="Seleccionar" />
+                    <SelectTrigger className="border-primary/20 h-11 rounded-xl">
+                      <SelectValue placeholder="Seleccionar..." />
                     </SelectTrigger>
-                    <SelectContent>
-                      {categories.map(c => <SelectItem key={c} value={c.toLowerCase()}>{c}</SelectItem>)}
+                    <SelectContent className="rounded-xl">
+                      {categories.map(c => <SelectItem key={c} value={c.toLowerCase()} className="rounded-lg">{c}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
-                    <Label className="text-xs uppercase tracking-widest font-bold">Colección *</Label>
+                    <Label className="text-[10px] uppercase tracking-[0.2em] font-black text-accent">Colección *</Label>
                     <Dialog>
                       <DialogTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-6 text-[10px] text-primary p-0 px-2">+ Agregar</Button>
+                        <Button variant="ghost" size="sm" className="h-6 text-[9px] text-primary p-0 px-2 font-bold">+ AGREGAR</Button>
                       </DialogTrigger>
-                      <DialogContent>
+                      <DialogContent className="rounded-3xl">
                         <DialogHeader><DialogTitle>Nueva Colección</DialogTitle></DialogHeader>
-                        <Input value={newColl} onChange={e => setNewColl(e.target.value)} placeholder="Nombre de colección" />
+                        <Input value={newColl} onChange={e => setNewColl(e.target.value)} placeholder="Nombre de colección" className="rounded-xl" />
                         <DialogFooter>
                           <Button onClick={() => {
                             if(newColl) {
                               setCollections([...collections, newColl])
                               setNewColl("")
                             }
-                          }}>Guardar</Button>
+                          }} className="rounded-xl">Guardar</Button>
                         </DialogFooter>
                       </DialogContent>
                     </Dialog>
                   </div>
                   <Select value={form.collection} onValueChange={v => setForm({...form, collection: v})}>
-                    <SelectTrigger className="border-primary/20">
-                      <SelectValue placeholder="Seleccionar" />
+                    <SelectTrigger className="border-primary/20 h-11 rounded-xl">
+                      <SelectValue placeholder="Seleccionar..." />
                     </SelectTrigger>
-                    <SelectContent>
-                      {collections.map(c => <SelectItem key={c} value={c.toLowerCase()}>{c}</SelectItem>)}
+                    <SelectContent className="rounded-xl">
+                      {collections.map(c => <SelectItem key={c} value={c.toLowerCase()} className="rounded-lg">{c}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
@@ -221,67 +221,71 @@ export default function RegistryPage() {
 
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
-                  <Label className="text-xs uppercase tracking-widest font-bold">Descripción Estética</Label>
+                  <Label className="text-[10px] uppercase tracking-[0.2em] font-black text-accent">Descripción Estética</Label>
                   <Button 
                     variant="secondary" 
                     size="sm" 
-                    className="h-7 text-xs bg-primary/10 text-primary hover:bg-primary/20"
+                    className="h-7 text-[10px] bg-primary/10 text-primary hover:bg-primary/20 font-bold tracking-widest rounded-full"
                     onClick={handleAI}
                     disabled={loadingAI}
                   >
-                    {loadingAI ? "Generando..." : "Mágia IA"}
+                    {loadingAI ? "GENERANDO..." : "MÁGIA IA"}
                   </Button>
                 </div>
                 <Textarea 
                   value={form.description}
                   onChange={e => setForm({...form, description: e.target.value})}
-                  placeholder="Tela, corte, estilo..." 
-                  className="min-h-[100px] border-primary/20"
+                  placeholder="Escribe sobre la tela, el corte o el estilo..." 
+                  className="min-h-[120px] border-primary/20 rounded-2xl resize-none"
                 />
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border-none shadow-lg bg-white/80">
-            <CardHeader className="bg-primary/5 border-b border-primary/10">
-              <CardTitle className="text-lg text-primary">Stock y Precios</CardTitle>
+          <Card className="border-none shadow-xl bg-white rounded-3xl overflow-hidden">
+            <CardHeader className="bg-accent/5 border-b border-accent/10">
+              <CardTitle className="text-lg text-accent font-bold">Stock y Precios</CardTitle>
             </CardHeader>
-            <CardContent className="pt-6">
+            <CardContent className="pt-8">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                 <div className="space-y-2">
-                  <Label className="text-xs font-bold">CANTIDAD *</Label>
+                  <Label className="text-[10px] uppercase font-black text-accent/70">CANTIDAD *</Label>
                   <Input 
                     type="number" 
                     value={form.quantity}
-                    onChange={e => setForm({...form, quantity: parseInt(e.target.value) || 0})}
-                    className="border-primary/20 font-bold"
+                    onChange={e => setForm({...form, quantity: e.target.value})}
+                    className="border-accent/20 font-bold h-11 rounded-xl focus:ring-accent"
+                    placeholder="---"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-xs font-bold">P. FARDO (S/)</Label>
+                  <Label className="text-[10px] uppercase font-black text-accent/70">P. FARDO (S/)</Label>
                   <Input 
                     type="number" 
                     value={form.priceFardo}
-                    onChange={e => setForm({...form, priceFardo: parseFloat(e.target.value) || 0})}
-                    className="border-primary/20"
+                    onChange={e => setForm({...form, priceFardo: e.target.value})}
+                    className="border-accent/20 h-11 rounded-xl"
+                    placeholder="---"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-xs font-bold">P. MAYOR (S/)</Label>
+                  <Label className="text-[10px] uppercase font-black text-accent/70">P. MAYOR (S/)</Label>
                   <Input 
                     type="number" 
                     value={form.priceMayor}
-                    onChange={e => setForm({...form, priceMayor: parseFloat(e.target.value) || 0})}
-                    className="border-primary/20"
+                    onChange={e => setForm({...form, priceMayor: e.target.value})}
+                    className="border-accent/20 h-11 rounded-xl"
+                    placeholder="---"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-xs font-bold">P. UNIDAD (S/)</Label>
+                  <Label className="text-[10px] uppercase font-black text-accent/70">P. UNIDAD (S/)</Label>
                   <Input 
                     type="number" 
                     value={form.priceUnidad}
-                    onChange={e => setForm({...form, priceUnidad: parseFloat(e.target.value) || 0})}
-                    className="border-primary/20"
+                    onChange={e => setForm({...form, priceUnidad: e.target.value})}
+                    className="border-accent/20 h-11 rounded-xl"
+                    placeholder="---"
                   />
                 </div>
               </div>
@@ -290,21 +294,21 @@ export default function RegistryPage() {
         </div>
 
         <div className="space-y-6">
-          <Card className="border-none shadow-lg bg-white">
-            <CardHeader>
+          <Card className="border-none shadow-xl bg-white rounded-3xl overflow-hidden">
+            <CardHeader className="bg-primary/5">
               <CardTitle className="text-lg text-primary flex justify-between items-center">
                 Fotos
-                <span className="text-xs font-normal text-muted-foreground">{images.length}/4</span>
+                <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full">{images.length}/4</span>
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-4">
               <div className="grid grid-cols-2 gap-4">
                 {images.map((img, idx) => (
-                  <div key={idx} className="relative aspect-square rounded-xl overflow-hidden border-2 border-primary/10">
+                  <div key={idx} className="relative aspect-square rounded-2xl overflow-hidden border-2 border-primary/10 group">
                     <Image src={img} alt="" fill className="object-cover" />
                     <button 
                       onClick={() => setImages(images.filter((_, i) => i !== idx))}
-                      className="absolute top-1 right-1 p-1 bg-destructive rounded-full text-white"
+                      className="absolute top-2 right-2 p-1.5 bg-destructive rounded-full text-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
                     >
                       <X className="w-3 h-3" />
                     </button>
@@ -313,10 +317,12 @@ export default function RegistryPage() {
                 {images.length < 4 && (
                   <button 
                     onClick={addImage}
-                    className="aspect-square rounded-xl border-2 border-dashed border-primary/20 flex flex-col items-center justify-center gap-2 text-primary/60 hover:text-primary hover:border-primary transition-all bg-primary/5"
+                    className="aspect-square rounded-2xl border-2 border-dashed border-primary/20 flex flex-col items-center justify-center gap-2 text-primary/60 hover:text-primary hover:border-primary transition-all bg-primary/5 group"
                   >
-                    <ImagePlus className="w-6 h-6" />
-                    <span className="text-[10px] font-bold uppercase">Subir</span>
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                      <ImagePlus className="w-6 h-6" />
+                    </div>
+                    <span className="text-[10px] font-black uppercase tracking-tighter">Subir Foto</span>
                   </button>
                 )}
               </div>
@@ -324,15 +330,15 @@ export default function RegistryPage() {
           </Card>
 
           <Button 
-            className="w-full h-16 text-xl font-headline shadow-xl shadow-primary/20 rounded-2xl" 
+            className="w-full h-20 text-2xl font-headline shadow-2xl shadow-primary/40 rounded-[2rem] bg-gradient-to-tr from-primary via-primary to-accent hover:opacity-90 active:scale-[0.98] border-none" 
             onClick={handleSave}
           >
-            <Save className="w-6 h-6 mr-2" />
+            <Save className="w-7 h-7 mr-3" />
             GUARDAR PRENDA
           </Button>
           
-          <div className="text-[10px] text-center text-muted-foreground uppercase tracking-[0.2em] font-bold">
-            Campos marcados con (*) son obligatorios
+          <div className="text-[9px] text-center text-muted-foreground uppercase tracking-[0.3em] font-black px-6 leading-relaxed">
+            * Campos obligatorios para el catálogo maestro *
           </div>
         </div>
       </div>

@@ -4,41 +4,34 @@
 
 @layer base {
   :root {
-    --background: 210 20% 98%; /* Cemento muy claro */
+    --background: 270 30% 99%; /* Blanco con tinte lila muy suave */
     --foreground: 240 10% 3.9%;
     --card: 0 0% 100%;
     --card-foreground: 240 10% 3.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 3.9%;
-    --primary: 330 81% 60%; /* Rosa vibrante */
+    --primary: 320 100% 50%; /* Fucsia vibrante */
     --primary-foreground: 0 0% 100%;
-    --secondary: 330 30% 96%; /* Rosa muy suave */
-    --secondary-foreground: 330 81% 30%;
-    --muted: 210 20% 90%; /* Cemento medio */
+    --secondary: 280 60% 92%; /* Lila suave */
+    --secondary-foreground: 280 60% 30%;
+    --muted: 202 50% 95%; /* Celeste muy pálido */
     --muted-foreground: 240 3.8% 46.1%;
-    --accent: 330 81% 95%;
-    --accent-foreground: 330 81% 40%;
+    --accent: 202 51% 68%; /* Celeste #87B8D4 */
+    --accent-foreground: 0 0% 100%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 210 20% 90%;
-    --input: 210 20% 90%;
-    --ring: 330 81% 60%;
+    --border: 280 20% 90%;
+    --input: 280 20% 90%;
+    --ring: 320 100% 50%;
     --radius: 1rem;
     --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 330 81% 60%;
+    --sidebar-foreground: 280 20% 20%;
+    --sidebar-primary: 320 100% 50%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 330 81% 96%;
-    --sidebar-accent-foreground: 330 81% 40%;
-    --sidebar-border: 210 20% 90%;
-    --sidebar-ring: 330 81% 60%;
-  }
-  .dark {
-    /* Mantendremos un look claro incluso en dark mode por la petición de colores vivos y cemento */
-    --background: 210 20% 96%;
-    --foreground: 240 10% 3.9%;
-    --card: 0 0% 100%;
-    --primary: 330 81% 60%;
+    --sidebar-accent: 202 51% 95%;
+    --sidebar-accent-foreground: 320 100% 50%;
+    --sidebar-border: 280 20% 94%;
+    --sidebar-ring: 320 100% 50%;
   }
 }
 
@@ -59,7 +52,12 @@
   font-family: var(--font-inter), sans-serif;
 }
 
-/* Botones más redondos y llamativos */
 button {
-  @apply transition-transform active:scale-95;
+  @apply transition-all active:scale-95 shadow-sm hover:shadow-md;
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
