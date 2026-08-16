@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -119,9 +118,9 @@ export default function RegistryPage() {
     addDoc(collection(db, colName), { name: newItemName.trim() })
       .then(() => {
         setNewItemName("")
-        toast({ title: "Agregado", description: "Se guardó en la base de datos." })
+        toast({ title: "Agregado", description: "Se guardó correctamente." })
       })
-      .catch((err) => {
+      .catch(() => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({ path: colName, operation: 'create' }))
       })
   }
@@ -135,7 +134,7 @@ export default function RegistryPage() {
         setEditingItem(null)
         toast({ title: "Actualizado", description: "Nombre modificado correctamente." })
       })
-      .catch((err) => {
+      .catch(() => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({ path: itemRef.path, operation: 'update' }))
       })
   }
@@ -173,10 +172,10 @@ export default function RegistryPage() {
       setDoc(pRef, productData, { merge: true })
         .then(() => {
           if (!editId) localStorage.removeItem(DRAFT_KEY)
-          toast({ title: "Guardado", description: "Prenda registrada en Firestore." })
+          toast({ title: "Guardado", description: "Prenda registrada en la base de datos." })
           router.push('/inventory')
         })
-        .catch((err) => {
+        .catch(() => {
           errorEmitter.emit('permission-error', new FirestorePermissionError({ path: pRef.path, operation: 'write' }))
         })
     } catch (e: any) {
