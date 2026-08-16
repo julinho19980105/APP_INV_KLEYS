@@ -31,8 +31,6 @@ import { errorEmitter } from '@/firebase/error-emitter'
 import { FirestorePermissionError } from '@/firebase/errors'
 import { cn } from "@/lib/utils"
 
-const DRAFT_KEY = "stilostack_registry_draft"
-
 export default function RegistryPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -53,7 +51,7 @@ export default function RegistryPage() {
 
   const [form, setForm] = React.useState({
     name: "",
-    code: "P-...",
+    code: "Cargando...",
     category: "",
     collection: "",
     description: "",
@@ -80,14 +78,14 @@ export default function RegistryPage() {
         let nextNum = 1
         if (!snap.empty) {
           const lastCode = snap.docs[0].data().code || "P-000"
-          const lastNum = parseInt(lastCode.split('-')[1]) || 0
+          const match = lastCode.match(/\d+/)
+          const lastNum = match ? parseInt(match[0]) : 0
           nextNum = lastNum + 1
         }
         
         const newCode = `P-${nextNum.toString().padStart(3, '0')}`
         setForm(prev => ({ ...prev, code: newCode }))
       } catch (e) {
-        console.error("Error consultando correlativo:", e)
         setForm(prev => ({ ...prev, code: "P-001" }))
       }
     }
@@ -114,8 +112,8 @@ export default function RegistryPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      if (file.size > 3 * 1024 * 1024) {
-        toast({ title: "Archivo muy pesado", description: "Máximo 3MB", variant: "destructive" })
+      if (file.size > 2 * 1024 * 1024) {
+        toast({ title: "Imagen muy pesada", description: "El límite es 2MB para evitar errores.", variant: "destructive" })
         return
       }
       const reader = new FileReader()
@@ -166,7 +164,12 @@ export default function RegistryPage() {
       for (const img of localImagePreviews) {
         if (img.file) {
           const driveUrl = await uploadImageToDrive(img.url, `${form.name}_${Date.now()}`)
-          imageUrls.push(driveUrl || img.url)
+          // CRITICO: Solo guardamos si no es un Base64 gigante para evitar el error de 1MB
+          if (driveUrl && !driveUrl.startsWith('data:')) {
+            imageUrls.push(driveUrl)
+          } else if (img.url.length < 200000) { // Solo guardamos Base64 si es pequeño
+            imageUrls.push(img.url)
+          }
         } else {
           imageUrls.push(img.url)
         }
@@ -200,11 +203,11 @@ export default function RegistryPage() {
                requestResourceData: productData 
              }));
           } else {
-             toast({ title: "Error", description: "Error al guardar en Firestore: " + serverError.message, variant: "destructive" });
+             toast({ title: "Error", description: serverError.message, variant: "destructive" });
           }
         })
     } catch (e: any) {
-      toast({ title: "Error técnico", description: e.message, variant: "destructive" })
+      toast({ title: "Error", description: e.message, variant: "destructive" })
     } finally {
       setSaving(false)
     }
@@ -234,7 +237,7 @@ export default function RegistryPage() {
         <div className="bg-destructive/10 border border-destructive/20 p-4 rounded-2xl flex items-center gap-3 text-destructive">
           <AlertCircle className="w-5 h-5" />
           <span className="text-xs font-black uppercase tracking-widest">
-            Validación Diva: Fardo inferior a Mayor y Mayor inferior a Unidad
+            REGLA DIVA: FARDO debe ser menor a MAYOR y MAYOR menor a UNIDAD
           </span>
         </div>
       )}
@@ -430,7 +433,7 @@ export default function RegistryPage() {
           
           <div className="p-8 bg-white/50 rounded-[2.5rem] border border-accent/10 text-center">
             <p className="text-[10px] text-accent font-black uppercase tracking-[0.2em]">
-              Obligatorio: Nombre, Categoría, Colección y Stock.
+              OBLIGATORIO: NOMBRE, CATEGORÍA, COLECCIÓN Y STOCK.
             </p>
           </div>
         </div>
