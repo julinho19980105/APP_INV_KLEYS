@@ -3,7 +3,7 @@ import { API_CONFIG } from '@/lib/api-config';
 
 /**
  * Sube una imagen a Google Drive a través del Web App de Apps Script.
- * Utiliza modo CORS para poder leer la respuesta (URL real).
+ * Esta función espera la URL real del archivo antes de retornar.
  */
 export async function uploadImageToDrive(base64Data: string, fileName: string): Promise<string> {
   if (!API_CONFIG.WEB_APP_URL) {
@@ -14,7 +14,7 @@ export async function uploadImageToDrive(base64Data: string, fileName: string): 
   try {
     const mimeType = base64Data.split(';')[0].split(':')[1] || 'image/jpeg';
     
-    // Enviamos como text/plain para evitar problemas de preflight CORS con Apps Script
+    // Enviamos los datos al Apps Script
     const response = await fetch(API_CONFIG.WEB_APP_URL, {
       method: 'POST',
       mode: 'cors',
@@ -29,18 +29,19 @@ export async function uploadImageToDrive(base64Data: string, fileName: string): 
       })
     });
     
-    if (!response.ok) throw new Error("Fallo en la comunicación con Drive");
+    if (!response.ok) throw new Error("Error de red con Apps Script");
 
     const result = await response.json();
     
     if (result.error) {
-      console.error("Error de Apps Script:", result.error);
+      console.error("Error en el script de Google:", result.error);
       return "";
     }
 
+    // Retornamos la URL real que generó Drive
     return result.url || "";
   } catch (error) {
-    console.error("Error en uploadImageToDrive:", error);
+    console.error("Fallo crítico en subida a Drive:", error);
     return "";
   }
 }
