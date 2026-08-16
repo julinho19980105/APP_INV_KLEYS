@@ -23,7 +23,7 @@ import {
   DialogTrigger,
   DialogFooter
 } from "@/components/ui/dialog"
-import { ImagePlus, X, Save, History, Loader2, Sparkles, PlusCircle, Edit3 } from "lucide-react"
+import { ImagePlus, X, Save, History, Loader2, Sparkles, PlusCircle, Settings2, Edit3 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useFirestore, useDoc, useCollection, useStorage } from "@/firebase"
 import { doc, setDoc, collection, query, orderBy, serverTimestamp, updateDoc, getDocs, where } from "firebase/firestore"
@@ -65,7 +65,7 @@ export default function RegistryPage() {
   const [localImagePreviews, setLocalImagePreviews] = React.useState<{file?: File, url: string}[]>([])
   const [priceError, setPriceError] = React.useState<string | null>(null)
   
-  // States for dynamic management
+  // Estados para diálogos de gestión
   const [newCategoryName, setNewCategoryName] = React.useState("")
   const [newCollectionName, setNewCollectionName] = React.useState("")
   const [renamingEntity, setRenamingEntity] = React.useState<{type: 'category' | 'collection', oldName: string, newName: string} | null>(null)
@@ -111,8 +111,8 @@ export default function RegistryPage() {
     else setPriceError(null)
   }, [form.priceFardo, form.priceMayor, form.priceUnidad])
 
-  // Listas dinámicas únicas
-  const categories = React.useMemo(() => {
+  // Listas únicas para el Select
+  const categoriesList = React.useMemo(() => {
     const set = new Set(allProducts?.map(p => p.category).filter(Boolean))
     return Array.from(set).sort()
   }, [allProducts])
@@ -126,7 +126,7 @@ export default function RegistryPage() {
     const file = e.target.files?.[0]
     if (file) {
       if (file.size > 3 * 1024 * 1024) {
-        toast({ title: "Error", description: "Límite 3MB por foto", variant: "destructive" })
+        toast({ title: "Error", description: "Máximo 3MB por foto", variant: "destructive" })
         return
       }
       const reader = new FileReader()
@@ -143,7 +143,7 @@ export default function RegistryPage() {
     
     for (const img of localImagePreviews) {
       if (img.file) {
-        const storageRef = ref(storage, `products/${form.code || 'temp'}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`)
+        const storageRef = ref(storage, `products/${form.code || 'new'}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`)
         const uploadTask = await uploadBytesResumable(storageRef, img.file)
         const downloadURL = await getDownloadURL(uploadTask.ref)
         urls.push(downloadURL)
@@ -154,7 +154,7 @@ export default function RegistryPage() {
     return urls
   }
 
-  const handleRename = async () => {
+  const handleRenameEntity = async () => {
     if (!db || !renamingEntity || !renamingEntity.newName.trim()) return
     
     setSaving(true)
@@ -164,16 +164,16 @@ export default function RegistryPage() {
         where(renamingEntity.type, "==", renamingEntity.oldName)
       )
       const querySnapshot = await getDocs(q)
-      const updatePromises = querySnapshot.docs.map(d => 
-        updateDoc(d.ref, { [renamingEntity.type]: renamingEntity.newName })
+      const batchPromises = querySnapshot.docs.map(d => 
+        updateDoc(d.ref, { [renamingEntity.type]: renamingEntity.newName.trim() })
       )
-      await Promise.all(updatePromises)
+      await Promise.all(batchPromises)
       
       if (form[renamingEntity.type] === renamingEntity.oldName) {
-        setForm({ ...form, [renamingEntity.type]: renamingEntity.newName })
+        setForm({ ...form, [renamingEntity.type]: renamingEntity.newName.trim() })
       }
       
-      toast({ title: "Renombrado", description: `Se actualizaron ${updatePromises.length} registros.` })
+      toast({ title: "Actualizado", description: `Se actualizaron ${batchPromises.length} prendas.` })
       setRenamingEntity(null)
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" })
@@ -184,8 +184,7 @@ export default function RegistryPage() {
 
   const handleSave = async () => {
     if (!db || !form.name || !form.category || !form.collection || !form.stock) {
-      toast({ title: "Faltan datos", description: "Nombre, Categoría, Colección y Cantidad son obligatorios", variant: "destructive" })
-      return
+      return // No debería pasar por el disabled, pero por seguridad
     }
     setSaving(true)
     
@@ -209,8 +208,9 @@ export default function RegistryPage() {
       const pRef = editId ? doc(db, "products", editId) : doc(collection(db, "products"))
       await setDoc(pRef, productData, { merge: true })
       
-      localStorage.removeItem(STORAGE_KEY)
-      toast({ title: "Éxito", description: "Producto guardado en Firestore." })
+      if (!editId) localStorage.removeItem(STORAGE_KEY)
+      
+      toast({ title: "Guardado", description: "La prenda se ha sincronizado con la nube Diva." })
       router.push('/inventory')
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" })
@@ -219,18 +219,17 @@ export default function RegistryPage() {
     }
   }
 
-  // Validación de campos obligatorios para el botón
   const isFormValid = form.name && form.category && form.collection && form.stock
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8 pb-20 animate-in fade-in duration-700">
+    <div className="max-w-6xl mx-auto space-y-8 pb-20 animate-in fade-in duration-500">
       <div className="flex justify-between items-start">
         <div>
           <h1 className="text-4xl font-headline font-bold text-primary flex items-center gap-3">
-            {editId ? 'Editar Prenda' : 'Registrar Prenda'}
+            {editId ? 'Editar Prenda' : 'Nueva Prenda'}
             <Sparkles className="text-accent w-6 h-6" />
           </h1>
-          <p className="text-muted-foreground font-medium uppercase tracking-widest text-[10px]">Cloud Sync • Firebase Storage</p>
+          <p className="text-muted-foreground font-medium uppercase tracking-widest text-[10px]">Cloud Sync • Firestore Storage</p>
         </div>
         
         <div className="flex flex-col items-end gap-3">
@@ -247,84 +246,84 @@ export default function RegistryPage() {
         <div className="lg:col-span-2 space-y-6">
           <Card className="border-none shadow-2xl bg-white rounded-[2.5rem] overflow-hidden">
             <CardHeader className="bg-accent/5 border-b border-accent/10 py-6">
-              <CardTitle className="text-lg text-accent font-bold">Información Básica</CardTitle>
+              <CardTitle className="text-lg text-accent font-bold">Detalles de Moda</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6 pt-8">
               <div className="space-y-2">
-                <Label className="text-[10px] uppercase font-black text-accent/70 ml-1">Nombre de Prenda *</Label>
-                <Input value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="h-14 border-accent/20 rounded-2xl text-lg font-bold" placeholder="Ej: Saco Velvet Rose" />
+                <Label className="text-[10px] uppercase font-black text-accent/70 ml-1">Nombre Comercial *</Label>
+                <Input value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="h-14 border-accent/20 rounded-2xl text-lg font-bold focus:ring-primary" placeholder="Ej: Vestido Gala Noche" />
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Categoría Selector */}
+                {/* Gestión de Categoría */}
                 <div className="space-y-2">
                   <div className="flex justify-between items-center px-1">
                     <Label className="text-[10px] uppercase font-black text-accent/70">Categoría *</Label>
                     {form.category && (
                        <button onClick={() => setRenamingEntity({type: 'category', oldName: form.category, newName: form.category})} className="text-[9px] text-primary font-black hover:underline flex items-center gap-1">
-                         <Edit3 className="w-3 h-3" /> RENOMBRAR
+                         <Settings2 className="w-3 h-3" /> CONFIG
                        </button>
                     )}
                   </div>
                   <div className="flex gap-2">
                     <Select value={form.category} onValueChange={v => setForm({...form, category: v})}>
-                      <SelectTrigger className="h-12 border-accent/20 rounded-xl font-bold bg-white">
-                        <SelectValue placeholder="Seleccionar..." />
+                      <SelectTrigger className="h-12 border-accent/20 rounded-xl font-bold bg-white focus:ring-primary">
+                        <SelectValue placeholder="Elegir..." />
                       </SelectTrigger>
-                      <SelectContent>
-                        {categories.map(cat => (
+                      <SelectContent className="rounded-2xl">
+                        {categoriesList.map(cat => (
                           <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                     <Dialog>
                       <DialogTrigger asChild>
-                        <Button variant="outline" size="icon" className="h-12 w-12 rounded-xl border-accent text-accent">
+                        <Button variant="outline" size="icon" className="h-12 w-12 rounded-xl border-accent text-accent hover:bg-accent/10">
                           <PlusCircle className="w-6 h-6" />
                         </Button>
                       </DialogTrigger>
-                      <DialogContent className="rounded-[2rem]">
+                      <DialogContent className="rounded-[2.5rem] border-none shadow-2xl">
                         <DialogHeader>
-                          <DialogTitle>Nueva Categoría</DialogTitle>
+                          <DialogTitle className="text-primary font-black uppercase tracking-widest text-sm">Nueva Categoría</DialogTitle>
                         </DialogHeader>
                         <Input 
-                          placeholder="Nombre de categoría..." 
+                          placeholder="Nombre (Ej: Blusas)" 
                           value={newCategoryName} 
                           onChange={e => setNewCategoryName(e.target.value)} 
-                          className="rounded-xl border-accent/20"
+                          className="rounded-xl border-accent/20 h-12 font-bold"
                         />
                         <DialogFooter>
                           <Button 
-                            className="bg-primary rounded-xl" 
+                            className="bg-primary rounded-xl w-full h-12 font-black" 
                             onClick={() => {
                               if(newCategoryName.trim()) {
                                 setForm({...form, category: newCategoryName.trim()})
                                 setNewCategoryName("")
                               }
                             }}
-                          >Agregar</Button>
+                          >AGREGAR</Button>
                         </DialogFooter>
                       </DialogContent>
                     </Dialog>
                   </div>
                 </div>
 
-                {/* Colección Selector */}
+                {/* Gestión de Colección */}
                 <div className="space-y-2">
                   <div className="flex justify-between items-center px-1">
                     <Label className="text-[10px] uppercase font-black text-accent/70">Colección *</Label>
                     {form.collection && (
                        <button onClick={() => setRenamingEntity({type: 'collection', oldName: form.collection, newName: form.collection})} className="text-[9px] text-primary font-black hover:underline flex items-center gap-1">
-                         <Edit3 className="w-3 h-3" /> RENOMBRAR
+                         <Settings2 className="w-3 h-3" /> CONFIG
                        </button>
                     )}
                   </div>
                   <div className="flex gap-2">
                     <Select value={form.collection} onValueChange={v => setForm({...form, collection: v})}>
-                      <SelectTrigger className="h-12 border-accent/20 rounded-xl font-bold bg-white">
-                        <SelectValue placeholder="Seleccionar..." />
+                      <SelectTrigger className="h-12 border-accent/20 rounded-xl font-bold bg-white focus:ring-primary">
+                        <SelectValue placeholder="Elegir..." />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="rounded-2xl">
                         {collectionsList.map(col => (
                           <SelectItem key={col} value={col}>{col}</SelectItem>
                         ))}
@@ -332,30 +331,30 @@ export default function RegistryPage() {
                     </Select>
                     <Dialog>
                       <DialogTrigger asChild>
-                        <Button variant="outline" size="icon" className="h-12 w-12 rounded-xl border-accent text-accent">
+                        <Button variant="outline" size="icon" className="h-12 w-12 rounded-xl border-accent text-accent hover:bg-accent/10">
                           <PlusCircle className="w-6 h-6" />
                         </Button>
                       </DialogTrigger>
-                      <DialogContent className="rounded-[2rem]">
+                      <DialogContent className="rounded-[2.5rem] border-none shadow-2xl">
                         <DialogHeader>
-                          <DialogTitle>Nueva Colección</DialogTitle>
+                          <DialogTitle className="text-primary font-black uppercase tracking-widest text-sm">Nueva Colección</DialogTitle>
                         </DialogHeader>
                         <Input 
-                          placeholder="Ej: Verano 2025" 
+                          placeholder="Ej: Invierno 2025" 
                           value={newCollectionName} 
                           onChange={e => setNewCollectionName(e.target.value)} 
-                          className="rounded-xl border-accent/20"
+                          className="rounded-xl border-accent/20 h-12 font-bold"
                         />
                         <DialogFooter>
                           <Button 
-                            className="bg-primary rounded-xl" 
+                            className="bg-primary rounded-xl w-full h-12 font-black" 
                             onClick={() => {
                               if(newCollectionName.trim()) {
                                 setForm({...form, collection: newCollectionName.trim()})
                                 setNewCollectionName("")
                               }
                             }}
-                          >Agregar</Button>
+                          >AGREGAR</Button>
                         </DialogFooter>
                       </DialogContent>
                     </Dialog>
@@ -364,12 +363,12 @@ export default function RegistryPage() {
               </div>
 
               <div className="space-y-2">
-                <Label className="text-[10px] uppercase font-black text-accent/70 ml-1">Descripción Estética</Label>
+                <Label className="text-[10px] uppercase font-black text-accent/70 ml-1">Descripción</Label>
                 <Textarea 
                   value={form.description} 
                   onChange={e => setForm({...form, description: e.target.value})} 
-                  className="min-h-[100px] border-accent/20 rounded-[1.5rem] bg-accent/5 focus:ring-accent font-medium" 
-                  placeholder="Detalles sobre tela, calce, etc..."
+                  className="min-h-[100px] border-accent/20 rounded-[1.5rem] bg-accent/5 focus:ring-primary font-medium" 
+                  placeholder="Detalles sobre estilo, tela, calce..."
                 />
               </div>
             </CardContent>
@@ -377,24 +376,24 @@ export default function RegistryPage() {
 
           <Card className="border-none shadow-2xl bg-white rounded-[2.5rem] overflow-hidden">
              <CardHeader className="bg-primary/5 border-b border-primary/10">
-              <CardTitle className="text-lg text-primary font-bold">Stock y Precios</CardTitle>
+              <CardTitle className="text-lg text-primary font-bold">Kardex y Valores</CardTitle>
             </CardHeader>
             <CardContent className="pt-8 grid grid-cols-2 md:grid-cols-4 gap-6">
               <div className="space-y-2">
-                <Label className="text-[10px] text-center block font-black text-primary">CANTIDAD *</Label>
-                <Input type="number" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} className="h-16 border-primary/20 text-center text-3xl font-black text-primary bg-primary/5 rounded-2xl" placeholder="0" />
+                <Label className="text-[10px] text-center block font-black text-primary">STOCK *</Label>
+                <Input type="number" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} className="h-16 border-primary/20 text-center text-3xl font-black text-primary bg-primary/5 rounded-2xl" placeholder="" />
               </div>
               <div className="space-y-2">
                 <Label className="text-[10px] text-center block font-black text-accent/70">FARDO (S/)</Label>
-                <Input type="number" value={form.priceFardo} onChange={e => setForm({...form, priceFardo: e.target.value})} className="h-16 border-accent/20 text-center text-xl font-black text-accent rounded-2xl bg-white" placeholder="0" />
+                <Input type="number" value={form.priceFardo} onChange={e => setForm({...form, priceFardo: e.target.value})} className="h-16 border-accent/20 text-center text-xl font-black text-accent rounded-2xl" placeholder="" />
               </div>
               <div className="space-y-2">
                 <Label className="text-[10px] text-center block font-black text-accent/70">MAYOR (S/)</Label>
-                <Input type="number" value={form.priceMayor} onChange={e => setForm({...form, priceMayor: e.target.value})} className="h-16 border-accent/20 text-center text-xl font-black text-accent rounded-2xl bg-white" placeholder="0" />
+                <Input type="number" value={form.priceMayor} onChange={e => setForm({...form, priceMayor: e.target.value})} className="h-16 border-accent/20 text-center text-xl font-black text-accent rounded-2xl" placeholder="" />
               </div>
               <div className="space-y-2">
                 <Label className="text-[10px] text-center block font-black text-accent/70">UNIDAD (S/)</Label>
-                <Input type="number" value={form.priceUnidad} onChange={e => setForm({...form, priceUnidad: e.target.value})} className="h-16 border-accent/20 text-center text-xl font-black text-accent rounded-2xl bg-white" placeholder="0" />
+                <Input type="number" value={form.priceUnidad} onChange={e => setForm({...form, priceUnidad: e.target.value})} className="h-16 border-accent/20 text-center text-xl font-black text-accent rounded-2xl" placeholder="" />
               </div>
             </CardContent>
           </Card>
@@ -404,7 +403,7 @@ export default function RegistryPage() {
           <Card className="border-none shadow-2xl bg-white rounded-[2.5rem] overflow-hidden">
             <CardHeader className="bg-accent/5">
               <CardTitle className="text-lg text-accent flex justify-between items-center font-bold">
-                Galería
+                Fotos Diva
                 <span className="text-xs bg-accent text-white px-3 py-1 rounded-full">{localImagePreviews.length}/4</span>
               </CardTitle>
             </CardHeader>
@@ -436,36 +435,20 @@ export default function RegistryPage() {
               {saving ? <Loader2 className="w-8 h-8 animate-spin" /> : <Save className="w-6 h-6 mr-3" />}
               {editId ? 'ACTUALIZAR' : 'GUARDAR PRENDA'}
             </Button>
-            
-            <Button 
-              variant="ghost" 
-              className="w-full text-accent font-black text-xs uppercase tracking-widest hover:bg-accent/5"
-              onClick={() => {
-                if(confirm("¿Limpiar todo el formulario?")) {
-                  localStorage.removeItem(STORAGE_KEY)
-                  setForm({
-                    name: "", code: "", category: "", collection: "", description: "", stock: "", priceFardo: "", priceMayor: "", priceUnidad: ""
-                  })
-                  setLocalImagePreviews([])
-                }
-              }}
-            >
-              Borrar Borrador
-            </Button>
           </div>
         </div>
       </div>
 
-      {/* Renombrar Dialog */}
+      {/* Ventana de Renombrar */}
       <Dialog open={!!renamingEntity} onOpenChange={() => setRenamingEntity(null)}>
-        <DialogContent className="rounded-[2.5rem]">
+        <DialogContent className="rounded-[2.5rem] border-none shadow-2xl">
           <DialogHeader>
             <DialogTitle className="text-primary font-black uppercase tracking-widest text-sm">
               Renombrar {renamingEntity?.type === 'category' ? 'Categoría' : 'Colección'}
             </DialogTitle>
           </DialogHeader>
           <div className="py-4 space-y-4">
-            <div className="text-xs text-muted-foreground">Estás renombrando: <span className="font-bold text-foreground">{renamingEntity?.oldName}</span></div>
+            <div className="text-xs text-muted-foreground">Cambiando: <span className="font-bold text-foreground">{renamingEntity?.oldName}</span></div>
             <Input 
               value={renamingEntity?.newName || ""} 
               onChange={e => renamingEntity && setRenamingEntity({...renamingEntity, newName: e.target.value})}
@@ -474,9 +457,8 @@ export default function RegistryPage() {
             />
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setRenamingEntity(null)}>Cancelar</Button>
-            <Button onClick={handleRename} className="bg-primary rounded-xl" disabled={saving}>
-              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirmar Cambio'}
+            <Button onClick={handleRenameEntity} className="bg-primary rounded-xl w-full h-12 font-black" disabled={saving}>
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'CONFIRMAR CAMBIO'}
             </Button>
           </DialogFooter>
         </DialogContent>
