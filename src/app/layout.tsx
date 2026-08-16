@@ -4,6 +4,7 @@ import { Inter, Space_Grotesk } from 'next/font/google';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { AppShell } from "@/components/layout/app-shell";
+import { FirebaseClientProvider } from "@/firebase";
 
 const inter = Inter({
   subsets: ['latin'],
@@ -30,10 +31,12 @@ export default function RootLayout({
   return (
     <html lang="es" className={`${inter.variable} ${spaceGrotesk.variable} dark`}>
       <body className="font-body antialiased bg-background text-foreground">
-        <AppShell>
-          {children}
-        </AppShell>
-        <Toaster />
+        <FirebaseClientProvider>
+          <AppShell>
+            {children}
+          </AppShell>
+          <Toaster />
+        </FirebaseClientProvider>
       </body>
     </html>
   );

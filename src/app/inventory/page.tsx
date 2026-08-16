@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Search, Filter, Eye, Edit2, ArrowDownRight, ArrowUpRight, RefreshCcw } from "lucide-react"
+import { Search, Filter, Edit2, ArrowDownRight, ArrowUpRight, RefreshCcw } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
 import { useCollection, useFirestore } from "@/firebase"
@@ -26,7 +26,7 @@ export default function InventoryPage() {
   const db = useFirestore()
   const [searchQuery, setSearchQuery] = React.useState("")
 
-  const productsRef = React.useMemo(() => db ? collection(db, "products") : null, [db])
+  const productsRef = React.useMemo(() => db ? query(collection(db, "products"), orderBy("updatedAt", "desc")) : null, [db])
   const movementsRef = React.useMemo(() => db ? query(collection(db, "movements"), orderBy("timestamp", "desc")) : null, [db])
 
   const { data: products = [], loading: loadingProducts } = useCollection(productsRef)
@@ -42,7 +42,7 @@ export default function InventoryPage() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
         <div>
           <h1 className="text-3xl font-headline font-bold text-primary">Inventario Diva</h1>
-          <p className="text-muted-foreground font-medium uppercase tracking-widest text-[10px]">Gestión Inteligente en Firebase</p>
+          <p className="text-muted-foreground font-medium uppercase tracking-widest text-[10px]">Cloud Sync Activo con Firebase</p>
         </div>
         <div className="flex w-full md:w-auto gap-2">
           <div className="relative flex-1 md:w-64">
@@ -68,7 +68,7 @@ export default function InventoryPage() {
         
         <TabsContent value="all" className="border rounded-[2rem] overflow-hidden bg-card shadow-xl border-none min-h-[400px]">
           {loadingProducts ? (
-            <div className="p-20 text-center text-accent font-bold animate-pulse uppercase tracking-widest">Conectando con Firebase...</div>
+            <div className="p-20 text-center text-accent font-bold animate-pulse uppercase tracking-widest">Sincronizando con Firestore...</div>
           ) : (
             <Table>
               <TableHeader>
@@ -89,10 +89,9 @@ export default function InventoryPage() {
                       <div className="w-12 h-12 rounded-2xl border border-accent/10 overflow-hidden bg-muted relative shadow-sm">
                         <Image 
                           src={(p.images && p.images[0]) || "https://picsum.photos/seed/placeholder/200/200"} 
-                          alt={p.name} 
+                          alt={p.name || ""} 
                           fill
                           className="object-cover"
-                          data-ai-hint="fashion item"
                         />
                       </div>
                     </TableCell>
@@ -128,7 +127,7 @@ export default function InventoryPage() {
                 )) : (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-20 text-muted-foreground font-medium">
-                      No se encontraron prendas.
+                      No se encontraron prendas en Firestore.
                     </TableCell>
                   </TableRow>
                 )}
@@ -139,42 +138,46 @@ export default function InventoryPage() {
 
         <TabsContent value="movements">
            <div className="border rounded-[2rem] overflow-hidden bg-card shadow-xl border-none">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-primary/5 hover:bg-primary/5">
-                  <TableHead className="font-black uppercase text-[10px] text-primary">Fecha</TableHead>
-                  <TableHead className="font-black uppercase text-[10px] text-primary">Prenda</TableHead>
-                  <TableHead className="font-black uppercase text-[10px] text-primary">Tipo</TableHead>
-                  <TableHead className="text-center font-black uppercase text-[10px] text-primary">Cantidad</TableHead>
-                  <TableHead className="font-black uppercase text-[10px] text-primary">Motivo</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {movements.map((m) => (
-                  <TableRow key={m.id}>
-                    <TableCell className="text-xs font-medium text-muted-foreground">
-                      {m.timestamp ? new Date(m.timestamp).toLocaleString() : ""}
-                    </TableCell>
-                    <TableCell className="font-bold text-accent font-mono">{m.productCode}</TableCell>
-                    <TableCell>
-                      {m.type === 'in' ? (
-                        <div className="flex items-center gap-1 text-green-600 font-bold text-xs">
-                          <ArrowUpRight className="w-3 h-3" /> INGRESO
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1 text-destructive font-bold text-xs">
-                          <ArrowDownRight className="w-3 h-3" /> SALIDA
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-center font-black text-lg">
-                      {m.type === 'in' ? '+' : '-'}{m.quantity}
-                    </TableCell>
-                    <TableCell className="text-sm font-medium">{m.reason}</TableCell>
+            {loadingMovements ? (
+              <div className="p-20 text-center text-primary font-bold animate-pulse uppercase tracking-widest">Cargando Historial...</div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-primary/5 hover:bg-primary/5">
+                    <TableHead className="font-black uppercase text-[10px] text-primary">Fecha</TableHead>
+                    <TableHead className="font-black uppercase text-[10px] text-primary">Prenda</TableHead>
+                    <TableHead className="font-black uppercase text-[10px] text-primary">Tipo</TableHead>
+                    <TableHead className="text-center font-black uppercase text-[10px] text-primary">Cantidad</TableHead>
+                    <TableHead className="font-black uppercase text-[10px] text-primary">Motivo</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {movements.map((m) => (
+                    <TableRow key={m.id}>
+                      <TableCell className="text-xs font-medium text-muted-foreground">
+                        {m.timestamp ? new Date(m.timestamp).toLocaleString() : ""}
+                      </TableCell>
+                      <TableCell className="font-bold text-accent font-mono">{m.productCode}</TableCell>
+                      <TableCell>
+                        {m.type === 'in' ? (
+                          <div className="flex items-center gap-1 text-green-600 font-bold text-xs">
+                            <ArrowUpRight className="w-3 h-3" /> INGRESO
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1 text-destructive font-bold text-xs">
+                            <ArrowDownRight className="w-3 h-3" /> SALIDA
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center font-black text-lg">
+                        {m.type === 'in' ? '+' : '-'}{m.quantity}
+                      </TableCell>
+                      <TableCell className="text-sm font-medium">{m.reason}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </div>
         </TabsContent>
       </Tabs>

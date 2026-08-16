@@ -7,19 +7,14 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ImagePlus, X, Save, History, Edit3, AlertCircle, Loader2, Sparkles } from "lucide-react"
+import { ImagePlus, X, Save, History, Loader2, Sparkles } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { generateProductDescription } from "@/ai/flows/generate-product-description"
-import { useFirestore, useDoc } from "@/firebase"
-import { doc, setDoc, collection, addDoc, serverTimestamp } from "firebase/firestore"
+import { useFirestore, useDoc, useCollection } from "@/firebase"
+import { doc, setDoc, collection, addDoc, serverTimestamp, query, limit } from "firebase/firestore"
+import { errorEmitter } from "@/firebase/error-emitter"
+import { FirestorePermissionError } from "@/firebase/errors"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
 import { uploadImageToDrive } from "@/services/sheets-service"
@@ -31,7 +26,6 @@ export default function RegistryPage() {
   const db = useFirestore()
   
   const { toast } = useToast()
-  const [loadingAI, setLoadingAI] = React.useState(false)
   const [saving, setSaving] = React.useState(false)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
   
@@ -83,6 +77,10 @@ export default function RegistryPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (file.size > 3 * 1024 * 1024) {
+        toast({ title: "Archivo muy grande", description: "El límite es 3MB", variant: "destructive" });
+        return;
+      }
       const reader = new FileReader();
       reader.onloadend = () => {
         setLocalImagePreviews(prev => [...prev, reader.result as string].slice(0, 4));
@@ -94,6 +92,7 @@ export default function RegistryPage() {
   const handleSave = async () => {
     if (!db || !form.name || !form.code) return;
     setSaving(true);
+    
     try {
       const driveUrls: string[] = [];
       for (const img of localImagePreviews) {
@@ -106,7 +105,11 @@ export default function RegistryPage() {
       }
 
       const productData = {
-        ...form,
+        name: form.name,
+        code: form.code,
+        category: form.category,
+        collection: form.collection,
+        description: form.description,
         stock: Number(form.stock),
         priceFardo: Number(form.priceFardo),
         priceMayor: Number(form.priceMayor),
@@ -116,22 +119,37 @@ export default function RegistryPage() {
       };
 
       const pRef = editId ? doc(db, "products", editId) : doc(collection(db, "products"));
-      setDoc(pRef, productData, { merge: true });
+      
+      setDoc(pRef, productData, { merge: true })
+        .catch(async (error) => {
+          const permissionError = new FirestorePermissionError({
+            path: pRef.path,
+            operation: editId ? 'update' : 'create',
+            requestResourceData: productData
+          });
+          errorEmitter.emit('permission-error', permissionError);
+        });
 
       if (!editId) {
-        addDoc(collection(db, "movements"), {
+        const mRef = doc(collection(db, "movements"));
+        setDoc(mRef, {
           productCode: form.code,
           timestamp: new Date().toISOString(),
           type: "in",
           quantity: Number(form.stock),
           reason: "Registro inicial Firebase"
+        }).catch(async () => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: mRef.path,
+            operation: 'create'
+          }));
         });
       }
 
       toast({ title: "Guardado", description: "Sincronizado con Firebase exitosamente." });
       router.push('/inventory');
     } catch (e) {
-      toast({ title: "Error", description: "Error al guardar en Firebase", variant: "destructive" });
+      toast({ title: "Error", description: "Error al guardar. Verifica tu conexión.", variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -145,7 +163,7 @@ export default function RegistryPage() {
             {editId ? 'Editar Prenda' : 'Registrar Prenda'}
             <Sparkles className="text-accent w-6 h-6" />
           </h1>
-          <p className="text-muted-foreground font-medium uppercase tracking-widest text-[10px]">Cloud Sync Activo</p>
+          <p className="text-muted-foreground font-medium uppercase tracking-widest text-[10px]">Cloud Sync Activo con Firebase</p>
         </div>
         <Button variant="outline" className="border-accent text-accent bg-white rounded-xl" onClick={() => router.push('/inventory')}>
           <History className="w-4 h-4 mr-2" /> Inventario
