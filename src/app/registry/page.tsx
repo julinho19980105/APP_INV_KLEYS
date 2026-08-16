@@ -68,7 +68,6 @@ export default function RegistryPage() {
   const [newItemName, setNewItemName] = React.useState("")
   const [editingItem, setEditingItem] = React.useState<{id: string, name: string} | null>(null)
 
-  // Persistencia: Cargar borrador o datos de edición
   React.useEffect(() => {
     if (editingProduct) {
       setForm({
@@ -91,7 +90,6 @@ export default function RegistryPage() {
     }
   }, [editingProduct, editId])
 
-  // Persistencia: Guardar borrador automáticamente
   React.useEffect(() => {
     if (!editId) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(form))
@@ -147,7 +145,7 @@ export default function RegistryPage() {
 
       const productData = {
         name: form.name,
-        code: form.code || `P-${Math.floor(Math.random() * 9000) + 1000}`,
+        code: form.code || `P-${Math.floor(Math.random() * 900) + 100}`,
         category: form.category,
         collection: form.collection,
         description: form.description,
@@ -176,36 +174,32 @@ export default function RegistryPage() {
     }
   }
 
-  // Validación Diva: Fardo < Mayor < Unidad
+  // Validación Diva: Fardo < Mayor < Unidad (solo si los precios están presentes)
   const priceError = form.priceFardo && form.priceMayor && form.priceUnidad && 
     !(Number(form.priceFardo) < Number(form.priceMayor) && Number(form.priceMayor) < Number(form.priceUnidad))
 
-  // Solo Nombre, Categoria, Coleccion y Stock son obligatorios
   const isFormValid = form.name && form.category && form.collection && form.stock && !priceError
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-20 animate-in fade-in duration-500">
-      <div className="flex justify-between items-start">
-        <div>
+      <div className="flex justify-between items-center">
+        <div className="flex items-center gap-4">
           <h1 className="text-4xl font-headline font-bold text-primary flex items-center gap-3">
             {editId ? 'Editar Prenda' : 'Nueva Prenda'}
             <Sparkles className="text-accent w-6 h-6" />
           </h1>
-          <p className="text-muted-foreground font-medium uppercase tracking-widest text-[10px]">Cloud Sync • Google Drive & Firestore</p>
+          <div className="bg-accent text-white px-4 py-1.5 rounded-2xl font-mono font-black text-xl shadow-lg border-b-4 border-black/10">
+            {form.code || (editingProduct?.code) || "P-XXX"}
+          </div>
         </div>
         
-        <div className="flex flex-col items-end gap-3">
-          <div className="bg-accent text-white px-6 py-2 rounded-2xl font-mono font-black text-xl shadow-[0_10px_20px_rgba(135,184,212,0.3)] border-b-4 border-black/10">
-            {form.code || "NUEVO"}
-          </div>
-          <Button variant="outline" className="border-accent text-accent bg-white rounded-xl h-9 text-xs" onClick={() => router.push('/inventory')}>
-            <History className="w-4 h-4 mr-2" /> Volver
-          </Button>
-        </div>
+        <Button variant="outline" className="border-accent text-accent bg-white rounded-xl h-9 text-xs" onClick={() => router.push('/inventory')}>
+          <History className="w-4 h-4 mr-2" /> Volver al Inventario
+        </Button>
       </div>
 
       {priceError && (
-        <div className="bg-destructive/10 border border-destructive/20 p-4 rounded-2xl flex items-center gap-3 text-destructive animate-bounce">
+        <div className="bg-destructive/10 border border-destructive/20 p-4 rounded-2xl flex items-center gap-3 text-destructive animate-pulse">
           <AlertCircle className="w-5 h-5" />
           <span className="text-xs font-bold uppercase tracking-widest">Error de Precios: Fardo {"<"} Mayor {"<"} Unidad</span>
         </div>
@@ -220,7 +214,7 @@ export default function RegistryPage() {
             <CardContent className="space-y-6 pt-8">
               <div className="space-y-2">
                 <Label className="text-[10px] uppercase font-black text-accent/70 ml-1">Nombre de Prenda *</Label>
-                <Input value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="h-14 border-accent/20 rounded-2xl text-lg font-bold" placeholder="Ej: Polo Diva Floral" />
+                <Input value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="h-14 border-accent/20 rounded-2xl text-lg font-bold" placeholder="Ej: Vestido Gala Rojo" />
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -328,7 +322,7 @@ export default function RegistryPage() {
               </div>
 
               <div className="space-y-2">
-                <Label className="text-[10px] uppercase font-black text-accent/70 ml-1">Descripción</Label>
+                <Label className="text-[10px] uppercase font-black text-accent/70 ml-1">Descripción Estética</Label>
                 <Textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="min-h-[100px] border-accent/20 rounded-[1.5rem] bg-accent/5" />
               </div>
             </CardContent>
@@ -340,7 +334,7 @@ export default function RegistryPage() {
             </CardHeader>
             <CardContent className="pt-8 grid grid-cols-2 md:grid-cols-4 gap-6">
               <div className="space-y-2">
-                <Label className="text-[10px] text-center block font-black text-primary">STOCK *</Label>
+                <Label className="text-[10px] text-center block font-black text-primary">CANTIDAD *</Label>
                 <Input type="number" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} className="h-16 border-primary/20 text-center text-3xl font-black text-primary bg-primary/5 rounded-2xl" />
               </div>
               <div className="space-y-2">
@@ -390,8 +384,12 @@ export default function RegistryPage() {
             disabled={saving || !isFormValid}
           >
             {saving ? <Loader2 className="w-8 h-8 animate-spin" /> : <Save className="w-6 h-6 mr-3" />}
-            {editId ? 'ACTUALIZAR' : 'GUARDAR'}
+            {editId ? 'ACTUALIZAR' : 'GUARDAR PRENDA'}
           </Button>
+          
+          <p className="text-[10px] text-center text-muted-foreground uppercase font-black tracking-widest">
+            * Nombre, Categoría, Colección y Cantidad son obligatorios
+          </p>
         </div>
       </div>
     </div>
