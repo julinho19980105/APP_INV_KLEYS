@@ -22,7 +22,7 @@ import {
   DialogTitle, 
   DialogTrigger
 } from "@/components/ui/dialog"
-import { ImagePlus, X, Save, History, Loader2, Sparkles, Settings2, Edit3, Plus, AlertCircle } from "lucide-react"
+import { ImagePlus, X, Save, History, Loader2, Sparkles, Settings2, Edit3, Plus, AlertCircle, Check } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useFirestore, useDoc, useCollection } from "@/firebase"
 import { doc, setDoc, collection, query, orderBy, serverTimestamp, updateDoc, addDoc, limit, getDocs } from "firebase/firestore"
@@ -53,7 +53,7 @@ export default function RegistryPage() {
 
   const [form, setForm] = React.useState({
     name: "",
-    code: "",
+    code: "P-...",
     category: "",
     collection: "",
     description: "",
@@ -68,26 +68,30 @@ export default function RegistryPage() {
   const [newItemName, setNewItemName] = React.useState("")
   const [editingItem, setEditingItem] = React.useState<{id: string, name: string} | null>(null)
 
-  // Generar código correlativo único
+  // Generar código correlativo único real consultando la base de datos
   React.useEffect(() => {
-    async function generateNextCode() {
+    async function getNextCorrelative() {
       if (!db || editId) return
       
-      const q = query(collection(db, "products"), orderBy("code", "desc"), limit(1))
-      const querySnapshot = await getDocs(q)
-      
-      let nextNumber = 1
-      if (!querySnapshot.empty) {
-        const lastCode = querySnapshot.docs[0].data().code || "P-000"
-        const lastNumber = parseInt(lastCode.split('-')[1])
-        nextNumber = lastNumber + 1
+      try {
+        const q = query(collection(db, "products"), orderBy("code", "desc"), limit(1))
+        const snap = await getDocs(q)
+        
+        let nextNum = 1
+        if (!snap.empty) {
+          const lastCode = snap.docs[0].data().code || "P-000"
+          const lastNum = parseInt(lastCode.split('-')[1]) || 0
+          nextNum = lastNum + 1
+        }
+        
+        const newCode = `P-${nextNum.toString().padStart(3, '0')}`
+        setForm(prev => ({ ...prev, code: newCode }))
+      } catch (e) {
+        console.error("Error consultando correlativo:", e)
+        setForm(prev => ({ ...prev, code: "P-001" }))
       }
-      
-      const newCode = `P-${nextNumber.toString().padStart(3, '0')}`
-      setForm(prev => ({ ...prev, code: newCode }))
     }
-    
-    generateNextCode()
+    getNextCorrelative()
   }, [db, editId])
 
   React.useEffect(() => {
@@ -104,27 +108,14 @@ export default function RegistryPage() {
         priceUnidad: editingProduct.priceUnidad?.toString() || "",
       })
       setLocalImagePreviews((editingProduct.images || []).map((url: string) => ({ url })))
-    } else {
-      const draft = localStorage.getItem(DRAFT_KEY)
-      if (draft && !editId) {
-        const draftData = JSON.parse(draft)
-        // Mantener el código correlativo generado, no sobreescribirlo con el del borrador si el borrador es viejo
-        setForm(prev => ({ ...draftData, code: prev.code || draftData.code }))
-      }
     }
-  }, [editingProduct, editId])
-
-  React.useEffect(() => {
-    if (!editId) {
-      localStorage.setItem(DRAFT_KEY, JSON.stringify(form))
-    }
-  }, [form, editId])
+  }, [editingProduct])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
       if (file.size > 3 * 1024 * 1024) {
-        toast({ title: "Archivo muy pesado", description: "Máximo 3MB por foto", variant: "destructive" })
+        toast({ title: "Archivo muy pesado", description: "Máximo 3MB", variant: "destructive" })
         return
       }
       const reader = new FileReader()
@@ -141,10 +132,12 @@ export default function RegistryPage() {
     addDoc(collection(db, colName), { name: newItemName.trim() })
       .then(() => {
         setNewItemName("")
-        toast({ title: "Agregado", description: "Se guardó correctamente." })
+        toast({ title: "Agregado", description: "Nuevo elemento guardado." })
       })
       .catch((err) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: colName, operation: 'create' }))
+        if (err.code === 'permission-denied') {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({ path: colName, operation: 'create' }))
+        }
       })
   }
 
@@ -158,7 +151,9 @@ export default function RegistryPage() {
         toast({ title: "Actualizado", description: "Nombre modificado correctamente." })
       })
       .catch((err) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: itemRef.path, operation: 'update' }))
+        if (err.code === 'permission-denied') {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({ path: itemRef.path, operation: 'update' }))
+        }
       })
   }
 
@@ -194,16 +189,22 @@ export default function RegistryPage() {
       const pRef = editId ? doc(db, "products", editId) : doc(collection(db, "products"))
       setDoc(pRef, productData, { merge: true })
         .then(() => {
-          if (!editId) localStorage.removeItem(DRAFT_KEY)
-          toast({ title: "Guardado Exitoso", description: "Prenda registrada en el inventario." })
+          toast({ title: "Éxito", description: "Prenda registrada correctamente." })
           router.push('/inventory')
         })
-        .catch((err) => {
-          // Captura el error de permisos específicamente
-          errorEmitter.emit('permission-error', new FirestorePermissionError({ path: pRef.path, operation: 'write', requestResourceData: productData }))
+        .catch((serverError: any) => {
+          if (serverError.code === 'permission-denied') {
+             errorEmitter.emit('permission-error', new FirestorePermissionError({ 
+               path: pRef.path, 
+               operation: editId ? 'update' : 'create', 
+               requestResourceData: productData 
+             }));
+          } else {
+             toast({ title: "Error", description: "Error al guardar en Firestore: " + serverError.message, variant: "destructive" });
+          }
         })
     } catch (e: any) {
-      toast({ title: "Error al guardar", description: e.message, variant: "destructive" })
+      toast({ title: "Error técnico", description: e.message, variant: "destructive" })
     } finally {
       setSaving(false)
     }
@@ -212,7 +213,7 @@ export default function RegistryPage() {
   const priceError = form.priceFardo && form.priceMayor && form.priceUnidad && 
     !(Number(form.priceFardo) < Number(form.priceMayor) && Number(form.priceMayor) < Number(form.priceUnidad))
 
-  const isFormValid = form.name && form.category && form.collection && form.stock !== "" && !priceError
+  const isFormValid = form.name && form.category && form.collection && form.stock !== "" && !priceError && !saving
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-20">
@@ -222,7 +223,7 @@ export default function RegistryPage() {
             {editId ? 'Editar Prenda' : 'Nueva Prenda'}
             <Sparkles className="text-accent w-6 h-6" />
           </h1>
-          <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-1">Gestión Realtime Diva</p>
+          <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-1">StiloStack ERP Realtime</p>
         </div>
         <Button variant="outline" className="border-accent text-accent bg-white rounded-xl h-10 px-6 font-bold" onClick={() => router.push('/inventory')}>
           <History className="w-4 h-4 mr-2" /> Inventario
@@ -233,7 +234,7 @@ export default function RegistryPage() {
         <div className="bg-destructive/10 border border-destructive/20 p-4 rounded-2xl flex items-center gap-3 text-destructive">
           <AlertCircle className="w-5 h-5" />
           <span className="text-xs font-black uppercase tracking-widest">
-            Precios incorrectos: Fardo menor que Mayor y Mayor menor que Unidad
+            Validación Diva: Fardo inferior a Mayor y Mayor inferior a Unidad
           </span>
         </div>
       )}
@@ -243,14 +244,14 @@ export default function RegistryPage() {
           <Card className="border-none shadow-2xl bg-white rounded-[2.5rem] overflow-hidden">
             <CardHeader className="bg-accent/5 border-b border-accent/10 py-6 flex flex-row items-center justify-between px-8">
               <CardTitle className="text-lg text-accent font-black uppercase tracking-widest">Datos Principales</CardTitle>
-              <div className="bg-primary text-white px-8 py-3 rounded-2xl font-mono font-black text-3xl shadow-lg">
+              <div className="bg-primary text-white px-8 py-3 rounded-2xl font-mono font-black text-3xl shadow-lg border-4 border-white">
                 {form.code}
               </div>
             </CardHeader>
             <CardContent className="space-y-8 pt-8 px-8">
               <div className="space-y-2">
                 <Label className="text-[10px] uppercase font-black text-accent/70 tracking-widest ml-1">Nombre de Prenda *</Label>
-                <Input value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="h-16 border-accent/20 rounded-2xl text-xl font-bold" placeholder="Ej: Saco Velvet" />
+                <Input value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="h-16 border-accent/20 rounded-2xl text-xl font-bold" placeholder="Ej: Polo Tommy" />
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -279,23 +280,23 @@ export default function RegistryPage() {
                         </DialogHeader>
                         <div className="space-y-6 pt-4">
                           <div className="flex gap-2">
-                            <Input placeholder="Añadir nueva..." value={newItemName} onChange={e => setNewItemName(e.target.value)} className="h-12 rounded-xl" />
+                            <Input placeholder="Nueva categoría..." value={newItemName} onChange={e => setNewItemName(e.target.value)} className="h-12 rounded-xl" />
                             <Button className="bg-primary h-12 w-12 rounded-xl" onClick={handleAddItem}><Plus className="w-5 h-5" /></Button>
                           </div>
-                          <div className="max-h-60 overflow-y-auto space-y-2 pr-2">
+                          <div className="max-h-64 overflow-y-auto space-y-2 pr-2">
                             {categories.map(cat => (
-                              <div key={cat.id} className="flex items-center justify-between p-3 bg-accent/5 rounded-2xl border border-accent/10 group">
+                              <div key={cat.id} className="flex items-center justify-between p-4 bg-accent/5 rounded-2xl border border-accent/10">
                                 {editingItem?.id === cat.id ? (
                                   <div className="flex gap-2 w-full">
                                     <Input value={editingItem.name} onChange={e => setEditingItem({...editingItem, name: e.target.value})} className="h-10 text-sm font-bold bg-white" />
-                                    <Button size="icon" className="h-10 w-10 bg-green-500 text-white rounded-xl" onClick={handleRenameItem}><Save className="w-4 h-4" /></Button>
+                                    <Button size="icon" className="h-10 w-10 bg-green-500 text-white rounded-xl" onClick={handleRenameItem}><Check className="w-4 h-4" /></Button>
                                     <Button size="icon" variant="ghost" className="h-10 w-10 text-destructive rounded-xl" onClick={() => setEditingItem(null)}><X className="w-4 h-4" /></Button>
                                   </div>
                                 ) : (
                                   <>
                                     <span className="font-bold text-accent">{cat.name}</span>
-                                    <Button variant="ghost" size="sm" className="h-8 px-3 text-accent rounded-xl hover:bg-white" onClick={() => setEditingItem({id: cat.id, name: cat.name})}>
-                                      <Edit3 className="w-3 h-3 mr-2" /> Renombrar
+                                    <Button variant="ghost" size="sm" className="h-8 px-3 text-accent rounded-xl hover:bg-white flex items-center gap-2" onClick={() => setEditingItem({id: cat.id, name: cat.name})}>
+                                      <Edit3 className="w-3 h-3" /> Renombrar
                                     </Button>
                                   </>
                                 )}
@@ -333,23 +334,23 @@ export default function RegistryPage() {
                         </DialogHeader>
                         <div className="space-y-6 pt-4">
                           <div className="flex gap-2">
-                            <Input placeholder="Añadir nueva..." value={newItemName} onChange={e => setNewItemName(e.target.value)} className="h-12 rounded-xl" />
+                            <Input placeholder="Nueva colección..." value={newItemName} onChange={e => setNewItemName(e.target.value)} className="h-12 rounded-xl" />
                             <Button className="bg-primary h-12 w-12 rounded-xl" onClick={handleAddItem}><Plus className="w-5 h-5" /></Button>
                           </div>
-                          <div className="max-h-60 overflow-y-auto space-y-2 pr-2">
+                          <div className="max-h-64 overflow-y-auto space-y-2 pr-2">
                             {collectionsData.map(col => (
-                              <div key={col.id} className="flex items-center justify-between p-3 bg-accent/5 rounded-2xl border border-accent/10 group">
+                              <div key={col.id} className="flex items-center justify-between p-4 bg-accent/5 rounded-2xl border border-accent/10">
                                 {editingItem?.id === col.id ? (
                                   <div className="flex gap-2 w-full">
                                     <Input value={editingItem.name} onChange={e => setEditingItem({...editingItem, name: e.target.value})} className="h-10 text-sm font-bold bg-white" />
-                                    <Button size="icon" className="h-10 w-10 bg-green-500 text-white rounded-xl" onClick={handleRenameItem}><Save className="w-4 h-4" /></Button>
+                                    <Button size="icon" className="h-10 w-10 bg-green-500 text-white rounded-xl" onClick={handleRenameItem}><Check className="w-4 h-4" /></Button>
                                     <Button size="icon" variant="ghost" className="h-10 w-10 text-destructive rounded-xl" onClick={() => setEditingItem(null)}><X className="w-4 h-4" /></Button>
                                   </div>
                                 ) : (
                                   <>
                                     <span className="font-bold text-accent">{col.name}</span>
-                                    <Button variant="ghost" size="sm" className="h-8 px-3 text-accent rounded-xl hover:bg-white" onClick={() => setEditingItem({id: col.id, name: col.name})}>
-                                      <Edit3 className="w-3 h-3 mr-2" /> Renombrar
+                                    <Button variant="ghost" size="sm" className="h-8 px-3 text-accent rounded-xl hover:bg-white flex items-center gap-2" onClick={() => setEditingItem({id: col.id, name: col.name})}>
+                                      <Edit3 className="w-3 h-3" /> Renombrar
                                     </Button>
                                   </>
                                 )}
@@ -365,18 +366,18 @@ export default function RegistryPage() {
 
               <div className="space-y-2">
                 <Label className="text-[10px] uppercase font-black text-accent/70 tracking-widest ml-1">Descripción</Label>
-                <Textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="min-h-[120px] border-accent/20 rounded-[2rem] bg-accent/5 p-6" placeholder="Detalles de la prenda..." />
+                <Textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="min-h-[120px] border-accent/20 rounded-[2rem] bg-accent/5 p-6" placeholder="Detalles estéticos..." />
               </div>
             </CardContent>
           </Card>
 
           <Card className="border-none shadow-2xl bg-white rounded-[2.5rem] overflow-hidden">
              <CardHeader className="bg-primary/5 border-b border-primary/10 py-6 px-8">
-              <CardTitle className="text-lg text-primary font-black uppercase tracking-widest">Precios y Stock</CardTitle>
+              <CardTitle className="text-lg text-primary font-black uppercase tracking-widest">Inventario y Tarifas</CardTitle>
             </CardHeader>
             <CardContent className="pt-8 grid grid-cols-2 md:grid-cols-4 gap-8 px-8">
               <div className="space-y-2">
-                <Label className="text-[10px] text-center block font-black text-primary tracking-widest">CANTIDAD *</Label>
+                <Label className="text-[10px] text-center block font-black text-primary tracking-widest">STOCK *</Label>
                 <Input type="number" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} className="h-20 border-primary/20 text-center text-4xl font-black text-primary bg-primary/5 rounded-[1.5rem]" />
               </div>
               <div className="space-y-2">
@@ -384,7 +385,7 @@ export default function RegistryPage() {
                 <Input type="number" value={form.priceFardo} onChange={e => setForm({...form, priceFardo: e.target.value})} className="h-20 border-accent/20 text-center text-2xl font-black text-accent rounded-[1.5rem]" />
               </div>
               <div className="space-y-2">
-                <Label className="text-[10px] text-center block font-black text-accent/70 tracking-widest">AL MAYOR (S/)</Label>
+                <Label className="text-[10px] text-center block font-black text-accent/70 tracking-widest">MAYOR (S/)</Label>
                 <Input type="number" value={form.priceMayor} onChange={e => setForm({...form, priceMayor: e.target.value})} className="h-20 border-accent/20 text-center text-2xl font-black text-accent rounded-[1.5rem]" />
               </div>
               <div className="space-y-2">
@@ -398,7 +399,7 @@ export default function RegistryPage() {
         <div className="space-y-6">
           <Card className="border-none shadow-2xl bg-white rounded-[2.5rem] overflow-hidden">
             <CardHeader className="bg-accent/5 py-6 px-8 flex justify-between flex-row items-center">
-              <CardTitle className="text-sm font-black text-accent uppercase tracking-widest">Fotos (Máx 4)</CardTitle>
+              <CardTitle className="text-sm font-black text-accent uppercase tracking-widest">Fotos Diva (Máx 4)</CardTitle>
               <span className="text-xs bg-accent text-white px-3 py-1 rounded-full font-bold">{localImagePreviews.length}/4</span>
             </CardHeader>
             <CardContent className="pt-6 grid grid-cols-2 gap-4 px-8">
@@ -411,7 +412,7 @@ export default function RegistryPage() {
                 {localImagePreviews.length < 4 && (
                   <button onClick={() => fileInputRef.current?.click()} className="aspect-square rounded-[2rem] border-4 border-dashed border-accent/20 flex flex-col items-center justify-center gap-2 text-accent bg-accent/5 hover:bg-accent/10 transition-all">
                     <ImagePlus className="w-10 h-10" />
-                    <span className="text-[10px] font-black uppercase tracking-widest">Añadir</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest">Subir</span>
                     <input type="file" hidden ref={fileInputRef} onChange={handleFileChange} accept="image/*" />
                   </button>
                 )}
@@ -419,16 +420,16 @@ export default function RegistryPage() {
           </Card>
 
           <Button 
-            className="w-full h-28 text-3xl font-headline shadow-2xl rounded-[3rem] bg-gradient-to-tr from-primary to-accent text-white font-black disabled:opacity-30 disabled:grayscale" 
+            className="w-full h-28 text-3xl font-headline shadow-2xl rounded-[3rem] bg-gradient-to-tr from-primary to-accent text-white font-black disabled:opacity-30 disabled:grayscale transition-all hover:scale-[1.02]" 
             onClick={handleSave}
-            disabled={saving || !isFormValid}
+            disabled={!isFormValid}
           >
             {saving ? <Loader2 className="w-10 h-10 animate-spin" /> : <Save className="w-8 h-8 mr-4" />}
             {editId ? 'ACTUALIZAR' : 'REGISTRAR'}
           </Button>
           
           <div className="p-8 bg-white/50 rounded-[2.5rem] border border-accent/10 text-center">
-            <p className="text-[9px] text-accent font-bold uppercase tracking-widest">
+            <p className="text-[10px] text-accent font-black uppercase tracking-[0.2em]">
               Obligatorio: Nombre, Categoría, Colección y Stock.
             </p>
           </div>
