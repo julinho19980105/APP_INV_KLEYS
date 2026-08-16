@@ -1,0 +1,29 @@
+
+{
+  "placeholderImages": [
+    {
+      "id": "hero-fashion",
+      "description": "High-end fashion photography",
+      "imageUrl": "https://picsum.photos/seed/stilo1/800/600",
+      "imageHint": "fashion clothing"
+    },
+    {
+      "id": "logistics-warehouse",
+      "description": "Modern logistics warehouse",
+      "imageUrl": "https://picsum.photos/seed/stilo2/800/600",
+      "imageHint": "warehouse logistics"
+    },
+    {
+      "id": "product-shirt",
+      "description": "Minimalist shirt",
+      "imageUrl": "https://picsum.photos/seed/stilo3/400/400",
+      "imageHint": "shirt clothing"
+    },
+    {
+      "id": "product-pants",
+      "description": "Designer pants",
+      "imageUrl": "https://picsum.photos/seed/stilo4/400/400",
+      "imageHint": "pants clothing"
+    }
+  ]
+}
