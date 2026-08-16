@@ -20,8 +20,7 @@ import {
   DialogContent, 
   DialogHeader, 
   DialogTitle, 
-  DialogTrigger,
-  DialogFooter
+  DialogTrigger
 } from "@/components/ui/dialog"
 import { ImagePlus, X, Save, History, Loader2, Sparkles, Settings2, Edit3, Plus } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
@@ -29,7 +28,8 @@ import { useFirestore, useDoc, useCollection, useStorage } from "@/firebase"
 import { doc, setDoc, collection, query, orderBy, serverTimestamp, updateDoc, addDoc, getDocs, where } from "firebase/firestore"
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage"
 import Image from "next/image"
-import { cn } from "@/lib/utils"
+import { errorEmitter } from '@/firebase/error-emitter'
+import { FirestorePermissionError } from '@/firebase/errors'
 
 const STORAGE_KEY = "stilostack_registry_draft"
 
@@ -132,23 +132,24 @@ export default function RegistryPage() {
   const handleAddItem = async () => {
     if (!db || !manageType || !newItemName.trim()) return
     const colName = manageType === 'category' ? 'categories' : 'collections'
-    await addDoc(collection(db, colName), { name: newItemName.trim() })
+    addDoc(collection(db, colName), { name: newItemName.trim() })
+      .catch(async (err) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: colName, operation: 'create' }))
+      })
     setNewItemName("")
-    toast({ title: "Agregado", description: "Se ha añadido a la lista." })
   }
 
   const handleRenameItem = async () => {
     if (!db || !manageType || !editingItem || !editingItem.name.trim()) return
     const colName = manageType === 'category' ? 'categories' : 'collections'
     const itemRef = doc(db, colName, editingItem.id)
-    await updateDoc(itemRef, { name: editingItem.name.trim() })
     
-    const prodsQuery = query(collection(db, "products"), where(manageType, "==", editingItem.name))
-    const prodsSnap = await getDocs(prodsQuery)
-    prodsSnap.forEach(d => updateDoc(d.ref, { [manageType]: editingItem.name.trim() }))
-
+    updateDoc(itemRef, { name: editingItem.name.trim() })
+      .catch(async (err) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: itemRef.path, operation: 'update' }))
+      })
+    
     setEditingItem(null)
-    toast({ title: "Actualizado", description: "Se ha renombrado en toda la base de datos." })
   }
 
   const handleSave = async () => {
@@ -173,12 +174,15 @@ export default function RegistryPage() {
       }
 
       const pRef = editId ? doc(db, "products", editId) : doc(collection(db, "products"))
-      await setDoc(pRef, productData, { merge: true })
-      
-      if (!editId) localStorage.removeItem(STORAGE_KEY)
-      
-      toast({ title: "Guardado", description: "La prenda se ha sincronizado con Firestore." })
-      router.push('/inventory')
+      setDoc(pRef, productData, { merge: true })
+        .then(() => {
+          if (!editId) localStorage.removeItem(STORAGE_KEY)
+          toast({ title: "Guardado", description: "La prenda se ha sincronizado con Firestore." })
+          router.push('/inventory')
+        })
+        .catch(async (err) => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({ path: pRef.path, operation: 'write', requestResourceData: productData }))
+        })
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" })
     } finally {
