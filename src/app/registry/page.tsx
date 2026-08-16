@@ -22,11 +22,11 @@ import {
   DialogTitle, 
   DialogTrigger
 } from "@/components/ui/dialog"
-import { ImagePlus, X, Save, History, Loader2, Sparkles, Settings2, Edit3, Plus } from "lucide-react"
+import { ImagePlus, X, Save, History, Loader2, Sparkles, Settings2, Edit3, Plus, AlertCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { useFirestore, useDoc, useCollection, useStorage } from "@/firebase"
-import { doc, setDoc, collection, query, orderBy, serverTimestamp, updateDoc, addDoc, getDocs, where } from "firebase/firestore"
-import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage"
+import { useFirestore, useDoc, useCollection } from "@/firebase"
+import { doc, setDoc, collection, query, orderBy, serverTimestamp, updateDoc, addDoc } from "firebase/firestore"
+import { uploadImageToDrive } from "@/services/sheets-service"
 import Image from "next/image"
 import { errorEmitter } from '@/firebase/error-emitter'
 import { FirestorePermissionError } from '@/firebase/errors'
@@ -38,7 +38,6 @@ export default function RegistryPage() {
   const router = useRouter()
   const editId = searchParams.get('edit')
   const db = useFirestore()
-  const storage = useStorage()
   const { toast } = useToast()
   
   const [saving, setSaving] = React.useState(false)
@@ -69,6 +68,7 @@ export default function RegistryPage() {
   const [newItemName, setNewItemName] = React.useState("")
   const [editingItem, setEditingItem] = React.useState<{id: string, name: string} | null>(null)
 
+  // Persistencia: Cargar borrador o datos de edición
   React.useEffect(() => {
     if (editingProduct) {
       setForm({
@@ -91,6 +91,7 @@ export default function RegistryPage() {
     }
   }, [editingProduct, editId])
 
+  // Persistencia: Guardar borrador automáticamente
   React.useEffect(() => {
     if (!editId) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(form))
@@ -112,30 +113,11 @@ export default function RegistryPage() {
     }
   }
 
-  const uploadImagesToStorage = async (): Promise<string[]> => {
-    if (!storage) return []
-    const urls: string[] = []
-    
-    for (const img of localImagePreviews) {
-      if (img.file) {
-        const storageRef = ref(storage, `products/${form.code || 'new'}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`)
-        const uploadTask = await uploadBytesResumable(storageRef, img.file)
-        const downloadURL = await getDownloadURL(uploadTask.ref)
-        urls.push(downloadURL)
-      } else {
-        urls.push(img.url)
-      }
-    }
-    return urls
-  }
-
   const handleAddItem = async () => {
     if (!db || !manageType || !newItemName.trim()) return
     const colName = manageType === 'category' ? 'categories' : 'collections'
     addDoc(collection(db, colName), { name: newItemName.trim() })
-      .catch(async (err) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: colName, operation: 'create' }))
-      })
+      .catch(() => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: colName, operation: 'create' })))
     setNewItemName("")
   }
 
@@ -143,12 +125,8 @@ export default function RegistryPage() {
     if (!db || !manageType || !editingItem || !editingItem.name.trim()) return
     const colName = manageType === 'category' ? 'categories' : 'collections'
     const itemRef = doc(db, colName, editingItem.id)
-    
     updateDoc(itemRef, { name: editingItem.name.trim() })
-      .catch(async (err) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: itemRef.path, operation: 'update' }))
-      })
-    
+      .catch(() => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: itemRef.path, operation: 'update' })))
     setEditingItem(null)
   }
 
@@ -157,7 +135,15 @@ export default function RegistryPage() {
     
     setSaving(true)
     try {
-      const imageUrls = await uploadImagesToStorage()
+      const imageUrls: string[] = []
+      for (const img of localImagePreviews) {
+        if (img.file) {
+          const driveUrl = await uploadImageToDrive(img.url, `${form.name}_${Date.now()}`)
+          if (driveUrl) imageUrls.push(driveUrl)
+        } else {
+          imageUrls.push(img.url)
+        }
+      }
 
       const productData = {
         name: form.name,
@@ -177,20 +163,25 @@ export default function RegistryPage() {
       setDoc(pRef, productData, { merge: true })
         .then(() => {
           if (!editId) localStorage.removeItem(STORAGE_KEY)
-          toast({ title: "Guardado", description: "La prenda se ha sincronizado con Firestore." })
+          toast({ title: "Guardado con éxito", description: "Datos e imágenes sincronizados." })
           router.push('/inventory')
         })
-        .catch(async (err) => {
+        .catch((err) => {
           errorEmitter.emit('permission-error', new FirestorePermissionError({ path: pRef.path, operation: 'write', requestResourceData: productData }))
         })
     } catch (e: any) {
-      toast({ title: "Error", description: e.message, variant: "destructive" })
+      toast({ title: "Error al guardar", description: e.message, variant: "destructive" })
     } finally {
       setSaving(false)
     }
   }
 
-  const isFormValid = form.name && form.category && form.collection && form.stock
+  // Validación Diva: Fardo < Mayor < Unidad
+  const priceError = form.priceFardo && form.priceMayor && form.priceUnidad && 
+    !(Number(form.priceFardo) < Number(form.priceMayor) && Number(form.priceMayor) < Number(form.priceUnidad))
+
+  // Solo Nombre, Categoria, Coleccion y Stock son obligatorios
+  const isFormValid = form.name && form.category && form.collection && form.stock && !priceError
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-20 animate-in fade-in duration-500">
@@ -200,7 +191,7 @@ export default function RegistryPage() {
             {editId ? 'Editar Prenda' : 'Nueva Prenda'}
             <Sparkles className="text-accent w-6 h-6" />
           </h1>
-          <p className="text-muted-foreground font-medium uppercase tracking-widest text-[10px]">Cloud Sync • Firebase Firestore</p>
+          <p className="text-muted-foreground font-medium uppercase tracking-widest text-[10px]">Cloud Sync • Google Drive & Firestore</p>
         </div>
         
         <div className="flex flex-col items-end gap-3">
@@ -212,6 +203,13 @@ export default function RegistryPage() {
           </Button>
         </div>
       </div>
+
+      {priceError && (
+        <div className="bg-destructive/10 border border-destructive/20 p-4 rounded-2xl flex items-center gap-3 text-destructive animate-bounce">
+          <AlertCircle className="w-5 h-5" />
+          <span className="text-xs font-bold uppercase tracking-widest">Error de Precios: Fardo {"<"} Mayor {"<"} Unidad</span>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
@@ -365,7 +363,7 @@ export default function RegistryPage() {
           <Card className="border-none shadow-2xl bg-white rounded-[2.5rem] overflow-hidden">
             <CardHeader className="bg-accent/5">
               <CardTitle className="text-lg text-accent flex justify-between items-center font-bold">
-                Fotos (Máx 4)
+                Fotos Drive (Máx 4)
                 <span className="text-xs bg-accent text-white px-3 py-1 rounded-full">{localImagePreviews.length}/4</span>
               </CardTitle>
             </CardHeader>
