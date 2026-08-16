@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Search, Filter, Eye, Edit2, History, ArrowDownRight, ArrowUpRight } from "lucide-react"
+import { Search, Filter, Eye, Edit2, ArrowDownRight, ArrowUpRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
 import { getSheetData } from "@/services/sheets-service"
@@ -100,7 +100,7 @@ export default function InventoryPage() {
                     <TableCell>
                       <div className="w-12 h-12 rounded-2xl border border-accent/10 overflow-hidden bg-muted relative shadow-sm">
                         <Image 
-                          src={p.LinkImagen || "https://picsum.photos/seed/placeholder/200/200"} 
+                          src={p.Imagen1 || p.LinkImagen || "https://picsum.photos/seed/placeholder/200/200"} 
                           alt={p.Nombre || ""} 
                           fill
                           className="object-cover"

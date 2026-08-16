@@ -102,7 +102,10 @@ export default function RegistryPage() {
     setSaving(true)
     try {
       const timestamp = new Date().toISOString();
-      const imageUrl = images[0] || "";
+      const img1 = images[0] || "";
+      const img2 = images[1] || "";
+      const img3 = images[2] || "";
+      const img4 = images[3] || "";
       
       // 1. Guardar en PRODUCTOS (Maestro)
       const rowData = [
@@ -115,7 +118,8 @@ export default function RegistryPage() {
         form.priceFardo,
         form.priceMayor,
         form.priceUnidad,
-        imageUrl
+        img1, img2, img3, img4,
+        form.description
       ];
       await appendToSheet('PRODUCTOS', rowData);
       
@@ -124,9 +128,12 @@ export default function RegistryPage() {
         form.code,
         form.name,
         form.category,
+        form.priceFardo,
+        form.priceMayor,
         form.priceUnidad,
-        imageUrl,
-        form.collection
+        img1, img2, img3, img4,
+        form.collection,
+        form.description
       ];
       await appendToSheet('CATALOGO_WEB', catalogData);
 
