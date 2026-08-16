@@ -21,7 +21,7 @@ import {
   DialogTrigger,
   DialogFooter
 } from "@/components/ui/dialog"
-import { ImagePlus, X, Save, History, Plus, Edit3, BadgeInfo } from "lucide-react"
+import { ImagePlus, X, Save, History, Edit3, BadgeInfo } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { generateProductDescription } from "@/ai/flows/generate-product-description"
 import Image from "next/image"
@@ -42,15 +42,17 @@ export default function RegistryPage() {
     category: "",
     collection: "",
     description: "",
-    quantity: "" as string | number,
-    priceFardo: "" as string | number,
-    priceMayor: "" as string | number,
-    priceUnidad: "" as string | number,
+    quantity: "" as string,
+    priceFardo: "" as string,
+    priceMayor: "" as string,
+    priceUnidad: "" as string,
   })
 
   const [images, setImages] = React.useState<string[]>([])
 
+  // Generar código correlativo al montar
   React.useEffect(() => {
+    // En el futuro esto vendrá del Sheet: SELECT MAX(Codigo) FROM Prendas
     const lastNum = 1 
     setForm(prev => ({
       ...prev,
@@ -88,12 +90,14 @@ export default function RegistryPage() {
       return
     }
     
+    // Aquí irá la llamada al Google Apps Script (POST)
     toast({ 
       title: "¡Guardado con éxito!", 
       description: `La prenda ${form.code} ha sido registrada.`,
       className: "bg-primary text-white" 
     })
     
+    // Reset form y aumentar correlativo simulado
     setForm(prev => ({
       ...prev,
       name: "",
@@ -123,7 +127,7 @@ export default function RegistryPage() {
             Registrar Prenda
             <BadgeInfo className="text-accent w-6 h-6" />
           </h1>
-          <p className="text-muted-foreground font-medium">Catálogo Maestro StiloStack</p>
+          <p className="text-muted-foreground font-medium uppercase tracking-widest text-[10px]">Catálogo Maestro StiloStack</p>
         </div>
         <Button variant="outline" className="border-accent text-accent hover:bg-accent/10 rounded-xl">
           <History className="w-4 h-4 mr-2" />
@@ -133,52 +137,56 @@ export default function RegistryPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
-          <Card className="border-none shadow-xl bg-white overflow-hidden rounded-3xl">
-            <CardHeader className="bg-gradient-to-r from-primary/10 via-accent/5 to-white border-b border-primary/10">
-              <CardTitle className="text-lg text-primary flex items-center justify-between w-full">
-                <div className="flex items-center gap-2">
-                  <Edit3 className="w-5 h-5 text-accent" /> Datos del Producto
-                </div>
-                <div className="font-mono text-xs bg-primary text-white px-3 py-1 rounded-full shadow-inner">
+          <Card className="border-none shadow-xl bg-white overflow-hidden rounded-[2.5rem]">
+            <CardHeader className="bg-gradient-to-r from-accent/10 via-white to-white border-b border-accent/10">
+              <div className="flex items-center justify-between w-full">
+                <CardTitle className="text-lg text-accent flex items-center gap-2">
+                  <Edit3 className="w-5 h-5" /> Datos del Producto
+                </CardTitle>
+                <div className="font-mono text-sm bg-accent text-white px-4 py-1.5 rounded-full shadow-inner font-bold">
                   {form.code}
                 </div>
-              </CardTitle>
+              </div>
             </CardHeader>
             <CardContent className="space-y-6 pt-8">
               <div className="space-y-2">
-                <Label className="text-[10px] uppercase tracking-[0.2em] font-black text-accent">Nombre de Prenda *</Label>
+                <Label className="text-[10px] uppercase tracking-[0.2em] font-black text-accent/70">Nombre de Prenda *</Label>
                 <Input 
                   value={form.name} 
                   onChange={e => setForm({...form, name: e.target.value})}
                   placeholder="Ej. Saco Velvet Premium" 
-                  className="h-12 border-primary/20 focus:border-primary rounded-xl text-lg font-medium"
+                  className="h-12 border-accent/20 focus:border-primary rounded-xl text-lg font-medium"
                 />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
-                    <Label className="text-[10px] uppercase tracking-[0.2em] font-black text-accent">Categoría *</Label>
+                    <Label className="text-[10px] uppercase tracking-[0.2em] font-black text-accent/70">Categoría *</Label>
                     <Dialog>
                       <DialogTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-6 text-[9px] text-primary p-0 px-2 font-bold">+ AGREGAR</Button>
+                        <button className="text-[9px] text-primary font-black tracking-tighter hover:underline">+ AGREGAR / EDITAR</button>
                       </DialogTrigger>
                       <DialogContent className="rounded-3xl">
-                        <DialogHeader><DialogTitle>Nueva Categoría</DialogTitle></DialogHeader>
-                        <Input value={newCat} onChange={e => setNewCat(e.target.value)} placeholder="Nombre de categoría" className="rounded-xl" />
-                        <DialogFooter>
-                          <Button onClick={() => {
-                            if(newCat) {
-                              setCategories([...categories, newCat])
-                              setNewCat("")
-                            }
-                          }} className="rounded-xl">Guardar</Button>
-                        </DialogFooter>
+                        <DialogHeader><DialogTitle>Gestionar Categorías</DialogTitle></DialogHeader>
+                        <div className="space-y-4 py-4">
+                          <div className="flex gap-2">
+                            <Input value={newCat} onChange={e => setNewCat(e.target.value)} placeholder="Nueva categoría..." className="rounded-xl" />
+                            <Button onClick={() => { if(newCat) { setCategories([...categories, newCat]); setNewCat(""); } }} className="rounded-xl">Añadir</Button>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {categories.map(c => (
+                              <div key={c} className="bg-accent/10 text-accent px-3 py-1 rounded-full text-xs font-bold flex items-center gap-2">
+                                {c} <X className="w-3 h-3 cursor-pointer" onClick={() => setCategories(categories.filter(x => x !== c))} />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
                       </DialogContent>
                     </Dialog>
                   </div>
                   <Select value={form.category} onValueChange={v => setForm({...form, category: v})}>
-                    <SelectTrigger className="border-primary/20 h-11 rounded-xl">
+                    <SelectTrigger className="border-accent/20 h-11 rounded-xl">
                       <SelectValue placeholder="Seleccionar..." />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl">
@@ -189,27 +197,31 @@ export default function RegistryPage() {
 
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
-                    <Label className="text-[10px] uppercase tracking-[0.2em] font-black text-accent">Colección *</Label>
+                    <Label className="text-[10px] uppercase tracking-[0.2em] font-black text-accent/70">Colección *</Label>
                     <Dialog>
                       <DialogTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-6 text-[9px] text-primary p-0 px-2 font-bold">+ AGREGAR</Button>
+                        <button className="text-[9px] text-primary font-black tracking-tighter hover:underline">+ AGREGAR / EDITAR</button>
                       </DialogTrigger>
                       <DialogContent className="rounded-3xl">
-                        <DialogHeader><DialogTitle>Nueva Colección</DialogTitle></DialogHeader>
-                        <Input value={newColl} onChange={e => setNewColl(e.target.value)} placeholder="Nombre de colección" className="rounded-xl" />
-                        <DialogFooter>
-                          <Button onClick={() => {
-                            if(newColl) {
-                              setCollections([...collections, newColl])
-                              setNewColl("")
-                            }
-                          }} className="rounded-xl">Guardar</Button>
-                        </DialogFooter>
+                        <DialogHeader><DialogTitle>Gestionar Colecciones</DialogTitle></DialogHeader>
+                        <div className="space-y-4 py-4">
+                          <div className="flex gap-2">
+                            <Input value={newColl} onChange={e => setNewColl(e.target.value)} placeholder="Nueva colección..." className="rounded-xl" />
+                            <Button onClick={() => { if(newColl) { setCollections([...collections, newColl]); setNewColl(""); } }} className="rounded-xl">Añadir</Button>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {collections.map(c => (
+                              <div key={c} className="bg-primary/10 text-primary px-3 py-1 rounded-full text-xs font-bold flex items-center gap-2">
+                                {c} <X className="w-3 h-3 cursor-pointer" onClick={() => setCollections(collections.filter(x => x !== c))} />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
                       </DialogContent>
                     </Dialog>
                   </div>
                   <Select value={form.collection} onValueChange={v => setForm({...form, collection: v})}>
-                    <SelectTrigger className="border-primary/20 h-11 rounded-xl">
+                    <SelectTrigger className="border-accent/20 h-11 rounded-xl">
                       <SelectValue placeholder="Seleccionar..." />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl">
@@ -221,11 +233,11 @@ export default function RegistryPage() {
 
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
-                  <Label className="text-[10px] uppercase tracking-[0.2em] font-black text-accent">Descripción Estética</Label>
+                  <Label className="text-[10px] uppercase tracking-[0.2em] font-black text-accent/70">Descripción Estética</Label>
                   <Button 
                     variant="secondary" 
                     size="sm" 
-                    className="h-7 text-[10px] bg-primary/10 text-primary hover:bg-primary/20 font-bold tracking-widest rounded-full"
+                    className="h-7 text-[10px] bg-primary text-white hover:bg-primary/90 font-bold tracking-widest rounded-full px-4"
                     onClick={handleAI}
                     disabled={loadingAI}
                   >
@@ -236,25 +248,25 @@ export default function RegistryPage() {
                   value={form.description}
                   onChange={e => setForm({...form, description: e.target.value})}
                   placeholder="Escribe sobre la tela, el corte o el estilo..." 
-                  className="min-h-[120px] border-primary/20 rounded-2xl resize-none"
+                  className="min-h-[120px] border-accent/20 rounded-2xl resize-none focus:ring-primary"
                 />
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border-none shadow-xl bg-white rounded-3xl overflow-hidden">
+          <Card className="border-none shadow-xl bg-white rounded-[2rem] overflow-hidden">
             <CardHeader className="bg-accent/5 border-b border-accent/10">
               <CardTitle className="text-lg text-accent font-bold">Stock y Precios</CardTitle>
             </CardHeader>
             <CardContent className="pt-8">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                 <div className="space-y-2">
-                  <Label className="text-[10px] uppercase font-black text-accent/70">CANTIDAD *</Label>
+                  <Label className="text-[10px] uppercase font-black text-primary tracking-widest">CANTIDAD *</Label>
                   <Input 
                     type="number" 
                     value={form.quantity}
                     onChange={e => setForm({...form, quantity: e.target.value})}
-                    className="border-accent/20 font-bold h-11 rounded-xl focus:ring-accent"
+                    className="border-primary/20 font-bold h-11 rounded-xl focus:ring-primary text-center text-lg"
                     placeholder="---"
                   />
                 </div>
@@ -264,7 +276,7 @@ export default function RegistryPage() {
                     type="number" 
                     value={form.priceFardo}
                     onChange={e => setForm({...form, priceFardo: e.target.value})}
-                    className="border-accent/20 h-11 rounded-xl"
+                    className="border-accent/20 h-11 rounded-xl text-center font-medium"
                     placeholder="---"
                   />
                 </div>
@@ -274,7 +286,7 @@ export default function RegistryPage() {
                     type="number" 
                     value={form.priceMayor}
                     onChange={e => setForm({...form, priceMayor: e.target.value})}
-                    className="border-accent/20 h-11 rounded-xl"
+                    className="border-accent/20 h-11 rounded-xl text-center font-medium"
                     placeholder="---"
                   />
                 </div>
@@ -284,7 +296,7 @@ export default function RegistryPage() {
                     type="number" 
                     value={form.priceUnidad}
                     onChange={e => setForm({...form, priceUnidad: e.target.value})}
-                    className="border-accent/20 h-11 rounded-xl"
+                    className="border-accent/20 h-11 rounded-xl text-center font-medium"
                     placeholder="---"
                   />
                 </div>
@@ -294,17 +306,17 @@ export default function RegistryPage() {
         </div>
 
         <div className="space-y-6">
-          <Card className="border-none shadow-xl bg-white rounded-3xl overflow-hidden">
+          <Card className="border-none shadow-xl bg-white rounded-[2rem] overflow-hidden">
             <CardHeader className="bg-primary/5">
-              <CardTitle className="text-lg text-primary flex justify-between items-center">
+              <CardTitle className="text-lg text-primary flex justify-between items-center font-bold">
                 Fotos
-                <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full">{images.length}/4</span>
+                <span className="text-[10px] bg-primary text-white px-3 py-1 rounded-full">{images.length}/4</span>
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-4">
               <div className="grid grid-cols-2 gap-4">
                 {images.map((img, idx) => (
-                  <div key={idx} className="relative aspect-square rounded-2xl overflow-hidden border-2 border-primary/10 group">
+                  <div key={idx} className="relative aspect-square rounded-2xl overflow-hidden border-2 border-primary/10 group shadow-md">
                     <Image src={img} alt="" fill className="object-cover" />
                     <button 
                       onClick={() => setImages(images.filter((_, i) => i !== idx))}
@@ -317,12 +329,12 @@ export default function RegistryPage() {
                 {images.length < 4 && (
                   <button 
                     onClick={addImage}
-                    className="aspect-square rounded-2xl border-2 border-dashed border-primary/20 flex flex-col items-center justify-center gap-2 text-primary/60 hover:text-primary hover:border-primary transition-all bg-primary/5 group"
+                    className="aspect-square rounded-2xl border-2 border-dashed border-accent/30 flex flex-col items-center justify-center gap-2 text-accent hover:text-primary hover:border-primary transition-all bg-accent/5 group"
                   >
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                    <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center group-hover:bg-primary/10 transition-colors">
                       <ImagePlus className="w-6 h-6" />
                     </div>
-                    <span className="text-[10px] font-black uppercase tracking-tighter">Subir Foto</span>
+                    <span className="text-[9px] font-black uppercase tracking-widest">Subir Foto</span>
                   </button>
                 )}
               </div>
@@ -330,7 +342,7 @@ export default function RegistryPage() {
           </Card>
 
           <Button 
-            className="w-full h-20 text-2xl font-headline shadow-2xl shadow-primary/40 rounded-[2rem] bg-gradient-to-tr from-primary via-primary to-accent hover:opacity-90 active:scale-[0.98] border-none" 
+            className="w-full h-20 text-2xl font-headline shadow-2xl shadow-primary/30 rounded-[2rem] bg-gradient-to-tr from-primary to-accent hover:opacity-90 active:scale-[0.98] border-none" 
             onClick={handleSave}
           >
             <Save className="w-7 h-7 mr-3" />

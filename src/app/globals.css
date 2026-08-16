@@ -4,34 +4,26 @@
 
 @layer base {
   :root {
-    --background: 270 30% 99%; /* Blanco con tinte lila muy suave */
+    --background: 210 20% 98%; /* Gris cemento muy claro */
     --foreground: 240 10% 3.9%;
     --card: 0 0% 100%;
     --card-foreground: 240 10% 3.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 3.9%;
-    --primary: 320 100% 50%; /* Fucsia vibrante */
+    --primary: 327 100% 60%; /* Fucsia vibrante */
     --primary-foreground: 0 0% 100%;
-    --secondary: 280 60% 92%; /* Lila suave */
-    --secondary-foreground: 280 60% 30%;
-    --muted: 202 50% 95%; /* Celeste muy pálido */
+    --secondary: 270 50% 95%; /* Lila suave */
+    --secondary-foreground: 270 50% 30%;
+    --muted: 210 20% 90%; /* Cemento suave */
     --muted-foreground: 240 3.8% 46.1%;
     --accent: 202 51% 68%; /* Celeste #87B8D4 */
     --accent-foreground: 0 0% 100%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 280 20% 90%;
-    --input: 280 20% 90%;
-    --ring: 320 100% 50%;
-    --radius: 1rem;
-    --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 280 20% 20%;
-    --sidebar-primary: 320 100% 50%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 202 51% 95%;
-    --sidebar-accent-foreground: 320 100% 50%;
-    --sidebar-border: 280 20% 94%;
-    --sidebar-ring: 320 100% 50%;
+    --border: 210 20% 90%;
+    --input: 210 20% 90%;
+    --ring: 327 100% 60%;
+    --radius: 1.25rem;
   }
 }
 
