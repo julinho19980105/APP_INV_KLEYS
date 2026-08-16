@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -14,7 +15,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Search, Filter, Eye, Edit2, ArrowDownRight, ArrowUpRight } from "lucide-react"
+import { Search, Filter, Eye, Edit2, ArrowDownRight, ArrowUpRight, RefreshCcw } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
 import { getSheetData } from "@/services/sheets-service"
@@ -26,21 +27,20 @@ export default function InventoryPage() {
   const [loading, setLoading] = React.useState(true)
   const [query, setQuery] = React.useState("")
 
-  React.useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true)
-      try {
-        const pData = await getSheetData('PRODUCTOS')
-        const mData = await getSheetData('MOVIMIENTOS')
-        setProducts(Array.isArray(pData) ? pData : [])
-        setMovements(Array.isArray(mData) ? mData : [])
-      } catch (error) {
-        console.error("Error cargando inventario:", error)
-        setProducts([])
-        setMovements([])
-      }
-      setLoading(false)
+  const fetchData = async (force = false) => {
+    setLoading(true)
+    try {
+      const pData = await getSheetData('PRODUCTOS', force)
+      const mData = await getSheetData('MOVIMIENTOS', force)
+      setProducts(Array.isArray(pData) ? pData : [])
+      setMovements(Array.isArray(mData) ? mData : [])
+    } catch (error) {
+      console.error("Error cargando inventario:", error)
     }
+    setLoading(false)
+  }
+
+  React.useEffect(() => {
     fetchData()
   }, [])
 
@@ -61,12 +61,21 @@ export default function InventoryPage() {
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-accent" />
             <Input 
               placeholder="Buscar prenda..." 
-              className="pl-9 rounded-xl border-accent/20"
+              className="pl-9 rounded-xl border-accent/20 bg-white"
               value={query}
               onChange={e => setQuery(e.target.value)}
             />
           </div>
-          <Button variant="outline" size="icon" className="rounded-xl border-accent text-accent">
+          <Button 
+            variant="outline" 
+            size="icon" 
+            className="rounded-xl border-accent text-accent bg-white"
+            onClick={() => fetchData(true)}
+            disabled={loading}
+          >
+            <RefreshCcw className={cn("w-4 h-4", loading && "animate-spin")} />
+          </Button>
+          <Button variant="outline" size="icon" className="rounded-xl border-accent text-accent bg-white">
             <Filter className="w-4 h-4" />
           </Button>
         </div>
@@ -80,8 +89,8 @@ export default function InventoryPage() {
         </TabsList>
         
         <TabsContent value="all" className="border rounded-[2rem] overflow-hidden bg-card shadow-xl border-none min-h-[400px]">
-          {loading ? (
-            <div className="p-20 text-center text-accent font-bold animate-pulse">CARGANDO DATOS...</div>
+          {loading && products.length === 0 ? (
+            <div className="p-20 text-center text-accent font-bold animate-pulse">CARGANDO DATOS DESDE SHEETS...</div>
           ) : (
             <Table>
               <TableHeader>
@@ -142,7 +151,7 @@ export default function InventoryPage() {
                 )) : (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-20 text-muted-foreground font-medium">
-                      No se encontraron prendas en el inventario.
+                      {loading ? "Actualizando lista..." : "No se encontraron prendas en el inventario."}
                     </TableCell>
                   </TableRow>
                 )}

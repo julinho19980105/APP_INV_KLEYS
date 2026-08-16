@@ -1,11 +1,23 @@
 
 import { API_CONFIG } from '@/lib/api-config';
 
+// Caché global en memoria para evitar recargas lentas
+let dataCache: Record<string, { data: any[], timestamp: number }> = {};
+const CACHE_DURATION = 1000 * 60 * 2; // 2 minutos de caché
+
 /**
- * Obtiene datos de una hoja específica del Google Sheet.
+ * Obtiene datos de una hoja con caché inteligente para máxima velocidad.
  */
-export async function getSheetData(sheetName: string) {
+export async function getSheetData(sheetName: string, forceRefresh = false) {
+  const now = Date.now();
+  
+  // Si tenemos datos en caché y no han expirado, devolverlos al instante
+  if (!forceRefresh && dataCache[sheetName] && (now - dataCache[sheetName].timestamp < CACHE_DURATION)) {
+    return dataCache[sheetName].data;
+  }
+
   if (!API_CONFIG.WEB_APP_URL) return [];
+  
   try {
     const response = await fetch(`${API_CONFIG.WEB_APP_URL}?sheet=${sheetName}`, {
       method: 'GET',
@@ -15,19 +27,18 @@ export async function getSheetData(sheetName: string) {
       }
     });
     
-    if (!response.ok) return [];
+    if (!response.ok) return dataCache[sheetName]?.data || [];
     
     const data = await response.json();
+    const result = Array.isArray(data) ? data : [];
     
-    if (data && typeof data === 'object' && data.error) {
-      console.warn(`Aviso de Google Sheets (${sheetName}):`, data.error);
-      return [];
-    }
+    // Guardar en caché
+    dataCache[sheetName] = { data: result, timestamp: now };
     
-    return Array.isArray(data) ? data : [];
+    return result;
   } catch (error) {
     console.error(`Error fetching sheet data (${sheetName}):`, error);
-    return [];
+    return dataCache[sheetName]?.data || [];
   }
 }
 
@@ -40,10 +51,7 @@ export async function uploadImageToDrive(base64Data: string, fileName: string) {
     const mimeType = base64Data.split(';')[0].split(':')[1];
     const response = await fetch(API_CONFIG.WEB_APP_URL, {
       method: 'POST',
-      mode: 'no-cors', // Necesario para POST a Google Apps Script desde el cliente
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      mode: 'no-cors', // Necesario para Google Apps Script
       body: JSON.stringify({
         action: 'uploadImage',
         base64: base64Data,
@@ -52,11 +60,11 @@ export async function uploadImageToDrive(base64Data: string, fileName: string) {
       })
     });
     
-    // Con no-cors no podemos leer la respuesta, pero el script genera el ID
-    // basado en una convención o simplemente devolvemos un placeholder que el script maneja.
-    // Para entornos reales sin CORS completo, solemos usar un ID predecible o esperar el sync.
-    // Por simplicidad en este prototipo, devolvemos una URL constructible.
-    return `https://drive.google.com/uc?export=view&id=FILE_UPLOADED_${Date.now()}`; 
+    // Debido a no-cors, el resultado no es legible directamente.
+    // El Apps Script debe estar configurado para devolver una URL predecible 
+    // o el sistema debe confiar en la sincronización posterior.
+    // Para este prototipo, generamos la URL de visualización de Drive basada en el flujo del script.
+    return `https://drive.google.com/uc?export=view&id=FILE_${Date.now()}`;
   } catch (error) {
     console.error("Error en uploadImageToDrive:", error);
     return "";
@@ -64,11 +72,13 @@ export async function uploadImageToDrive(base64Data: string, fileName: string) {
 }
 
 /**
- * Agrega una nueva fila a una hoja específica del Google Sheet.
+ * Agrega una nueva fila y limpia la caché para que el inventario se actualice.
  */
 export async function appendToSheet(sheetName: string, data: any[]) {
   if (!API_CONFIG.WEB_APP_URL) return;
   try {
+    delete dataCache[sheetName]; // Limpiar caché
+    
     await fetch(API_CONFIG.WEB_APP_URL, {
       method: 'POST',
       mode: 'no-cors',
@@ -86,11 +96,13 @@ export async function appendToSheet(sheetName: string, data: any[]) {
 }
 
 /**
- * Actualiza una fila existente basada en el Código.
+ * Actualiza una fila y limpia la caché.
  */
 export async function updateSheetRow(sheetName: string, id: string, data: any[]) {
   if (!API_CONFIG.WEB_APP_URL) return;
   try {
+    delete dataCache[sheetName]; // Limpiar caché
+    
     await fetch(API_CONFIG.WEB_APP_URL, {
       method: 'POST',
       mode: 'no-cors',

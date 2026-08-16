@@ -62,6 +62,7 @@ export default function RegistryPage() {
 
   React.useEffect(() => {
     const fetchDBData = async () => {
+      // Usamos getSheetData que tiene caché para que cargue al instante
       const data = await getSheetData('PRODUCTOS');
       if (data && data.length > 0) {
         const dbCats = Array.from(new Set(data.map((p: any) => p.Categoria).filter(Boolean)));
@@ -247,7 +248,7 @@ export default function RegistryPage() {
         setLocalImagePreviews([])
       }
     } catch (e: any) {
-      toast({ title: "Error", description: "Error al sincronizar con Google Sheets.", variant: "destructive" })
+      toast({ title: "Error", description: "Error al sincronizar con Google Drive y Sheets.", variant: "destructive" })
     } finally {
       setSaving(false)
     }
@@ -264,7 +265,7 @@ export default function RegistryPage() {
           <p className="text-muted-foreground font-medium uppercase tracking-widest text-[10px]">Gestión Maestra de Stock</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="border-accent text-accent hover:bg-accent/10 rounded-xl" onClick={() => router.push('/inventory')}>
+          <Button variant="outline" className="border-accent text-accent bg-white hover:bg-accent/10 rounded-xl" onClick={() => router.push('/inventory')}>
             <History className="w-4 h-4 mr-2" />
             Ver Inventario
           </Button>
@@ -412,7 +413,7 @@ export default function RegistryPage() {
                     type="number" 
                     value={form.priceFardo}
                     onChange={e => setForm({...form, priceFardo: e.target.value})}
-                    className={cn("border-accent/20 h-14 rounded-[1.25rem] text-center font-black text-xl text-accent", priceError && "border-destructive")}
+                    className={cn("border-accent/20 h-14 rounded-[1.25rem] text-center font-black text-xl text-accent bg-white", priceError && "border-destructive")}
                     placeholder=""
                   />
                 </div>
@@ -422,7 +423,7 @@ export default function RegistryPage() {
                     type="number" 
                     value={form.priceMayor}
                     onChange={e => setForm({...form, priceMayor: e.target.value})}
-                    className={cn("border-accent/20 h-14 rounded-[1.25rem] text-center font-black text-xl text-accent", priceError && "border-destructive")}
+                    className={cn("border-accent/20 h-14 rounded-[1.25rem] text-center font-black text-xl text-accent bg-white", priceError && "border-destructive")}
                     placeholder=""
                   />
                 </div>
@@ -432,7 +433,7 @@ export default function RegistryPage() {
                     type="number" 
                     value={form.priceUnidad}
                     onChange={e => setForm({...form, priceUnidad: e.target.value})}
-                    className={cn("border-accent/20 h-14 rounded-[1.25rem] text-center font-black text-xl text-accent", priceError && "border-destructive")}
+                    className={cn("border-accent/20 h-14 rounded-[1.25rem] text-center font-black text-xl text-accent bg-white", priceError && "border-destructive")}
                     placeholder=""
                   />
                 </div>
