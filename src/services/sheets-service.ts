@@ -70,3 +70,26 @@ export async function appendToSheet(sheetName: string, data: any[]) {
     throw error;
   }
 }
+
+/**
+ * Actualiza una fila existente basada en el Código.
+ */
+export async function updateSheetRow(sheetName: string, id: string, data: any[]) {
+  if (!API_CONFIG.WEB_APP_URL) return;
+  try {
+    const response = await fetch(API_CONFIG.WEB_APP_URL, {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'update',
+        sheet: sheetName,
+        id: id,
+        data: data
+      })
+    });
+    if (!response.ok) throw new Error('Error al actualizar en el servidor');
+    return await response.json();
+  } catch (error) {
+    console.error(`Error updating sheet (${sheetName}):`, error);
+    throw error;
+  }
+}

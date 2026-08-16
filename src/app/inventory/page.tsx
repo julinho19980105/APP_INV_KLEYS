@@ -1,7 +1,7 @@
-
 "use client"
 
 import * as React from "react"
+import { useRouter } from "next/navigation"
 import { 
   Table, 
   TableBody, 
@@ -20,6 +20,7 @@ import Image from "next/image"
 import { getSheetData } from "@/services/sheets-service"
 
 export default function InventoryPage() {
+  const router = useRouter()
   const [products, setProducts] = React.useState<any[]>([])
   const [movements, setMovements] = React.useState<any[]>([])
   const [loading, setLoading] = React.useState(true)
@@ -127,7 +128,14 @@ export default function InventoryPage() {
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <Button variant="ghost" size="icon" className="h-9 w-9 text-accent hover:bg-accent/10 rounded-xl"><Eye className="w-4 h-4" /></Button>
-                        <Button variant="ghost" size="icon" className="h-9 w-9 text-primary hover:bg-primary/10 rounded-xl"><Edit2 className="w-4 h-4" /></Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-9 w-9 text-primary hover:bg-primary/10 rounded-xl"
+                          onClick={() => router.push(`/registry?edit=${p.Codigo}`)}
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>

@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useSearchParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -23,11 +24,15 @@ import {
 import { ImagePlus, X, Save, History, Edit3, BadgeInfo, AlertCircle, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { generateProductDescription } from "@/ai/flows/generate-product-description"
-import { appendToSheet, getSheetData, uploadImageToDrive } from "@/services/sheets-service"
+import { appendToSheet, getSheetData, uploadImageToDrive, updateSheetRow } from "@/services/sheets-service"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
 
 export default function RegistryPage() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const editId = searchParams.get('edit')
+  
   const { toast } = useToast()
   const [loadingAI, setLoadingAI] = React.useState(false)
   const [saving, setSaving] = React.useState(false)
@@ -51,7 +56,7 @@ export default function RegistryPage() {
     priceUnidad: "",
   })
 
-  // Almacenamos base64 solo para previsualización local, no para el sheet
+  // Almacenamos base64 o URLs de Drive para previsualización
   const [localImagePreviews, setLocalImagePreviews] = React.useState<string[]>([])
   const [priceError, setPriceError] = React.useState<string | null>(null)
 
@@ -59,24 +64,45 @@ export default function RegistryPage() {
     const fetchDBData = async () => {
       const data = await getSheetData('PRODUCTOS');
       if (data && data.length > 0) {
-        const lastRow = data[data.length - 1];
-        const lastCode = lastRow.Codigo;
-        if (lastCode && lastCode.startsWith('P-')) {
-          const num = parseInt(lastCode.split('-')[1]);
-          if (!isNaN(num)) {
-            setForm(prev => ({ ...prev, code: `P-${String(num + 1).padStart(3, '0')}` }));
-          }
-        }
-
+        // Cargar categorías y colecciones únicas
         const dbCats = Array.from(new Set(data.map((p: any) => p.Categoria).filter(Boolean)));
         const dbColls = Array.from(new Set(data.map((p: any) => p.Coleccion).filter(Boolean)));
-        
         if (dbCats.length > 0) setCategories(prev => Array.from(new Set([...prev, ...dbCats as string[]])));
         if (dbColls.length > 0) setCollections(prev => Array.from(new Set([...prev, ...dbColls as string[]])));
+
+        if (editId) {
+          // Modo edición: cargar producto específico
+          const product = data.find((p: any) => p.Codigo === editId);
+          if (product) {
+            setForm({
+              name: product.Nombre || "",
+              code: product.Codigo || "",
+              category: product.Categoria || "",
+              collection: product.Coleccion || "",
+              description: product.Descripcion || "",
+              quantity: String(product.Stock || ""),
+              priceFardo: String(product.PrecioFardo || ""),
+              priceMayor: String(product.PrecioMayor || ""),
+              priceUnidad: String(product.PrecioUnidad || ""),
+            });
+            const imgs = [product.Imagen1, product.Imagen2, product.Imagen3, product.Imagen4].filter(Boolean);
+            setLocalImagePreviews(imgs);
+          }
+        } else {
+          // Modo registro: sugerir código correlativo
+          const lastRow = data[data.length - 1];
+          const lastCode = lastRow.Codigo;
+          if (lastCode && lastCode.startsWith('P-')) {
+            const num = parseInt(lastCode.split('-')[1]);
+            if (!isNaN(num)) {
+              setForm(prev => ({ ...prev, code: `P-${String(num + 1).padStart(3, '0')}` }));
+            }
+          }
+        }
       }
     };
     fetchDBData();
-  }, []);
+  }, [editId]);
 
   React.useEffect(() => {
     const f = Number(form.priceFardo || 0);
@@ -95,7 +121,6 @@ export default function RegistryPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Límite aumentado a 3MB
       if (file.size > 3 * 1024 * 1024) {
         toast({ title: "Archivo muy pesado", description: "La imagen debe pesar menos de 3MB", variant: "destructive" });
         return;
@@ -143,21 +168,26 @@ export default function RegistryPage() {
     try {
       const timestamp = new Date().toISOString();
       
-      // Fase 1: Subir imágenes a Drive y obtener URLs
+      // Procesar imágenes: subir solo las nuevas (base64) a Drive
       const driveImageUrls: string[] = [];
       for (let i = 0; i < localImagePreviews.length; i++) {
-        const url = await uploadImageToDrive(localImagePreviews[i], `${form.code}_img_${i+1}.jpg`);
-        driveImageUrls.push(url);
+        const item = localImagePreviews[i];
+        if (item.startsWith('data:image')) {
+          const url = await uploadImageToDrive(item, `${form.code}_img_${Date.now()}_${i+1}.jpg`);
+          driveImageUrls.push(url);
+        } else {
+          // Ya es una URL de Drive
+          driveImageUrls.push(item);
+        }
       }
 
-      // Asegurar que siempre enviamos 4 posiciones para las imágenes
       const img1 = driveImageUrls[0] || "";
       const img2 = driveImageUrls[1] || "";
       const img3 = driveImageUrls[2] || "";
       const img4 = driveImageUrls[3] || "";
 
-      // Fase 2: Guardar en PRODUCTOS (con links de Drive)
-      const rowData = [
+      // Datos para PRODUCTOS
+      const productRow = [
         timestamp,
         form.code,
         form.name,
@@ -173,10 +203,9 @@ export default function RegistryPage() {
         img4,
         form.description
       ];
-      await appendToSheet('PRODUCTOS', rowData);
-      
-      // Fase 3: Guardar en CATALOGO_WEB
-      const catalogData = [
+
+      // Datos para CATALOGO_WEB
+      const catalogRow = [
         form.code,
         form.name,
         form.category,
@@ -190,37 +219,50 @@ export default function RegistryPage() {
         form.collection,
         form.description
       ];
-      await appendToSheet('CATALOGO_WEB', catalogData);
 
-      // Fase 4: Registrar movimiento inicial
-      await appendToSheet('MOVIMIENTOS', [
-        Math.random().toString(36).substr(2, 9),
-        timestamp,
-        form.code,
-        'in',
-        form.quantity,
-        'Registro inicial de prenda'
-      ]);
+      if (editId) {
+        // ACTUALIZAR
+        await updateSheetRow('PRODUCTOS', form.code, productRow);
+        await updateSheetRow('CATALOGO_WEB', form.code, catalogRow);
+        
+        toast({ title: "¡Actualizado!", description: `Prenda ${form.code} modificada con éxito.` })
+        router.push('/inventory')
+      } else {
+        // REGISTRAR NUEVO
+        await appendToSheet('PRODUCTOS', productRow);
+        await appendToSheet('CATALOGO_WEB', catalogRow);
+        
+        // Registrar movimiento inicial
+        await appendToSheet('MOVIMIENTOS', [
+          Math.random().toString(36).substr(2, 9),
+          timestamp,
+          form.code,
+          'in',
+          form.quantity,
+          'Registro inicial de prenda'
+        ]);
 
-      toast({ 
-        title: "¡Guardado con éxito!", 
-        description: `Prenda ${form.code} registrada y fotos subidas a Drive.`,
-        className: "bg-primary text-white" 
-      })
-      
-      const nextNum = parseInt(form.code.split('-')[1]) + 1;
-      setForm({
-        name: "",
-        category: form.category, // Mantenemos categoría para facilidad
-        collection: form.collection,
-        description: "",
-        quantity: "",
-        priceFardo: "",
-        priceMayor: "",
-        priceUnidad: "",
-        code: `P-${String(nextNum).padStart(3, '0')}`
-      })
-      setLocalImagePreviews([])
+        toast({ 
+          title: "¡Guardado!", 
+          description: `Prenda ${form.code} registrada correctamente.`,
+          className: "bg-primary text-white" 
+        })
+        
+        // Limpiar para siguiente registro
+        const nextNum = parseInt(form.code.split('-')[1]) + 1;
+        setForm({
+          name: "",
+          category: form.category,
+          collection: form.collection,
+          description: "",
+          quantity: "",
+          priceFardo: "",
+          priceMayor: "",
+          priceUnidad: "",
+          code: `P-${String(nextNum).padStart(3, '0')}`
+        })
+        setLocalImagePreviews([])
+      }
     } catch (e: any) {
       toast({ title: "Error", description: e.message || "Error al conectar con la base de datos.", variant: "destructive" })
     } finally {
@@ -233,15 +275,22 @@ export default function RegistryPage() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
         <div>
           <h1 className="text-4xl font-headline font-bold text-primary flex items-center gap-3">
-            Registrar Prenda
+            {editId ? 'Editar Prenda' : 'Registrar Prenda'}
             <BadgeInfo className="text-accent w-6 h-6" />
           </h1>
           <p className="text-muted-foreground font-medium uppercase tracking-widest text-[10px]">Catálogo Maestro StiloStack</p>
         </div>
-        <Button variant="outline" className="border-accent text-accent hover:bg-accent/10 rounded-xl">
-          <History className="w-4 h-4 mr-2" />
-          Historial
-        </Button>
+        <div className="flex gap-2">
+          {editId && (
+            <Button variant="ghost" className="rounded-xl text-muted-foreground" onClick={() => router.push('/inventory')}>
+              Cancelar
+            </Button>
+          )}
+          <Button variant="outline" className="border-accent text-accent hover:bg-accent/10 rounded-xl" onClick={() => router.push('/inventory')}>
+            <History className="w-4 h-4 mr-2" />
+            Inventario
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -473,18 +522,18 @@ export default function RegistryPage() {
             {saving ? (
               <>
                 <Loader2 className="w-7 h-7 mr-3 animate-spin" />
-                SUBIENDO A DRIVE...
+                SINCRONIZANDO...
               </>
             ) : (
               <>
                 <Save className="w-7 h-7 mr-3" />
-                GUARDAR PRENDA
+                {editId ? 'ACTUALIZAR PRENDA' : 'GUARDAR PRENDA'}
               </>
             )}
           </Button>
           
           <div className="text-[9px] text-center text-muted-foreground uppercase tracking-[0.3em] font-black px-6 leading-relaxed">
-            * Fotos se guardarán en Drive y Links en Sheets *
+            * Las imágenes se guardan en Drive y los datos en Sheets *
           </div>
         </div>
       </div>
