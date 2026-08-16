@@ -1,38 +1,44 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 6%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 6%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 262 83% 70%;
+    --background: 210 20% 98%; /* Cemento muy claro */
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 330 81% 60%; /* Rosa vibrante */
     --primary-foreground: 0 0% 100%;
-    --secondary: 222 15% 20%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 222 15% 15%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 222 15% 20%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
+    --secondary: 330 30% 96%; /* Rosa muy suave */
+    --secondary-foreground: 330 81% 30%;
+    --muted: 210 20% 90%; /* Cemento medio */
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 330 81% 95%;
+    --accent-foreground: 330 81% 40%;
+    --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 222 15% 20%;
-    --input: 222 15% 20%;
-    --ring: 262 83% 70%;
-    --radius: 0.75rem;
-    --sidebar-background: 240 10% 4.5%;
-    --sidebar-foreground: 215 20% 85%;
-    --sidebar-primary: 262 83% 70%;
+    --border: 210 20% 90%;
+    --input: 210 20% 90%;
+    --ring: 330 81% 60%;
+    --radius: 1rem;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 330 81% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 15% 20%;
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 222 15% 20%;
-    --sidebar-ring: 262 83% 70%;
+    --sidebar-accent: 330 81% 96%;
+    --sidebar-accent-foreground: 330 81% 40%;
+    --sidebar-border: 210 20% 90%;
+    --sidebar-ring: 330 81% 60%;
+  }
+  .dark {
+    /* Mantendremos un look claro incluso en dark mode por la petición de colores vivos y cemento */
+    --background: 210 20% 96%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --primary: 330 81% 60%;
   }
 }
 
@@ -51,4 +57,9 @@
 
 .font-body {
   font-family: var(--font-inter), sans-serif;
+}
+
+/* Botones más redondos y llamativos */
+button {
+  @apply transition-transform active:scale-95;
 }
