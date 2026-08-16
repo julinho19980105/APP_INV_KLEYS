@@ -24,12 +24,13 @@ import {
 import { ImagePlus, X, Save, History, Edit3, BadgeInfo } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { generateProductDescription } from "@/ai/flows/generate-product-description"
-import { appendToSheet } from "@/services/sheets-service"
+import { appendToSheet, getSheetData } from "@/services/sheets-service"
 import Image from "next/image"
 
 export default function RegistryPage() {
   const { toast } = useToast()
   const [loadingAI, setLoadingAI] = React.useState(false)
+  const [saving, setSaving] = React.useState(false)
   
   const [categories, setCategories] = React.useState(["Sacos", "Pantalones", "Vestidos", "Blusas"])
   const [collections, setCollections] = React.useState(["Invierno 2024", "Verano 2025"])
@@ -50,6 +51,22 @@ export default function RegistryPage() {
   })
 
   const [images, setImages] = React.useState<string[]>([])
+
+  // Cargar el último código al montar
+  React.useEffect(() => {
+    const fetchLastCode = async () => {
+      const data = await getSheetData('PRODUCTOS');
+      if (data && data.length > 0) {
+        const lastRow = data[data.length - 1];
+        const lastCode = lastRow.Codigo;
+        if (lastCode && lastCode.startsWith('P-')) {
+          const num = parseInt(lastCode.split('-')[1]);
+          setForm(prev => ({ ...prev, code: `P-${String(num + 1).padStart(3, '0')}` }));
+        }
+      }
+    };
+    fetchLastCode();
+  }, []);
 
   const handleAI = async () => {
     if (!form.name || !form.category) {
@@ -80,42 +97,58 @@ export default function RegistryPage() {
       })
       return
     }
-    
-    // Guardar en Sheet
-    const rowData = [
-      new Date().toISOString(),
-      form.code,
-      form.name,
-      form.category,
-      form.collection,
-      form.quantity,
-      form.priceFardo,
-      form.priceMayor,
-      form.priceUnidad,
-      images[0] || ""
-    ];
 
-    await appendToSheet('PRODUCTOS', rowData);
-    
-    toast({ 
-      title: "¡Guardado con éxito!", 
-      description: `La prenda ${form.code} ha sido registrada en el Sheet.`,
-      className: "bg-primary text-white" 
-    })
-    
-    setForm(prev => ({
-      ...prev,
-      name: "",
-      category: "",
-      collection: "",
-      description: "",
-      quantity: "",
-      priceFardo: "",
-      priceMayor: "",
-      priceUnidad: "",
-      code: `P-${String(parseInt(prev.code.split('-')[1]) + 1).padStart(3, '0')}`
-    }))
-    setImages([])
+    setSaving(true)
+    try {
+      const rowData = [
+        new Date().toISOString(),
+        form.code,
+        form.name,
+        form.category,
+        form.collection,
+        form.quantity,
+        form.priceFardo,
+        form.priceMayor,
+        form.priceUnidad,
+        images[0] || ""
+      ];
+
+      await appendToSheet('PRODUCTOS', rowData);
+      
+      // Registrar movimiento inicial de ingreso
+      await appendToSheet('MOVIMIENTOS', [
+        Math.random().toString(36).substr(2, 9),
+        new Date().toISOString(),
+        form.code,
+        'in',
+        form.quantity,
+        'Registro inicial de prenda'
+      ]);
+
+      toast({ 
+        title: "¡Guardado con éxito!", 
+        description: `La prenda ${form.code} ha sido registrada en el Sheet.`,
+        className: "bg-primary text-white" 
+      })
+      
+      const nextNum = parseInt(form.code.split('-')[1]) + 1;
+      setForm({
+        name: "",
+        category: "",
+        collection: "",
+        description: "",
+        quantity: "",
+        priceFardo: "",
+        priceMayor: "",
+        priceUnidad: "",
+        code: `P-${String(nextNum).padStart(3, '0')}`
+      })
+      setImages([])
+    } catch (e) {
+      toast({ title: "Error", description: "No se pudo guardar la prenda en el Sheet.", variant: "destructive" })
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -137,7 +170,7 @@ export default function RegistryPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
           <Card className="border-none shadow-xl bg-white overflow-hidden rounded-[2.5rem]">
-            <CardHeader className="bg-gradient-to-r from-accent/10 via-white to-white border-b border-accent/10">
+            <CardHeader className="bg-gradient-to-r from-accent/10 via-white to-white border-b border-accent/10 py-6">
               <div className="flex items-center justify-between w-full">
                 <CardTitle className="text-lg text-accent flex items-center gap-2">
                   <Edit3 className="w-5 h-5" /> Datos del Producto
@@ -247,7 +280,7 @@ export default function RegistryPage() {
                   value={form.description}
                   onChange={e => setForm({...form, description: e.target.value})}
                   placeholder="Escribe sobre la tela, el corte o el estilo..." 
-                  className="min-h-[120px] border-accent/20 rounded-2xl resize-none focus:ring-primary"
+                  className="min-h-[120px] border-accent/20 rounded-2xl resize-none focus:ring-primary p-4"
                 />
               </div>
             </CardContent>
@@ -343,9 +376,10 @@ export default function RegistryPage() {
           <Button 
             className="w-full h-20 text-2xl font-headline shadow-2xl shadow-primary/30 rounded-[2rem] bg-gradient-to-tr from-primary to-accent hover:opacity-90 active:scale-[0.98] border-none" 
             onClick={handleSave}
+            disabled={saving}
           >
             <Save className="w-7 h-7 mr-3" />
-            GUARDAR PRENDA
+            {saving ? "GUARDANDO..." : "GUARDAR PRENDA"}
           </Button>
           
           <div className="text-[9px] text-center text-muted-foreground uppercase tracking-[0.3em] font-black px-6 leading-relaxed">
