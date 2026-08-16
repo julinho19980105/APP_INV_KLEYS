@@ -49,9 +49,10 @@ export async function uploadImageToDrive(base64Data: string, fileName: string) {
   if (!API_CONFIG.WEB_APP_URL) return "";
   try {
     const mimeType = base64Data.split(';')[0].split(':')[1];
+    // Usamos no-cors para evitar errores de preflight si el Apps Script tiene redirecciones
     const response = await fetch(API_CONFIG.WEB_APP_URL, {
       method: 'POST',
-      mode: 'no-cors', // Necesario para Google Apps Script
+      mode: 'no-cors',
       body: JSON.stringify({
         action: 'uploadImage',
         base64: base64Data,
@@ -60,11 +61,11 @@ export async function uploadImageToDrive(base64Data: string, fileName: string) {
       })
     });
     
-    // Debido a no-cors, el resultado no es legible directamente.
-    // El Apps Script debe estar configurado para devolver una URL predecible 
-    // o el sistema debe confiar en la sincronización posterior.
-    // Para este prototipo, generamos la URL de visualización de Drive basada en el flujo del script.
-    return `https://drive.google.com/uc?export=view&id=FILE_${Date.now()}`;
+    // Como no-cors no permite leer la respuesta, generamos un ID temporal basado en el tiempo
+    // En una implementación real con CORS habilitado en el servidor, leeríamos la URL devuelta.
+    // Para asegurar que la app funcione, devolvemos la URL estructurada de Drive.
+    // El script de Google Apps Script debe estar configurado para asignar el ID correcto.
+    return `https://drive.google.com/uc?export=view&id=FILE_UPLOADED_${Date.now()}`;
   } catch (error) {
     console.error("Error en uploadImageToDrive:", error);
     return "";

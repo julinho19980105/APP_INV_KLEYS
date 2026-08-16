@@ -62,13 +62,12 @@ export default function RegistryPage() {
 
   React.useEffect(() => {
     const fetchDBData = async () => {
-      // Usamos getSheetData que tiene caché para que cargue al instante
       const data = await getSheetData('PRODUCTOS');
       if (data && data.length > 0) {
-        const dbCats = Array.from(new Set(data.map((p: any) => p.Categoria).filter(Boolean)));
-        const dbColls = Array.from(new Set(data.map((p: any) => p.Coleccion).filter(Boolean)));
-        if (dbCats.length > 0) setCategories(prev => Array.from(new Set([...prev, ...dbCats as string[]])));
-        if (dbColls.length > 0) setCollections(prev => Array.from(new Set([...prev, ...dbColls as string[]])));
+        const dbCats = Array.from(new Set(data.map((p: any) => p.Categoria).filter(Boolean))) as string[];
+        const dbColls = Array.from(new Set(data.map((p: any) => p.Coleccion).filter(Boolean))) as string[];
+        if (dbCats.length > 0) setCategories(prev => Array.from(new Set([...prev, ...dbCats])));
+        if (dbColls.length > 0) setCollections(prev => Array.from(new Set([...prev, ...dbColls])));
 
         if (editId) {
           const product = data.find((p: any) => p.Codigo === editId);
