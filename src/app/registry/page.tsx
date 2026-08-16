@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -24,11 +25,12 @@ import {
 import { ImagePlus, X, Save, History, Loader2, Sparkles, Settings2, Edit3, Plus, AlertCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useFirestore, useDoc, useCollection } from "@/firebase"
-import { doc, setDoc, collection, query, orderBy, serverTimestamp, updateDoc, addDoc, getDocs, where } from "firebase/firestore"
+import { doc, setDoc, collection, query, orderBy, serverTimestamp, updateDoc, addDoc, getDocs,强化, where } from "firebase/firestore"
 import { uploadImageToDrive } from "@/services/sheets-service"
 import Image from "next/image"
 import { errorEmitter } from '@/firebase/error-emitter'
 import { FirestorePermissionError } from '@/firebase/errors'
+import { cn } from "@/lib/utils"
 
 const DRAFT_KEY = "stilostack_registry_draft"
 
@@ -67,7 +69,6 @@ export default function RegistryPage() {
   const [newItemName, setNewItemName] = React.useState("")
   const [editingItem, setEditingItem] = React.useState<{id: string, name: string} | null>(null)
 
-  // Generar código P-001 si es nuevo
   React.useEffect(() => {
     if (editingProduct) {
       setForm({
@@ -87,8 +88,7 @@ export default function RegistryPage() {
       if (draft && !editId) {
         setForm(JSON.parse(draft))
       } else if (!editId && !form.code) {
-        // Generar un código tentativo P-XXX basado en un timestamp corto si no hay productos
-        setForm(prev => ({ ...prev, code: `P-${Math.floor(100 + Math.random() * 900)}` }))
+        setForm(prev => ({ ...prev, code: `P-001` }))
       }
     }
   }, [editingProduct, editId])
@@ -120,9 +120,9 @@ export default function RegistryPage() {
     addDoc(collection(db, colName), { name: newItemName.trim() })
       .then(() => {
         setNewItemName("")
-        toast({ title: "Agregado", description: "Se guardó correctamente en la base de datos." })
+        toast({ title: "Agregado", description: "Se guardó correctamente." })
       })
-      .catch((err) => {
+      .catch(() => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({ path: colName, operation: 'create' }))
       })
   }
@@ -130,22 +130,11 @@ export default function RegistryPage() {
   const handleRenameItem = async () => {
     if (!db || !manageType || !editingItem || !editingItem.name.trim()) return
     const colName = manageType === 'category' ? 'categories' : 'collections'
-    const oldName = categories.find(c => c.id === editingItem.id)?.name || collectionsData.find(c => c.id === editingItem.id)?.name
     const itemRef = doc(db, colName, editingItem.id)
-    
     updateDoc(itemRef, { name: editingItem.name.trim() })
-      .then(async () => {
-        // Opcional: Actualizar todos los productos que tengan este nombre antiguo (esto es pesado pero útil)
-        if (oldName) {
-          const productsRef = collection(db, "products")
-          const q = query(productsRef, where(manageType === 'category' ? "category" : "collection", "==", oldName))
-          const querySnapshot = await getDocs(q)
-          querySnapshot.forEach((docSnap) => {
-            updateDoc(docSnap.ref, { [manageType === 'category' ? "category" : "collection"]: editingItem.name.trim() })
-          })
-        }
+      .then(() => {
         setEditingItem(null)
-        toast({ title: "Actualizado", description: "Nombre modificado en todos los registros." })
+        toast({ title: "Actualizado", description: "Nombre modificado correctamente." })
       })
       .catch(() => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({ path: itemRef.path, operation: 'update' }))
@@ -153,14 +142,13 @@ export default function RegistryPage() {
   }
 
   const handleSave = async () => {
-    if (!db || !form.name || !form.category || !form.collection || !form.stock) return
+    if (!db || !isFormValid) return
     
     setSaving(true)
     try {
       const imageUrls: string[] = []
       for (const img of localImagePreviews) {
         if (img.file) {
-          // Intentar subir a Drive. Si falla por CORS, usamos el base64 como fallback temporal para que el usuario vea ALGO
           const driveUrl = await uploadImageToDrive(img.url, `${form.name}_${Date.now()}`)
           imageUrls.push(driveUrl || img.url)
         } else {
@@ -186,7 +174,7 @@ export default function RegistryPage() {
       setDoc(pRef, productData, { merge: true })
         .then(() => {
           if (!editId) localStorage.removeItem(DRAFT_KEY)
-          toast({ title: "Guardado Exitoso", description: "La prenda se ha registrado correctamente en Firestore." })
+          toast({ title: "Guardado Exitoso", description: "Prenda registrada en el inventario." })
           router.push('/inventory')
         })
         .catch(() => {
@@ -202,27 +190,27 @@ export default function RegistryPage() {
   const priceError = form.priceFardo && form.priceMayor && form.priceUnidad && 
     !(Number(form.priceFardo) < Number(form.priceMayor) && Number(form.priceMayor) < Number(form.priceUnidad))
 
-  const isFormValid = form.name && form.category && form.collection && form.stock && !priceError
+  const isFormValid = form.name && form.category && form.collection && form.stock !== "" && !priceError
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8 pb-20 animate-in fade-in duration-500">
+    <div className="max-w-6xl mx-auto space-y-8 pb-20">
       <div className="flex justify-between items-center">
         <div>
            <h1 className="text-4xl font-headline font-bold text-primary flex items-center gap-3">
             {editId ? 'Editar Prenda' : 'Nueva Prenda'}
             <Sparkles className="text-accent w-6 h-6" />
           </h1>
-          <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-1">Gestión de Inventario Realtime</p>
+          <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-1">Gestión Realtime Diva</p>
         </div>
         <Button variant="outline" className="border-accent text-accent bg-white rounded-xl h-10 px-6 font-bold" onClick={() => router.push('/inventory')}>
-          <History className="w-4 h-4 mr-2" /> Volver al Inventario
+          <History className="w-4 h-4 mr-2" /> Inventario
         </Button>
       </div>
 
       {priceError && (
-        <div className="bg-destructive/10 border border-destructive/20 p-4 rounded-2xl flex items-center gap-3 text-destructive animate-bounce">
+        <div className="bg-destructive/10 border border-destructive/20 p-4 rounded-2xl flex items-center gap-3 text-destructive">
           <AlertCircle className="w-5 h-5" />
-          <span className="text-xs font-black uppercase tracking-widest">Error de Jerarquía: El precio debe ser Fardo {"<"} Mayor {"<"} Unidad</span>
+          <span className="text-xs font-black uppercase tracking-widest">Precios incorrectos: Fardo < Mayor < Unidad</span>
         </div>
       )}
 
@@ -231,19 +219,19 @@ export default function RegistryPage() {
           <Card className="border-none shadow-2xl bg-white rounded-[2.5rem] overflow-hidden">
             <CardHeader className="bg-accent/5 border-b border-accent/10 py-6 flex flex-row items-center justify-between px-8">
               <CardTitle className="text-lg text-accent font-black uppercase tracking-widest">Datos Principales</CardTitle>
-              <div className="bg-accent text-white px-8 py-3 rounded-2xl font-mono font-black text-3xl shadow-lg border-b-4 border-black/10">
+              <div className="bg-primary text-white px-8 py-3 rounded-2xl font-mono font-black text-3xl shadow-lg">
                 {form.code || "P-001"}
               </div>
             </CardHeader>
             <CardContent className="space-y-8 pt-8 px-8">
               <div className="space-y-2">
-                <Label className="text-[10px] uppercase font-black text-accent/70 ml-1 tracking-[0.2em]">Nombre de Prenda *</Label>
-                <Input value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="h-16 border-accent/20 rounded-2xl text-xl font-bold px-6" placeholder="Ej: Saco Velvet Diva" />
+                <Label className="text-[10px] uppercase font-black text-accent/70 tracking-widest ml-1">Nombre de Prenda *</Label>
+                <Input value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="h-16 border-accent/20 rounded-2xl text-xl font-bold" placeholder="Ej: Saco Velvet" />
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-2">
-                  <Label className="text-[10px] uppercase font-black text-accent/70 ml-1 tracking-[0.2em]">Categoría *</Label>
+                  <Label className="text-[10px] uppercase font-black text-accent/70 tracking-widest ml-1">Categoría *</Label>
                   <div className="flex gap-2">
                     <Select value={form.category} onValueChange={v => setForm({...form, category: v})}>
                       <SelectTrigger className="h-14 border-accent/20 rounded-2xl font-bold bg-white text-lg px-6">
@@ -263,15 +251,14 @@ export default function RegistryPage() {
                       </DialogTrigger>
                       <DialogContent className="rounded-[2.5rem] border-none shadow-2xl max-w-md">
                         <DialogHeader>
-                          <DialogTitle className="text-primary font-black uppercase tracking-widest text-sm mb-4">Gestionar Categorías</DialogTitle>
+                          <DialogTitle className="text-primary font-black uppercase tracking-widest text-sm">Gestionar Categorías</DialogTitle>
                         </DialogHeader>
-                        <div className="space-y-6">
+                        <div className="space-y-6 pt-4">
                           <div className="flex gap-2">
-                            <Input placeholder="Nueva categoría..." value={newItemName} onChange={e => setNewItemName(e.target.value)} className="h-12 rounded-xl" />
+                            <Input placeholder="Añadir..." value={newItemName} onChange={e => setNewItemName(e.target.value)} className="h-12 rounded-xl" />
                             <Button className="bg-primary h-12 w-12 rounded-xl" onClick={handleAddItem}><Plus className="w-5 h-5" /></Button>
                           </div>
-                          <div className="max-h-60 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
-                            <Label className="text-[9px] uppercase font-black text-muted-foreground tracking-widest block mb-2 px-1">Registrados (Click para renombrar)</Label>
+                          <div className="max-h-60 overflow-y-auto space-y-2 pr-2">
                             {categories.map(cat => (
                               <div key={cat.id} className="flex items-center justify-between p-3 bg-accent/5 rounded-2xl border border-accent/10 group">
                                 {editingItem?.id === cat.id ? (
@@ -282,8 +269,8 @@ export default function RegistryPage() {
                                   </div>
                                 ) : (
                                   <>
-                                    <span className="font-bold text-accent px-2">{cat.name}</span>
-                                    <Button variant="ghost" size="sm" className="h-8 px-3 text-accent rounded-xl bg-white/50 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setEditingItem({id: cat.id, name: cat.name})}>
+                                    <span className="font-bold text-accent">{cat.name}</span>
+                                    <Button variant="ghost" size="sm" className="h-8 px-3 text-accent rounded-xl hover:bg-white" onClick={() => setEditingItem({id: cat.id, name: cat.name})}>
                                       <Edit3 className="w-3 h-3 mr-2" /> Renombrar
                                     </Button>
                                   </>
@@ -298,7 +285,7 @@ export default function RegistryPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-[10px] uppercase font-black text-accent/70 ml-1 tracking-[0.2em]">Colección *</Label>
+                  <Label className="text-[10px] uppercase font-black text-accent/70 tracking-widest ml-1">Colección *</Label>
                   <div className="flex gap-2">
                     <Select value={form.collection} onValueChange={v => setForm({...form, collection: v})}>
                       <SelectTrigger className="h-14 border-accent/20 rounded-2xl font-bold bg-white text-lg px-6">
@@ -318,15 +305,14 @@ export default function RegistryPage() {
                       </DialogTrigger>
                       <DialogContent className="rounded-[2.5rem] border-none shadow-2xl max-w-md">
                         <DialogHeader>
-                          <DialogTitle className="text-primary font-black uppercase tracking-widest text-sm mb-4">Gestionar Colecciones</DialogTitle>
+                          <DialogTitle className="text-primary font-black uppercase tracking-widest text-sm">Gestionar Colecciones</DialogTitle>
                         </DialogHeader>
-                        <div className="space-y-6">
+                        <div className="space-y-6 pt-4">
                           <div className="flex gap-2">
-                            <Input placeholder="Nueva colección..." value={newItemName} onChange={e => setNewItemName(e.target.value)} className="h-12 rounded-xl" />
+                            <Input placeholder="Añadir..." value={newItemName} onChange={e => setNewItemName(e.target.value)} className="h-12 rounded-xl" />
                             <Button className="bg-primary h-12 w-12 rounded-xl" onClick={handleAddItem}><Plus className="w-5 h-5" /></Button>
                           </div>
-                          <div className="max-h-60 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
-                             <Label className="text-[9px] uppercase font-black text-muted-foreground tracking-widest block mb-2 px-1">Registrados (Click para renombrar)</Label>
+                          <div className="max-h-60 overflow-y-auto space-y-2 pr-2">
                             {collectionsData.map(col => (
                               <div key={col.id} className="flex items-center justify-between p-3 bg-accent/5 rounded-2xl border border-accent/10 group">
                                 {editingItem?.id === col.id ? (
@@ -337,8 +323,8 @@ export default function RegistryPage() {
                                   </div>
                                 ) : (
                                   <>
-                                    <span className="font-bold text-accent px-2">{col.name}</span>
-                                    <Button variant="ghost" size="sm" className="h-8 px-3 text-accent rounded-xl bg-white/50 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setEditingItem({id: col.id, name: col.name})}>
+                                    <span className="font-bold text-accent">{col.name}</span>
+                                    <Button variant="ghost" size="sm" className="h-8 px-3 text-accent rounded-xl hover:bg-white" onClick={() => setEditingItem({id: col.id, name: col.name})}>
                                       <Edit3 className="w-3 h-3 mr-2" /> Renombrar
                                     </Button>
                                   </>
@@ -354,31 +340,31 @@ export default function RegistryPage() {
               </div>
 
               <div className="space-y-2">
-                <Label className="text-[10px] uppercase font-black text-accent/70 ml-1 tracking-[0.2em]">Descripción Estética</Label>
-                <Textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="min-h-[120px] border-accent/20 rounded-[2rem] bg-accent/5 p-6 text-lg" placeholder="Escribe detalles sobre la tela, el corte o el estilo..." />
+                <Label className="text-[10px] uppercase font-black text-accent/70 tracking-widest ml-1">Descripción</Label>
+                <Textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="min-h-[120px] border-accent/20 rounded-[2rem] bg-accent/5 p-6" placeholder="Detalles de la prenda..." />
               </div>
             </CardContent>
           </Card>
 
           <Card className="border-none shadow-2xl bg-white rounded-[2.5rem] overflow-hidden">
              <CardHeader className="bg-primary/5 border-b border-primary/10 py-6 px-8">
-              <CardTitle className="text-lg text-primary font-black uppercase tracking-widest">Inventario y Precios Diva</CardTitle>
+              <CardTitle className="text-lg text-primary font-black uppercase tracking-widest">Precios y Stock</CardTitle>
             </CardHeader>
             <CardContent className="pt-8 grid grid-cols-2 md:grid-cols-4 gap-8 px-8">
               <div className="space-y-2">
-                <Label className="text-[10px] text-center block font-black text-primary tracking-widest uppercase">STOCK ACTUAL *</Label>
+                <Label className="text-[10px] text-center block font-black text-primary tracking-widest">CANTIDAD *</Label>
                 <Input type="number" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} className="h-20 border-primary/20 text-center text-4xl font-black text-primary bg-primary/5 rounded-[1.5rem]" />
               </div>
               <div className="space-y-2">
-                <Label className="text-[10px] text-center block font-black text-accent/70 tracking-widest uppercase">PRECIO FARDO (S/)</Label>
+                <Label className="text-[10px] text-center block font-black text-accent/70 tracking-widest">FARDO (S/)</Label>
                 <Input type="number" value={form.priceFardo} onChange={e => setForm({...form, priceFardo: e.target.value})} className="h-20 border-accent/20 text-center text-2xl font-black text-accent rounded-[1.5rem]" />
               </div>
               <div className="space-y-2">
-                <Label className="text-[10px] text-center block font-black text-accent/70 tracking-widest uppercase">AL MAYOR (S/)</Label>
+                <Label className="text-[10px] text-center block font-black text-accent/70 tracking-widest">AL MAYOR (S/)</Label>
                 <Input type="number" value={form.priceMayor} onChange={e => setForm({...form, priceMayor: e.target.value})} className="h-20 border-accent/20 text-center text-2xl font-black text-accent rounded-[1.5rem]" />
               </div>
               <div className="space-y-2">
-                <Label className="text-[10px] text-center block font-black text-accent/70 tracking-widest uppercase">POR UNIDAD (S/)</Label>
+                <Label className="text-[10px] text-center block font-black text-accent/70 tracking-widest">UNIDAD (S/)</Label>
                 <Input type="number" value={form.priceUnidad} onChange={e => setForm({...form, priceUnidad: e.target.value})} className="h-20 border-accent/20 text-center text-2xl font-black text-accent rounded-[1.5rem]" />
               </div>
             </CardContent>
@@ -387,23 +373,21 @@ export default function RegistryPage() {
 
         <div className="space-y-6">
           <Card className="border-none shadow-2xl bg-white rounded-[2.5rem] overflow-hidden">
-            <CardHeader className="bg-accent/5 py-6 px-8">
-              <CardTitle className="text-sm font-black text-accent flex justify-between items-center uppercase tracking-[0.2em]">
-                Galería de Fotos
-                <span className="text-xs bg-accent text-white px-3 py-1 rounded-full">{localImagePreviews.length}/4</span>
-              </CardTitle>
+            <CardHeader className="bg-accent/5 py-6 px-8 flex justify-between flex-row items-center">
+              <CardTitle className="text-sm font-black text-accent uppercase tracking-widest">Fotos (Máx 4)</CardTitle>
+              <span className="text-xs bg-accent text-white px-3 py-1 rounded-full font-bold">{localImagePreviews.length}/4</span>
             </CardHeader>
             <CardContent className="pt-6 grid grid-cols-2 gap-4 px-8">
                {localImagePreviews.map((img, idx) => (
-                  <div key={idx} className="relative aspect-square rounded-[2rem] overflow-hidden border-2 border-accent/10 shadow-lg group">
+                  <div key={idx} className="relative aspect-square rounded-[2rem] overflow-hidden border-2 border-accent/10 group shadow-md">
                     <Image src={img.url} alt="" fill className="object-cover" />
                     <button onClick={() => setLocalImagePreviews(localImagePreviews.filter((_, i) => i !== idx))} className="absolute top-2 right-2 p-2 bg-destructive rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity"><X className="w-4 h-4" /></button>
                   </div>
                 ))}
                 {localImagePreviews.length < 4 && (
-                  <button onClick={() => fileInputRef.current?.click()} className="aspect-square rounded-[2rem] border-4 border-dashed border-accent/20 flex flex-col items-center justify-center gap-2 text-accent bg-accent/5 hover:bg-accent/10 transition-colors">
+                  <button onClick={() => fileInputRef.current?.click()} className="aspect-square rounded-[2rem] border-4 border-dashed border-accent/20 flex flex-col items-center justify-center gap-2 text-accent bg-accent/5 hover:bg-accent/10 transition-all">
                     <ImagePlus className="w-10 h-10" />
-                    <span className="text-[10px] font-black uppercase tracking-widest">Añadir Foto</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest">Añadir</span>
                     <input type="file" hidden ref={fileInputRef} onChange={handleFileChange} accept="image/*" />
                   </button>
                 )}
@@ -411,7 +395,7 @@ export default function RegistryPage() {
           </Card>
 
           <Button 
-            className="w-full h-28 text-3xl font-headline shadow-[0_20px_50px_rgba(255,0,127,0.3)] rounded-[3rem] bg-gradient-to-tr from-primary to-accent text-white font-black disabled:opacity-50 disabled:grayscale transition-all active:scale-95" 
+            className="w-full h-28 text-3xl font-headline shadow-2xl rounded-[3rem] bg-gradient-to-tr from-primary to-accent text-white font-black disabled:opacity-30 disabled:grayscale" 
             onClick={handleSave}
             disabled={saving || !isFormValid}
           >
@@ -419,16 +403,9 @@ export default function RegistryPage() {
             {editId ? 'ACTUALIZAR' : 'REGISTRAR'}
           </Button>
           
-          <div className="p-8 bg-white/50 rounded-[2.5rem] border border-accent/10 text-center space-y-2">
-            <div className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Estado del Formulario</div>
-            <div className="flex justify-center gap-2">
-              <div className={cn("w-3 h-3 rounded-full", form.name ? "bg-green-500" : "bg-accent/20")} title="Nombre" />
-              <div className={cn("w-3 h-3 rounded-full", form.category ? "bg-green-500" : "bg-accent/20")} title="Categoría" />
-              <div className={cn("w-3 h-3 rounded-full", form.collection ? "bg-green-500" : "bg-accent/20")} title="Colección" />
-              <div className={cn("w-3 h-3 rounded-full", form.stock ? "bg-green-500" : "bg-accent/20")} title="Stock" />
-            </div>
-            <p className="text-[9px] text-accent font-bold uppercase tracking-tighter mt-4">
-              * Campos obligatorios para habilitar el guardado.
+          <div className="p-8 bg-white/50 rounded-[2.5rem] border border-accent/10 text-center">
+            <p className="text-[9px] text-accent font-bold uppercase tracking-widest">
+              Obligatorio: Nombre, Categoría, Colección y Stock.
             </p>
           </div>
         </div>
