@@ -22,7 +22,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { ImagePlus, X, Save, History, Edit3, BadgeInfo, AlertCircle, Loader2, Sparkles } from "lucide-react"
+import { ImagePlus, X, Save, History, Edit3, AlertCircle, Loader2, Sparkles } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { generateProductDescription } from "@/ai/flows/generate-product-description"
 import { appendToSheet, getSheetData, uploadImageToDrive, updateSheetRow } from "@/services/sheets-service"
@@ -88,7 +88,7 @@ export default function RegistryPage() {
           }
         } else {
           const lastRow = data[data.length - 1];
-          const lastCode = lastRow.Codigo;
+          const lastCode = lastRow?.Codigo;
           if (lastCode && lastCode.startsWith('P-')) {
             const num = parseInt(lastCode.split('-')[1]);
             if (!isNaN(num)) {
