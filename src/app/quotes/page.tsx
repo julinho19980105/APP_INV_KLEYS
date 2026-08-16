@@ -18,6 +18,7 @@ import {
 import { Trash2, Plus, UserPlus, Search, ShoppingCart, Share2, Save, Printer } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { semanticSuggestCustomersProducts } from "@/ai/flows/semantic-suggest-customers-products"
+import Image from "next/image"
 
 interface QuoteItem {
   id: string
@@ -32,9 +33,9 @@ interface QuoteItem {
 
 export default function QuotesPage() {
   const { toast } = useToast()
-  const [date, setDate] = React.useState(new Date().toISOString().split('T')[0])
-  const [time] = React.useState(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
-  const [quoteId] = React.useState(`B-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`)
+  const [date, setDate] = React.useState("")
+  const [time, setTime] = React.useState("")
+  const [quoteId, setQuoteId] = React.useState("")
   
   const [customerQuery, setCustomerQuery] = React.useState("")
   const [customerSuggestions, setCustomerSuggestions] = React.useState<any[]>([])
@@ -45,6 +46,13 @@ export default function QuotesPage() {
 
   const [items, setItems] = React.useState<QuoteItem[]>([])
   const [discount, setDiscount] = React.useState(0)
+
+  // Hydration safety
+  React.useEffect(() => {
+    setDate(new Date().toISOString().split('T')[0])
+    setTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
+    setQuoteId(`B-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`)
+  }, [])
 
   // AI Suggestions for Customers
   React.useEffect(() => {
@@ -79,8 +87,8 @@ export default function QuotesPage() {
         query: productQuery,
         type: "product",
         products: [
-          { id: "P1", name: "Saco Velvet", stock: 24, imageUrl: "https://picsum.photos/seed/p1/40" },
-          { id: "P2", name: "Pantalón Slim", stock: 48, imageUrl: "https://picsum.photos/seed/p2/40" },
+          { id: "P1", name: "Saco Velvet", stock: 24, imageUrl: "https://picsum.photos/seed/p1/200/200" },
+          { id: "P2", name: "Pantalón Slim", stock: 48, imageUrl: "https://picsum.photos/seed/p2/200/200" },
         ]
       })
       setProductSuggestions(res.suggestions)
@@ -96,7 +104,7 @@ export default function QuotesPage() {
       productId: prod.id,
       name: prod.name,
       quantity: 1,
-      price: 85, // MOCK default mayor
+      price: 85,
       priceType: 'mayor',
       stock: prod.stock,
       img: prod.imageUrl || ""
@@ -143,7 +151,7 @@ export default function QuotesPage() {
               <CardHeader className="grid grid-cols-2 gap-4 pb-2">
                 <div className="space-y-1">
                   <Label className="text-[10px] uppercase text-muted-foreground tracking-widest">Código Boleta</Label>
-                  <div className="text-xl font-headline font-bold text-primary">{quoteId}</div>
+                  <div className="text-xl font-headline font-bold text-primary">{quoteId || "..."}</div>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1">
@@ -232,7 +240,9 @@ export default function QuotesPage() {
                           onClick={() => addItem(p)}
                         >
                           <div className="flex items-center gap-3">
-                            {p.imageUrl && <img src={p.imageUrl} alt="" className="w-8 h-8 rounded object-cover" />}
+                            <div className="relative w-8 h-8 rounded overflow-hidden">
+                                {p.imageUrl && <Image src={p.imageUrl} alt="" fill className="object-cover" />}
+                            </div>
                             <div>
                               <div className="font-medium">{p.name}</div>
                               <div className="text-xs text-muted-foreground">Stock: {p.stock}</div>
@@ -250,7 +260,9 @@ export default function QuotesPage() {
                   {items.map(item => (
                     <div key={item.id} className="flex flex-col md:flex-row gap-4 p-4 rounded-xl border bg-muted/20 relative group">
                       <div className="flex gap-4 flex-1">
-                        <img src={item.img || "https://picsum.photos/seed/item/40"} alt="" className="w-12 h-12 rounded object-cover bg-muted" />
+                        <div className="relative w-12 h-12 rounded overflow-hidden bg-muted">
+                            <Image src={item.img || "https://picsum.photos/seed/item/200/200"} alt="" fill className="object-cover" data-ai-hint="fashion clothes" />
+                        </div>
                         <div className="space-y-1">
                           <div className="font-medium">{item.name}</div>
                           <div className="text-[10px] text-muted-foreground uppercase tracking-widest">Stock: {item.stock}</div>
@@ -290,7 +302,7 @@ export default function QuotesPage() {
                         </div>
                         <div className="text-right min-w-[80px]">
                           <div className="text-[10px] text-muted-foreground">TOTAL</div>
-                          <div className="font-bold">S/ {item.price * item.quantity}</div>
+                          <div className="font-bold">S/ {(item.price * item.quantity).toFixed(2)}</div>
                         </div>
                         <Button 
                           variant="ghost" 

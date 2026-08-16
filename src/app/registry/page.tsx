@@ -18,13 +18,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ImagePlus, X, Save, History, Plus } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { generateProductDescription } from "@/ai/flows/generate-product-description"
+import Image from "next/image"
 
 export default function RegistryPage() {
   const { toast } = useToast()
   const [loadingAI, setLoadingAI] = React.useState(false)
   const [form, setForm] = React.useState({
     name: "",
-    code: `STK-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`,
+    code: "",
     category: "",
     collection: "",
     description: "",
@@ -35,6 +36,14 @@ export default function RegistryPage() {
   })
 
   const [images, setImages] = React.useState<string[]>([])
+
+  // Hydration safety for random code
+  React.useEffect(() => {
+    setForm(prev => ({
+      ...prev,
+      code: `STK-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`
+    }))
+  }, [])
 
   const handleAI = async () => {
     if (!form.name || !form.category) {
@@ -58,12 +67,11 @@ export default function RegistryPage() {
 
   const handleSave = () => {
     toast({ title: "Éxito", description: "Prenda registrada correctamente en StiloStack." })
-    // Reset or redirect
   }
 
   const addImage = () => {
     if (images.length < 4) {
-      setImages([...images, `https://picsum.photos/seed/${Math.random()}/200`])
+      setImages([...images, `https://picsum.photos/seed/${Math.random()}/400/400`])
     }
   }
 
@@ -118,7 +126,6 @@ export default function RegistryPage() {
                         <SelectItem value="sacos">Sacos</SelectItem>
                         <SelectItem value="pantalones">Pantalones</SelectItem>
                         <SelectItem value="vestidos">Vestidos</SelectItem>
-                        <Plus className="w-3 h-3 mx-auto mt-2 cursor-pointer opacity-50" />
                       </SelectContent>
                     </Select>
                   </div>
@@ -214,13 +221,19 @@ export default function RegistryPage() {
                 <div className="grid grid-cols-2 gap-4">
                   {images.map((img, idx) => (
                     <div key={idx} className="relative group aspect-square rounded-lg overflow-hidden border bg-muted">
-                      <img src={img} alt={`Preview ${idx + 1}`} className="w-full h-full object-cover" />
+                      <Image 
+                        src={img} 
+                        alt={`Preview ${idx + 1}`} 
+                        fill 
+                        className="object-cover"
+                        data-ai-hint="fashion item"
+                      />
                       <div className="absolute top-1 left-1 bg-black/60 text-[10px] px-1.5 py-0.5 rounded text-white border border-white/20">
                         IMG {idx + 1}
                       </div>
                       <button 
                         onClick={() => removeImage(idx)}
-                        className="absolute top-1 right-1 p-1 bg-destructive rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="absolute top-1 right-1 p-1 bg-destructive rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10"
                       >
                         <X className="w-3 h-3 text-white" />
                       </button>
@@ -237,7 +250,7 @@ export default function RegistryPage() {
                   )}
                 </div>
                 <p className="text-[10px] text-muted-foreground italic text-center">
-                  Las fotos se guardan automáticamente en Google Drive.
+                  Las fotos se gestionarán mediante Drive próximamente.
                 </p>
               </CardContent>
             </Card>

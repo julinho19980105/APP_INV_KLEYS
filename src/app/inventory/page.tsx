@@ -15,13 +15,15 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Search, Filter, Eye, Edit2, Package2 } from "lucide-react"
+import { Search, Filter, Eye, Edit2 } from "lucide-react"
+import { cn } from "@/lib/utils"
+import Image from "next/image"
 
 const MOCK_PRODUCTS = [
-  { id: "1", code: "STK-0021", name: "Saco Velvet Premium", category: "Sacos", collection: "Winter 24", stock: 24, priceMayor: 120, img: "https://picsum.photos/seed/p1/40" },
-  { id: "2", code: "STK-0022", name: "Pantalón Slim Fit", category: "Pantalones", collection: "Winter 24", stock: 48, priceMayor: 85, img: "https://picsum.photos/seed/p2/40" },
-  { id: "3", code: "STK-0023", name: "Blusa Seda Gala", category: "Blusas", collection: "Summer 25", stock: 0, priceMayor: 65, img: "https://picsum.photos/seed/p3/40" },
-  { id: "4", code: "STK-0024", name: "Vestido Noche Largo", category: "Vestidos", collection: "Winter 24", stock: 12, priceMayor: 210, img: "https://picsum.photos/seed/p4/40" },
+  { id: "1", code: "STK-0021", name: "Saco Velvet Premium", category: "Sacos", collection: "Winter 24", stock: 24, priceMayor: 120, img: "https://picsum.photos/seed/p1/200/200" },
+  { id: "2", code: "STK-0022", name: "Pantalón Slim Fit", category: "Pantalones", collection: "Winter 24", stock: 48, priceMayor: 85, img: "https://picsum.photos/seed/p2/200/200" },
+  { id: "3", code: "STK-0023", name: "Blusa Seda Gala", category: "Blusas", collection: "Summer 25", stock: 0, priceMayor: 65, img: "https://picsum.photos/seed/p3/200/200" },
+  { id: "4", code: "STK-0024", name: "Vestido Noche Largo", category: "Vestidos", collection: "Winter 24", stock: 12, priceMayor: 210, img: "https://picsum.photos/seed/p4/200/200" },
 ]
 
 export default function InventoryPage() {
@@ -69,8 +71,14 @@ export default function InventoryPage() {
                 {MOCK_PRODUCTS.map((p) => (
                   <TableRow key={p.id}>
                     <TableCell>
-                      <div className="w-10 h-10 rounded border overflow-hidden bg-muted">
-                        <img src={p.img} alt={p.name} className="w-full h-full object-cover" />
+                      <div className="w-10 h-10 rounded border overflow-hidden bg-muted relative">
+                        <Image 
+                          src={p.img} 
+                          alt={p.name} 
+                          fill
+                          className="object-cover"
+                          data-ai-hint="fashion product"
+                        />
                       </div>
                     </TableCell>
                     <TableCell className="font-mono text-xs">{p.code}</TableCell>
