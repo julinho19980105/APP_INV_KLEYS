@@ -63,7 +63,7 @@ export default function RegistryPage() {
   React.useEffect(() => {
     const fetchDBData = async () => {
       const data = await getSheetData('PRODUCTOS');
-      if (data && data.length > 0) {
+      if (data && Array.isArray(data)) {
         const dbCats = Array.from(new Set(data.map((p: any) => p.Categoria).filter(Boolean))) as string[];
         const dbColls = Array.from(new Set(data.map((p: any) => p.Coleccion).filter(Boolean))) as string[];
         if (dbCats.length > 0) setCategories(prev => Array.from(new Set([...prev, ...dbCats])));
@@ -86,10 +86,10 @@ export default function RegistryPage() {
             const imgs = [product.Imagen1, product.Imagen2, product.Imagen3, product.Imagen4].filter(Boolean);
             setLocalImagePreviews(imgs);
           }
-        } else {
-          const lastRow = data[data.length - 1];
-          const lastCode = lastRow?.Codigo;
-          if (lastCode && lastCode.startsWith('P-')) {
+        } else if (data.length > 0) {
+          const codes = data.map((p: any) => p.Codigo).filter((c: any) => typeof c === 'string' && c.startsWith('P-'));
+          if (codes.length > 0) {
+            const lastCode = codes[codes.length - 1];
             const num = parseInt(lastCode.split('-')[1]);
             if (!isNaN(num)) {
               setForm(prev => ({ ...prev, code: `P-${String(num + 1).padStart(3, '0')}` }));
@@ -166,12 +166,19 @@ export default function RegistryPage() {
       const timestamp = new Date().toISOString();
       const driveImageUrls: string[] = [];
       
+      // Proceso de subida crítico: esperar a recibir la URL de Drive antes de continuar
       for (let i = 0; i < localImagePreviews.length; i++) {
         const item = localImagePreviews[i];
         if (item.startsWith('data:image')) {
-          const url = await uploadImageToDrive(item, `${form.code}_img_${Date.now()}_${i+1}.jpg`);
-          if (url) driveImageUrls.push(url);
+          const fileName = `${form.code}_${Date.now()}_${i+1}.jpg`;
+          const url = await uploadImageToDrive(item, fileName);
+          if (url) {
+            driveImageUrls.push(url);
+          } else {
+            throw new Error(`Error al subir la imagen ${i+1}. Verifica los permisos de Drive.`);
+          }
         } else {
+          // Si ya es una URL (edición), la mantenemos
           driveImageUrls.push(item);
         }
       }
@@ -230,11 +237,11 @@ export default function RegistryPage() {
           'Registro inicial de prenda'
         ]);
 
-        toast({ title: "¡Guardado!", description: `Prenda ${form.code} registrada correctamente.` })
+        toast({ title: "¡Guardado!", description: `Prenda ${form.code} registrada correctamente con sus fotos.` })
         router.push('/inventory')
       }
     } catch (e: any) {
-      toast({ title: "Error", description: "Error al sincronizar con Google Drive y Sheets.", variant: "destructive" })
+      toast({ title: "Error al Guardar", description: e.message || "Error al sincronizar con Google.", variant: "destructive" })
     } finally {
       setSaving(false)
     }
