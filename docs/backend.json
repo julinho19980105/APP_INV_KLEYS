@@ -3,7 +3,7 @@
   "entities": {
     "Product": {
       "title": "Producto",
-      "description": "Prenda de ropa en el inventario",
+      "description": "Prenda de ropa en el inventario Diva",
       "type": "object",
       "properties": {
         "code": { "type": "string", "description": "Código único del producto" },
@@ -14,7 +14,7 @@
         "priceFardo": { "type": "number", "description": "Precio por fardo" },
         "priceMayor": { "type": "number", "description": "Precio al por mayor" },
         "priceUnidad": { "type": "number", "description": "Precio por unidad" },
-        "images": { "type": "array", "items": { "type": "string" }, "description": "URLs de imágenes en Drive/Storage" },
+        "images": { "type": "array", "items": { "type": "string" }, "description": "URLs de imágenes en Storage" },
         "description": { "type": "string", "description": "Descripción estética" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
