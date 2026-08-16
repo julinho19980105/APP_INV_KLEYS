@@ -41,10 +41,14 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-body;
   }
 }
 
 .font-headline {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-space), sans-serif;
+}
+
+.font-body {
+  font-family: var(--font-inter), sans-serif;
 }

@@ -1,7 +1,21 @@
 
-import type {Metadata} from 'next';
+import type { Metadata } from 'next';
+import { Inter, Space_Grotesk } from 'next/font/google';
 import './globals.css';
-import { Toaster } from "@/components/ui/toaster"
+import { Toaster } from "@/components/ui/toaster";
+import { AppShell } from "@/components/layout/app-shell";
+
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-inter',
+  display: 'swap',
+});
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ['latin'],
+  variable: '--font-space',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: 'StiloStack | High-End Fashion & Logistics',
@@ -14,14 +28,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" className="dark">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
-      </head>
+    <html lang="es" className={`${inter.variable} ${spaceGrotesk.variable} dark`}>
       <body className="font-body antialiased bg-background text-foreground">
-        {children}
+        <AppShell>
+          {children}
+        </AppShell>
         <Toaster />
       </body>
     </html>
