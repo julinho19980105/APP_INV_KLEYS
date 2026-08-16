@@ -1,4 +1,3 @@
-
 import { API_CONFIG } from '@/lib/api-config';
 
 /**
@@ -12,7 +11,6 @@ export async function getSheetData(sheetName: string) {
     
     const data = await response.json();
     
-    // Si la API devuelve un objeto de error en lugar de un arreglo
     if (data && typeof data === 'object' && data.error) {
       console.warn(`Aviso de Google Sheets (${sheetName}):`, data.error);
       return [];
@@ -22,6 +20,32 @@ export async function getSheetData(sheetName: string) {
   } catch (error) {
     console.error(`Error fetching sheet data (${sheetName}):`, error);
     return [];
+  }
+}
+
+/**
+ * Sube una imagen a Google Drive a través del Apps Script y devuelve la URL.
+ */
+export async function uploadImageToDrive(base64Data: string, fileName: string) {
+  if (!API_CONFIG.WEB_APP_URL) return "";
+  try {
+    const mimeType = base64Data.split(';')[0].split(':')[1];
+    const response = await fetch(API_CONFIG.WEB_APP_URL, {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'uploadImage',
+        base64: base64Data,
+        name: fileName,
+        mimeType: mimeType
+      })
+    });
+    if (!response.ok) throw new Error('Error al subir imagen a Drive');
+    const result = await response.json();
+    if (result.error) throw new Error(result.error);
+    return result.url;
+  } catch (error) {
+    console.error("Error en uploadImageToDrive:", error);
+    throw error;
   }
 }
 

@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -21,10 +20,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { ImagePlus, X, Save, History, Edit3, BadgeInfo, AlertCircle } from "lucide-react"
+import { ImagePlus, X, Save, History, Edit3, BadgeInfo, AlertCircle, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { generateProductDescription } from "@/ai/flows/generate-product-description"
-import { appendToSheet, getSheetData } from "@/services/sheets-service"
+import { appendToSheet, getSheetData, uploadImageToDrive } from "@/services/sheets-service"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
 
@@ -52,15 +51,14 @@ export default function RegistryPage() {
     priceUnidad: "",
   })
 
-  const [images, setImages] = React.useState<string[]>([])
+  // Almacenamos base64 solo para previsualización local, no para el sheet
+  const [localImagePreviews, setLocalImagePreviews] = React.useState<string[]>([])
   const [priceError, setPriceError] = React.useState<string | null>(null)
 
-  // Cargar datos dinámicos de la base de datos al montar
   React.useEffect(() => {
     const fetchDBData = async () => {
       const data = await getSheetData('PRODUCTOS');
       if (data && data.length > 0) {
-        // 1. Calcular siguiente código
         const lastRow = data[data.length - 1];
         const lastCode = lastRow.Codigo;
         if (lastCode && lastCode.startsWith('P-')) {
@@ -70,7 +68,6 @@ export default function RegistryPage() {
           }
         }
 
-        // 2. Extraer categorías y colecciones únicas existentes
         const dbCats = Array.from(new Set(data.map((p: any) => p.Categoria).filter(Boolean)));
         const dbColls = Array.from(new Set(data.map((p: any) => p.Coleccion).filter(Boolean)));
         
@@ -81,7 +78,6 @@ export default function RegistryPage() {
     fetchDBData();
   }, []);
 
-  // Validación de precios inmediata
   React.useEffect(() => {
     const f = Number(form.priceFardo || 0);
     const m = Number(form.priceMayor || 0);
@@ -99,13 +95,14 @@ export default function RegistryPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 2 * 1024 * 1024) {
-        toast({ title: "Archivo muy pesado", description: "La imagen debe pesar menos de 2MB", variant: "destructive" });
+      // Límite aumentado a 3MB
+      if (file.size > 3 * 1024 * 1024) {
+        toast({ title: "Archivo muy pesado", description: "La imagen debe pesar menos de 3MB", variant: "destructive" });
         return;
       }
       const reader = new FileReader();
       reader.onloadend = () => {
-        setImages(prev => [...prev, reader.result as string].slice(0, 4));
+        setLocalImagePreviews(prev => [...prev, reader.result as string].slice(0, 4));
       };
       reader.readAsDataURL(file);
     }
@@ -133,11 +130,7 @@ export default function RegistryPage() {
 
   const handleSave = async () => {
     if (!form.name || !form.category || !form.collection || !form.quantity) {
-      toast({ 
-        title: "Campos Incompletos", 
-        description: "Nombre, Categoría, Colección y Cantidad son obligatorios.", 
-        variant: "destructive" 
-      })
+      toast({ title: "Campos Incompletos", description: "Nombre, Categoría, Colección y Cantidad son obligatorios.", variant: "destructive" })
       return
     }
 
@@ -150,6 +143,20 @@ export default function RegistryPage() {
     try {
       const timestamp = new Date().toISOString();
       
+      // Fase 1: Subir imágenes a Drive y obtener URLs
+      const driveImageUrls: string[] = [];
+      for (let i = 0; i < localImagePreviews.length; i++) {
+        const url = await uploadImageToDrive(localImagePreviews[i], `${form.code}_img_${i+1}.jpg`);
+        driveImageUrls.push(url);
+      }
+
+      // Asegurar que siempre enviamos 4 posiciones para las imágenes
+      const img1 = driveImageUrls[0] || "";
+      const img2 = driveImageUrls[1] || "";
+      const img3 = driveImageUrls[2] || "";
+      const img4 = driveImageUrls[3] || "";
+
+      // Fase 2: Guardar en PRODUCTOS (con links de Drive)
       const rowData = [
         timestamp,
         form.code,
@@ -160,14 +167,15 @@ export default function RegistryPage() {
         form.priceFardo,
         form.priceMayor,
         form.priceUnidad,
-        images[0] || "",
-        images[1] || "",
-        images[2] || "",
-        images[3] || "",
+        img1,
+        img2,
+        img3,
+        img4,
         form.description
       ];
       await appendToSheet('PRODUCTOS', rowData);
       
+      // Fase 3: Guardar en CATALOGO_WEB
       const catalogData = [
         form.code,
         form.name,
@@ -175,15 +183,16 @@ export default function RegistryPage() {
         form.priceFardo,
         form.priceMayor,
         form.priceUnidad,
-        images[0] || "",
-        images[1] || "",
-        images[2] || "",
-        images[3] || "",
+        img1,
+        img2,
+        img3,
+        img4,
         form.collection,
         form.description
       ];
       await appendToSheet('CATALOGO_WEB', catalogData);
 
+      // Fase 4: Registrar movimiento inicial
       await appendToSheet('MOVIMIENTOS', [
         Math.random().toString(36).substr(2, 9),
         timestamp,
@@ -195,16 +204,15 @@ export default function RegistryPage() {
 
       toast({ 
         title: "¡Guardado con éxito!", 
-        description: `Prenda ${form.code} registrada correctamente.`,
+        description: `Prenda ${form.code} registrada y fotos subidas a Drive.`,
         className: "bg-primary text-white" 
       })
       
-      // Reset y preparar siguiente código
       const nextNum = parseInt(form.code.split('-')[1]) + 1;
       setForm({
         name: "",
-        category: "",
-        collection: "",
+        category: form.category, // Mantenemos categoría para facilidad
+        collection: form.collection,
         description: "",
         quantity: "",
         priceFardo: "",
@@ -212,9 +220,9 @@ export default function RegistryPage() {
         priceUnidad: "",
         code: `P-${String(nextNum).padStart(3, '0')}`
       })
-      setImages([])
-    } catch (e) {
-      toast({ title: "Error", description: "Error al conectar con la base de datos.", variant: "destructive" })
+      setLocalImagePreviews([])
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message || "Error al conectar con la base de datos.", variant: "destructive" })
     } finally {
       setSaving(false)
     }
@@ -417,23 +425,23 @@ export default function RegistryPage() {
             <CardHeader className="bg-primary/5">
               <CardTitle className="text-lg text-primary flex justify-between items-center font-bold">
                 Fotos
-                <span className="text-[10px] bg-primary text-white px-3 py-1 rounded-full">{images.length}/4</span>
+                <span className="text-[10px] bg-primary text-white px-3 py-1 rounded-full">{localImagePreviews.length}/4</span>
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-4">
               <div className="grid grid-cols-2 gap-4">
-                {images.map((img, idx) => (
+                {localImagePreviews.map((img, idx) => (
                   <div key={idx} className="relative aspect-square rounded-2xl overflow-hidden border-2 border-primary/10 group shadow-md">
                     <Image src={img} alt="" fill className="object-cover" />
                     <button 
-                      onClick={() => setImages(images.filter((_, i) => i !== idx))}
+                      onClick={() => setLocalImagePreviews(localImagePreviews.filter((_, i) => i !== idx))}
                       className="absolute top-2 right-2 p-1.5 bg-destructive rounded-full text-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
                     >
                       <X className="w-3 h-3" />
                     </button>
                   </div>
                 ))}
-                {images.length < 4 && (
+                {localImagePreviews.length < 4 && (
                   <>
                     <input 
                       type="file" 
@@ -449,7 +457,7 @@ export default function RegistryPage() {
                       <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center group-hover:bg-primary/10 transition-colors">
                         <ImagePlus className="w-6 h-6" />
                       </div>
-                      <span className="text-[9px] font-black uppercase tracking-widest">Subir de Galería</span>
+                      <span className="text-[9px] font-black uppercase tracking-widest">Subir (Máx 3MB)</span>
                     </button>
                   </>
                 )}
@@ -462,12 +470,21 @@ export default function RegistryPage() {
             onClick={handleSave}
             disabled={saving || !!priceError}
           >
-            <Save className="w-7 h-7 mr-3" />
-            {saving ? "GUARDANDO..." : "GUARDAR PRENDA"}
+            {saving ? (
+              <>
+                <Loader2 className="w-7 h-7 mr-3 animate-spin" />
+                SUBIENDO A DRIVE...
+              </>
+            ) : (
+              <>
+                <Save className="w-7 h-7 mr-3" />
+                GUARDAR PRENDA
+              </>
+            )}
           </Button>
           
           <div className="text-[9px] text-center text-muted-foreground uppercase tracking-[0.3em] font-black px-6 leading-relaxed">
-            * Sincronización en tiempo real con Catálogo Web *
+            * Fotos se guardarán en Drive y Links en Sheets *
           </div>
         </div>
       </div>
