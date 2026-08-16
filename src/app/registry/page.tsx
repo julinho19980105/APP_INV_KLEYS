@@ -25,7 +25,7 @@ import {
 import { ImagePlus, X, Save, History, Loader2, Sparkles, Settings2, Edit3, Plus, AlertCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useFirestore, useDoc, useCollection } from "@/firebase"
-import { doc, setDoc, collection, query, orderBy, serverTimestamp, updateDoc, addDoc } from "firebase/firestore"
+import { doc, setDoc, collection, query, orderBy, serverTimestamp, updateDoc, addDoc, limit, getDocs } from "firebase/firestore"
 import { uploadImageToDrive } from "@/services/sheets-service"
 import { errorEmitter } from '@/firebase/error-emitter'
 import { FirestorePermissionError } from '@/firebase/errors'
@@ -68,6 +68,28 @@ export default function RegistryPage() {
   const [newItemName, setNewItemName] = React.useState("")
   const [editingItem, setEditingItem] = React.useState<{id: string, name: string} | null>(null)
 
+  // Generar código correlativo único
+  React.useEffect(() => {
+    async function generateNextCode() {
+      if (!db || editId) return
+      
+      const q = query(collection(db, "products"), orderBy("code", "desc"), limit(1))
+      const querySnapshot = await getDocs(q)
+      
+      let nextNumber = 1
+      if (!querySnapshot.empty) {
+        const lastCode = querySnapshot.docs[0].data().code || "P-000"
+        const lastNumber = parseInt(lastCode.split('-')[1])
+        nextNumber = lastNumber + 1
+      }
+      
+      const newCode = `P-${nextNumber.toString().padStart(3, '0')}`
+      setForm(prev => ({ ...prev, code: newCode }))
+    }
+    
+    generateNextCode()
+  }, [db, editId])
+
   React.useEffect(() => {
     if (editingProduct) {
       setForm({
@@ -85,9 +107,9 @@ export default function RegistryPage() {
     } else {
       const draft = localStorage.getItem(DRAFT_KEY)
       if (draft && !editId) {
-        setForm(JSON.parse(draft))
-      } else if (!editId && !form.code) {
-        setForm(prev => ({ ...prev, code: `P-001` }))
+        const draftData = JSON.parse(draft)
+        // Mantener el código correlativo generado, no sobreescribirlo con el del borrador si el borrador es viejo
+        setForm(prev => ({ ...draftData, code: prev.code || draftData.code }))
       }
     }
   }, [editingProduct, editId])
@@ -148,7 +170,6 @@ export default function RegistryPage() {
       const imageUrls: string[] = []
       for (const img of localImagePreviews) {
         if (img.file) {
-          // Intentamos subir a Drive, si falla guardamos el preview para no perder la imagen visualmente
           const driveUrl = await uploadImageToDrive(img.url, `${form.name}_${Date.now()}`)
           imageUrls.push(driveUrl || img.url)
         } else {
@@ -178,6 +199,7 @@ export default function RegistryPage() {
           router.push('/inventory')
         })
         .catch((err) => {
+          // Captura el error de permisos específicamente
           errorEmitter.emit('permission-error', new FirestorePermissionError({ path: pRef.path, operation: 'write', requestResourceData: productData }))
         })
     } catch (e: any) {
@@ -211,7 +233,7 @@ export default function RegistryPage() {
         <div className="bg-destructive/10 border border-destructive/20 p-4 rounded-2xl flex items-center gap-3 text-destructive">
           <AlertCircle className="w-5 h-5" />
           <span className="text-xs font-black uppercase tracking-widest">
-            Precios incorrectos: Fardo es menor que Mayor y Mayor es menor que Unidad
+            Precios incorrectos: Fardo menor que Mayor y Mayor menor que Unidad
           </span>
         </div>
       )}
@@ -222,7 +244,7 @@ export default function RegistryPage() {
             <CardHeader className="bg-accent/5 border-b border-accent/10 py-6 flex flex-row items-center justify-between px-8">
               <CardTitle className="text-lg text-accent font-black uppercase tracking-widest">Datos Principales</CardTitle>
               <div className="bg-primary text-white px-8 py-3 rounded-2xl font-mono font-black text-3xl shadow-lg">
-                {form.code || "P-001"}
+                {form.code}
               </div>
             </CardHeader>
             <CardContent className="space-y-8 pt-8 px-8">
