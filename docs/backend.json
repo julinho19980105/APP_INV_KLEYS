@@ -20,17 +20,20 @@
       },
       "required": ["code", "name", "category", "collection", "stock"]
     },
-    "Movement": {
-      "title": "Movimiento de Stock",
-      "description": "Registro de entrada o salida de prendas",
+    "Category": {
+      "title": "Categoría",
+      "description": "Categoría de producto",
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "timestamp": { "type": "string", "format": "date-time" },
-        "productCode": { "type": "string" },
-        "type": { "type": "string", "enum": ["in", "out"] },
-        "quantity": { "type": "number" },
-        "reason": { "type": "string" }
+        "name": { "type": "string" }
+      }
+    },
+    "Collection": {
+      "title": "Colección",
+      "description": "Colección de temporada",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" }
       }
     }
   },
@@ -42,9 +45,13 @@
       "schema": "Product",
       "description": "Colección maestra de productos"
     },
-    "/movements/{movementId}": {
-      "schema": "Movement",
-      "description": "Historial de kardex"
+    "/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "Lista maestra de categorías"
+    },
+    "/collections/{collectionId}": {
+      "schema": "Collection",
+      "description": "Lista maestra de colecciones"
     }
   }
 }

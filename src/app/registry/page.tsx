@@ -26,7 +26,7 @@ import {
 import { ImagePlus, X, Save, History, Loader2, Sparkles, Settings2, Edit3, Plus } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useFirestore, useDoc, useCollection, useStorage } from "@/firebase"
-import { doc, setDoc, collection, query, orderBy, serverTimestamp, updateDoc, getDocs, where } from "firebase/firestore"
+import { doc, setDoc, collection, query, orderBy, serverTimestamp, updateDoc, addDoc, getDocs, where } from "firebase/firestore"
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
@@ -47,8 +47,11 @@ export default function RegistryPage() {
   const docRef = React.useMemo(() => (db && editId) ? doc(db, "products", editId) : null, [db, editId])
   const { data: editingProduct } = useDoc(docRef)
   
-  const productsQuery = React.useMemo(() => db ? query(collection(db, "products"), orderBy("updatedAt", "desc")) : null, [db])
-  const { data: allProducts } = useCollection(productsQuery)
+  // Listas de Firestore
+  const categoriesQuery = React.useMemo(() => db ? query(collection(db, "categories"), orderBy("name")) : null, [db])
+  const collectionsQuery = React.useMemo(() => db ? query(collection(db, "collections"), orderBy("name")) : null, [db])
+  const { data: categories = [] } = useCollection(categoriesQuery)
+  const { data: collectionsData = [] } = useCollection(collectionsQuery)
 
   const [form, setForm] = React.useState({
     name: "",
@@ -67,7 +70,7 @@ export default function RegistryPage() {
   // Estados para diálogos de gestión
   const [manageType, setManageType] = React.useState<'category' | 'collection' | null>(null)
   const [newItemName, setNewItemName] = React.useState("")
-  const [editingItem, setEditingItem] = React.useState<{oldName: string, newName: string} | null>(null)
+  const [editingItem, setEditingItem] = React.useState<{id: string, name: string} | null>(null)
 
   // Cargar borrador o datos de edición
   React.useEffect(() => {
@@ -98,17 +101,6 @@ export default function RegistryPage() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(form))
     }
   }, [form, editId])
-
-  // Listas únicas para el Select extraídas de los productos existentes
-  const categoriesList = React.useMemo(() => {
-    const set = new Set(allProducts?.map(p => p.category).filter(Boolean))
-    return Array.from(set).sort()
-  }, [allProducts])
-
-  const collectionsList = React.useMemo(() => {
-    const set = new Set(allProducts?.map(p => p.collection).filter(Boolean))
-    return Array.from(set).sort()
-  }, [allProducts])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -142,32 +134,27 @@ export default function RegistryPage() {
     return urls
   }
 
-  const handleRename = async () => {
-    if (!db || !manageType || !editingItem || !editingItem.newName.trim()) return
+  const handleAddItem = async () => {
+    if (!db || !manageType || !newItemName.trim()) return
+    const colName = manageType === 'category' ? 'categories' : 'collections'
+    await addDoc(collection(db, colName), { name: newItemName.trim() })
+    setNewItemName("")
+    toast({ title: "Agregado", description: "Se ha añadido a la lista." })
+  }
+
+  const handleRenameItem = async () => {
+    if (!db || !manageType || !editingItem || !editingItem.name.trim()) return
+    const colName = manageType === 'category' ? 'categories' : 'collections'
+    const itemRef = doc(db, colName, editingItem.id)
+    await updateDoc(itemRef, { name: editingItem.name.trim() })
     
-    setSaving(true)
-    try {
-      const q = query(
-        collection(db, "products"), 
-        where(manageType, "==", editingItem.oldName)
-      )
-      const querySnapshot = await getDocs(q)
-      const batchPromises = querySnapshot.docs.map(d => 
-        updateDoc(d.ref, { [manageType]: editingItem.newName.trim() })
-      )
-      await Promise.all(batchPromises)
-      
-      if (form[manageType] === editingItem.oldName) {
-        setForm({ ...form, [manageType]: editingItem.newName.trim() })
-      }
-      
-      toast({ title: "Actualizado", description: `Se actualizaron ${batchPromises.length} prendas.` })
-      setEditingItem(null)
-    } catch (e: any) {
-      toast({ title: "Error", description: e.message, variant: "destructive" })
-    } finally {
-      setSaving(false)
-    }
+    // Opcional: Actualizar productos que usaban este nombre (esto es costoso, pero solicitado)
+    const prodsQuery = query(collection(db, "products"), where(manageType, "==", editingItem.name))
+    const prodsSnap = await getDocs(prodsQuery)
+    prodsSnap.forEach(d => updateDoc(d.ref, { [manageType]: editingItem.name.trim() }))
+
+    setEditingItem(null)
+    toast({ title: "Actualizado", description: "Se ha renombrado en toda la base de datos." })
   }
 
   const handleSave = async () => {
@@ -196,7 +183,7 @@ export default function RegistryPage() {
       
       if (!editId) localStorage.removeItem(STORAGE_KEY)
       
-      toast({ title: "Guardado", description: "La prenda se ha sincronizado con la nube." })
+      toast({ title: "Guardado", description: "La prenda se ha sincronizado con Firestore." })
       router.push('/inventory')
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" })
@@ -215,7 +202,7 @@ export default function RegistryPage() {
             {editId ? 'Editar Prenda' : 'Nueva Prenda'}
             <Sparkles className="text-accent w-6 h-6" />
           </h1>
-          <p className="text-muted-foreground font-medium uppercase tracking-widest text-[10px]">Cloud Sync • Firebase Almacén</p>
+          <p className="text-muted-foreground font-medium uppercase tracking-widest text-[10px]">Cloud Sync • Firebase Firestore</p>
         </div>
         
         <div className="flex flex-col items-end gap-3">
@@ -241,7 +228,7 @@ export default function RegistryPage() {
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Gestión de Categoría */}
+                {/* Categoría */}
                 <div className="space-y-2">
                   <Label className="text-[10px] uppercase font-black text-accent/70 ml-1">Categoría *</Label>
                   <div className="flex gap-2">
@@ -250,8 +237,8 @@ export default function RegistryPage() {
                         <SelectValue placeholder="Elegir..." />
                       </SelectTrigger>
                       <SelectContent className="rounded-2xl">
-                        {categoriesList.map(cat => (
-                          <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                        {categories.map(cat => (
+                          <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -267,32 +254,21 @@ export default function RegistryPage() {
                         </DialogHeader>
                         <div className="space-y-4 py-4">
                           <div className="flex gap-2">
-                            <Input 
-                              placeholder="Nueva categoría..." 
-                              value={newItemName} 
-                              onChange={e => setNewItemName(e.target.value)} 
-                              className="rounded-xl border-accent/20 font-bold"
-                            />
-                            <Button className="bg-primary rounded-xl" onClick={() => {
-                              if(newItemName.trim()){
-                                setForm({...form, category: newItemName.trim()})
-                                setNewItemName("")
-                                setManageType(null)
-                              }
-                            }}><Plus className="w-4 h-4" /></Button>
+                            <Input placeholder="Nueva categoría..." value={newItemName} onChange={e => setNewItemName(e.target.value)} className="rounded-xl border-accent/20 font-bold" />
+                            <Button className="bg-primary rounded-xl" onClick={handleAddItem}><Plus className="w-4 h-4" /></Button>
                           </div>
                           <div className="max-h-48 overflow-auto space-y-2 pr-2">
-                            {categoriesList.map(cat => (
-                              <div key={cat} className="flex items-center justify-between p-3 bg-accent/5 rounded-xl border border-accent/10">
-                                {editingItem?.oldName === cat ? (
+                            {categories.map(cat => (
+                              <div key={cat.id} className="flex items-center justify-between p-3 bg-accent/5 rounded-xl border border-accent/10">
+                                {editingItem?.id === cat.id ? (
                                   <div className="flex gap-2 w-full">
-                                    <Input value={editingItem.newName} onChange={e => setEditingItem({...editingItem, newName: e.target.value})} className="h-8 text-xs rounded-lg" />
-                                    <Button size="sm" onClick={handleRename} disabled={saving}><Save className="w-3 h-3" /></Button>
+                                    <Input value={editingItem.name} onChange={e => setEditingItem({...editingItem, name: e.target.value})} className="h-8 text-xs rounded-lg" />
+                                    <Button size="sm" onClick={handleRenameItem}><Save className="w-3 h-3" /></Button>
                                   </div>
                                 ) : (
                                   <>
-                                    <span className="font-bold text-xs">{cat}</span>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-accent" onClick={() => setEditingItem({oldName: cat, newName: cat})}><Edit3 className="w-3 h-3" /></Button>
+                                    <span className="font-bold text-xs">{cat.name}</span>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-accent" onClick={() => setEditingItem({id: cat.id, name: cat.name})}><Edit3 className="w-3 h-3" /></Button>
                                   </>
                                 )}
                               </div>
@@ -304,7 +280,7 @@ export default function RegistryPage() {
                   </div>
                 </div>
 
-                {/* Gestión de Colección */}
+                {/* Colección */}
                 <div className="space-y-2">
                   <Label className="text-[10px] uppercase font-black text-accent/70 ml-1">Colección *</Label>
                   <div className="flex gap-2">
@@ -313,8 +289,8 @@ export default function RegistryPage() {
                         <SelectValue placeholder="Elegir..." />
                       </SelectTrigger>
                       <SelectContent className="rounded-2xl">
-                        {collectionsList.map(col => (
-                          <SelectItem key={col} value={col}>{col}</SelectItem>
+                        {collectionsData.map(col => (
+                          <SelectItem key={col.id} value={col.name}>{col.name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -330,32 +306,21 @@ export default function RegistryPage() {
                         </DialogHeader>
                         <div className="space-y-4 py-4">
                           <div className="flex gap-2">
-                            <Input 
-                              placeholder="Nueva colección..." 
-                              value={newItemName} 
-                              onChange={e => setNewItemName(e.target.value)} 
-                              className="rounded-xl border-accent/20 font-bold"
-                            />
-                            <Button className="bg-primary rounded-xl" onClick={() => {
-                              if(newItemName.trim()){
-                                setForm({...form, collection: newItemName.trim()})
-                                setNewItemName("")
-                                setManageType(null)
-                              }
-                            }}><Plus className="w-4 h-4" /></Button>
+                            <Input placeholder="Nueva colección..." value={newItemName} onChange={e => setNewItemName(e.target.value)} className="rounded-xl border-accent/20 font-bold" />
+                            <Button className="bg-primary rounded-xl" onClick={handleAddItem}><Plus className="w-4 h-4" /></Button>
                           </div>
                           <div className="max-h-48 overflow-auto space-y-2 pr-2">
-                            {collectionsList.map(col => (
-                              <div key={col} className="flex items-center justify-between p-3 bg-accent/5 rounded-xl border border-accent/10">
-                                {editingItem?.oldName === col ? (
+                            {collectionsData.map(col => (
+                              <div key={col.id} className="flex items-center justify-between p-3 bg-accent/5 rounded-xl border border-accent/10">
+                                {editingItem?.id === col.id ? (
                                   <div className="flex gap-2 w-full">
-                                    <Input value={editingItem.newName} onChange={e => setEditingItem({...editingItem, newName: e.target.value})} className="h-8 text-xs rounded-lg" />
-                                    <Button size="sm" onClick={handleRename} disabled={saving}><Save className="w-3 h-3" /></Button>
+                                    <Input value={editingItem.name} onChange={e => setEditingItem({...editingItem, name: e.target.value})} className="h-8 text-xs rounded-lg" />
+                                    <Button size="sm" onClick={handleRenameItem}><Save className="w-3 h-3" /></Button>
                                   </div>
                                 ) : (
                                   <>
-                                    <span className="font-bold text-xs">{col}</span>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-accent" onClick={() => setEditingItem({oldName: col, newName: col})}><Edit3 className="w-3 h-3" /></Button>
+                                    <span className="font-bold text-xs">{col.name}</span>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-accent" onClick={() => setEditingItem({id: col.id, name: col.name})}><Edit3 className="w-3 h-3" /></Button>
                                   </>
                                 )}
                               </div>
@@ -369,12 +334,8 @@ export default function RegistryPage() {
               </div>
 
               <div className="space-y-2">
-                <Label className="text-[10px] uppercase font-black text-accent/70 ml-1">Descripción (Estilo, tela, calce)</Label>
-                <Textarea 
-                  value={form.description} 
-                  onChange={e => setForm({...form, description: e.target.value})} 
-                  className="min-h-[100px] border-accent/20 rounded-[1.5rem] bg-accent/5" 
-                />
+                <Label className="text-[10px] uppercase font-black text-accent/70 ml-1">Descripción</Label>
+                <Textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="min-h-[100px] border-accent/20 rounded-[1.5rem] bg-accent/5" />
               </div>
             </CardContent>
           </Card>
