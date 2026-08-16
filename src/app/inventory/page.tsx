@@ -31,7 +31,6 @@ export default function InventoryPage() {
       try {
         const pData = await getSheetData('PRODUCTOS')
         const mData = await getSheetData('MOVIMIENTOS')
-        // Aseguramos que los datos sean arreglos para evitar errores de .filter o .map
         setProducts(Array.isArray(pData) ? pData : [])
         setMovements(Array.isArray(mData) ? mData : [])
       } catch (error) {

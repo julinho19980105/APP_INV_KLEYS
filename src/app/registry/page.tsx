@@ -52,7 +52,6 @@ export default function RegistryPage() {
 
   const [images, setImages] = React.useState<string[]>([])
 
-  // Cargar el último código al montar
   React.useEffect(() => {
     const fetchLastCode = async () => {
       const data = await getSheetData('PRODUCTOS');
@@ -61,7 +60,9 @@ export default function RegistryPage() {
         const lastCode = lastRow.Codigo;
         if (lastCode && lastCode.startsWith('P-')) {
           const num = parseInt(lastCode.split('-')[1]);
-          setForm(prev => ({ ...prev, code: `P-${String(num + 1).padStart(3, '0')}` }));
+          if (!isNaN(num)) {
+            setForm(prev => ({ ...prev, code: `P-${String(num + 1).padStart(3, '0')}` }));
+          }
         }
       }
     };
@@ -92,7 +93,7 @@ export default function RegistryPage() {
     if (!form.name || !form.category || !form.collection || !form.quantity) {
       toast({ 
         title: "Campos Incompletos", 
-        description: "Por favor llene Nombre, Categoría, Colección y Cantidad.", 
+        description: "Nombre, Categoría, Colección y Cantidad son obligatorios.", 
         variant: "destructive" 
       })
       return
@@ -100,8 +101,12 @@ export default function RegistryPage() {
 
     setSaving(true)
     try {
+      const timestamp = new Date().toISOString();
+      const imageUrl = images[0] || "";
+      
+      // 1. Guardar en PRODUCTOS (Maestro)
       const rowData = [
-        new Date().toISOString(),
+        timestamp,
         form.code,
         form.name,
         form.category,
@@ -110,15 +115,25 @@ export default function RegistryPage() {
         form.priceFardo,
         form.priceMayor,
         form.priceUnidad,
-        images[0] || ""
+        imageUrl
       ];
-
       await appendToSheet('PRODUCTOS', rowData);
       
-      // Registrar movimiento inicial de ingreso
+      // 2. Guardar en CATALOGO_WEB (Público y Seguro)
+      const catalogData = [
+        form.code,
+        form.name,
+        form.category,
+        form.priceUnidad,
+        imageUrl,
+        form.collection
+      ];
+      await appendToSheet('CATALOGO_WEB', catalogData);
+
+      // 3. Registrar movimiento inicial
       await appendToSheet('MOVIMIENTOS', [
         Math.random().toString(36).substr(2, 9),
-        new Date().toISOString(),
+        timestamp,
         form.code,
         'in',
         form.quantity,
@@ -127,7 +142,7 @@ export default function RegistryPage() {
 
       toast({ 
         title: "¡Guardado con éxito!", 
-        description: `La prenda ${form.code} ha sido registrada en el Sheet.`,
+        description: `Prenda ${form.code} registrada y sincronizada con el catálogo web.`,
         className: "bg-primary text-white" 
       })
       
@@ -145,7 +160,7 @@ export default function RegistryPage() {
       })
       setImages([])
     } catch (e) {
-      toast({ title: "Error", description: "No se pudo guardar la prenda en el Sheet.", variant: "destructive" })
+      toast({ title: "Error", description: "No se pudo guardar la prenda. Revisa la conexión con el Sheet.", variant: "destructive" })
     } finally {
       setSaving(false)
     }
@@ -170,9 +185,9 @@ export default function RegistryPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
           <Card className="border-none shadow-xl bg-white overflow-hidden rounded-[2.5rem]">
-            <CardHeader className="bg-gradient-to-r from-accent/10 via-white to-white border-b border-accent/10 py-6">
+            <CardHeader className="bg-accent/5 border-b border-accent/10 py-6">
               <div className="flex items-center justify-between w-full">
-                <CardTitle className="text-lg text-accent flex items-center gap-2">
+                <CardTitle className="text-lg text-accent flex items-center gap-2 font-bold">
                   <Edit3 className="w-5 h-5" /> Datos del Producto
                 </CardTitle>
                 <div className="font-mono text-sm bg-accent text-white px-4 py-1.5 rounded-full shadow-inner font-bold">
@@ -383,7 +398,7 @@ export default function RegistryPage() {
           </Button>
           
           <div className="text-[9px] text-center text-muted-foreground uppercase tracking-[0.3em] font-black px-6 leading-relaxed">
-            * Se guardará en Google Sheets automáticamente *
+            * Se sincronizará con tu catálogo web automáticamente *
           </div>
         </div>
       </div>
