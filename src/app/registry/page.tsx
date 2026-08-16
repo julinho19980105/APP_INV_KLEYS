@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -19,11 +20,11 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogFooter
 } from "@/components/ui/dialog"
 import { ImagePlus, X, Save, History, Edit3, BadgeInfo } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { generateProductDescription } from "@/ai/flows/generate-product-description"
+import { appendToSheet } from "@/services/sheets-service"
 import Image from "next/image"
 
 export default function RegistryPage() {
@@ -42,23 +43,13 @@ export default function RegistryPage() {
     category: "",
     collection: "",
     description: "",
-    quantity: "" as string,
-    priceFardo: "" as string,
-    priceMayor: "" as string,
-    priceUnidad: "" as string,
+    quantity: "",
+    priceFardo: "",
+    priceMayor: "",
+    priceUnidad: "",
   })
 
   const [images, setImages] = React.useState<string[]>([])
-
-  // Generar código correlativo al montar
-  React.useEffect(() => {
-    // En el futuro esto vendrá del Sheet: SELECT MAX(Codigo) FROM Prendas
-    const lastNum = 1 
-    setForm(prev => ({
-      ...prev,
-      code: `P-${String(lastNum).padStart(3, '0')}`
-    }))
-  }, [])
 
   const handleAI = async () => {
     if (!form.name || !form.category) {
@@ -80,7 +71,7 @@ export default function RegistryPage() {
     }
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.name || !form.category || !form.collection || !form.quantity) {
       toast({ 
         title: "Campos Incompletos", 
@@ -90,14 +81,28 @@ export default function RegistryPage() {
       return
     }
     
-    // Aquí irá la llamada al Google Apps Script (POST)
+    // Guardar en Sheet
+    const rowData = [
+      new Date().toISOString(),
+      form.code,
+      form.name,
+      form.category,
+      form.collection,
+      form.quantity,
+      form.priceFardo,
+      form.priceMayor,
+      form.priceUnidad,
+      images[0] || ""
+    ];
+
+    await appendToSheet('PRODUCTOS', rowData);
+    
     toast({ 
       title: "¡Guardado con éxito!", 
-      description: `La prenda ${form.code} ha sido registrada.`,
+      description: `La prenda ${form.code} ha sido registrada en el Sheet.`,
       className: "bg-primary text-white" 
     })
     
-    // Reset form y aumentar correlativo simulado
     setForm(prev => ({
       ...prev,
       name: "",
@@ -111,12 +116,6 @@ export default function RegistryPage() {
       code: `P-${String(parseInt(prev.code.split('-')[1]) + 1).padStart(3, '0')}`
     }))
     setImages([])
-  }
-
-  const addImage = () => {
-    if (images.length < 4) {
-      setImages([...images, `https://picsum.photos/seed/${Math.random()}/400/400`])
-    }
   }
 
   return (
@@ -165,7 +164,7 @@ export default function RegistryPage() {
                     <Label className="text-[10px] uppercase tracking-[0.2em] font-black text-accent/70">Categoría *</Label>
                     <Dialog>
                       <DialogTrigger asChild>
-                        <button className="text-[9px] text-primary font-black tracking-tighter hover:underline">+ AGREGAR / EDITAR</button>
+                        <button className="text-[9px] text-primary font-black tracking-tighter hover:underline">+ AGREGAR</button>
                       </DialogTrigger>
                       <DialogContent className="rounded-3xl">
                         <DialogHeader><DialogTitle>Gestionar Categorías</DialogTitle></DialogHeader>
@@ -200,7 +199,7 @@ export default function RegistryPage() {
                     <Label className="text-[10px] uppercase tracking-[0.2em] font-black text-accent/70">Colección *</Label>
                     <Dialog>
                       <DialogTrigger asChild>
-                        <button className="text-[9px] text-primary font-black tracking-tighter hover:underline">+ AGREGAR / EDITAR</button>
+                        <button className="text-[9px] text-primary font-black tracking-tighter hover:underline">+ AGREGAR</button>
                       </DialogTrigger>
                       <DialogContent className="rounded-3xl">
                         <DialogHeader><DialogTitle>Gestionar Colecciones</DialogTitle></DialogHeader>
@@ -267,7 +266,7 @@ export default function RegistryPage() {
                     value={form.quantity}
                     onChange={e => setForm({...form, quantity: e.target.value})}
                     className="border-primary/20 font-bold h-11 rounded-xl focus:ring-primary text-center text-lg"
-                    placeholder="---"
+                    placeholder=""
                   />
                 </div>
                 <div className="space-y-2">
@@ -277,7 +276,7 @@ export default function RegistryPage() {
                     value={form.priceFardo}
                     onChange={e => setForm({...form, priceFardo: e.target.value})}
                     className="border-accent/20 h-11 rounded-xl text-center font-medium"
-                    placeholder="---"
+                    placeholder=""
                   />
                 </div>
                 <div className="space-y-2">
@@ -287,7 +286,7 @@ export default function RegistryPage() {
                     value={form.priceMayor}
                     onChange={e => setForm({...form, priceMayor: e.target.value})}
                     className="border-accent/20 h-11 rounded-xl text-center font-medium"
-                    placeholder="---"
+                    placeholder=""
                   />
                 </div>
                 <div className="space-y-2">
@@ -297,7 +296,7 @@ export default function RegistryPage() {
                     value={form.priceUnidad}
                     onChange={e => setForm({...form, priceUnidad: e.target.value})}
                     className="border-accent/20 h-11 rounded-xl text-center font-medium"
-                    placeholder="---"
+                    placeholder=""
                   />
                 </div>
               </div>
@@ -328,7 +327,7 @@ export default function RegistryPage() {
                 ))}
                 {images.length < 4 && (
                   <button 
-                    onClick={addImage}
+                    onClick={() => setImages([...images, `https://picsum.photos/seed/${Math.random()}/400/400`])}
                     className="aspect-square rounded-2xl border-2 border-dashed border-accent/30 flex flex-col items-center justify-center gap-2 text-accent hover:text-primary hover:border-primary transition-all bg-accent/5 group"
                   >
                     <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center group-hover:bg-primary/10 transition-colors">
@@ -350,7 +349,7 @@ export default function RegistryPage() {
           </Button>
           
           <div className="text-[9px] text-center text-muted-foreground uppercase tracking-[0.3em] font-black px-6 leading-relaxed">
-            * Campos obligatorios para el catálogo maestro *
+            * Se guardará en Google Sheets automáticamente *
           </div>
         </div>
       </div>
