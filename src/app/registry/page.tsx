@@ -47,7 +47,6 @@ export default function RegistryPage() {
   const docRef = React.useMemo(() => (db && editId) ? doc(db, "products", editId) : null, [db, editId])
   const { data: editingProduct } = useDoc(docRef)
   
-  // Listas de Firestore
   const categoriesQuery = React.useMemo(() => db ? query(collection(db, "categories"), orderBy("name")) : null, [db])
   const collectionsQuery = React.useMemo(() => db ? query(collection(db, "collections"), orderBy("name")) : null, [db])
   const { data: categories = [] } = useCollection(categoriesQuery)
@@ -66,13 +65,10 @@ export default function RegistryPage() {
   })
 
   const [localImagePreviews, setLocalImagePreviews] = React.useState<{file?: File, url: string}[]>([])
-  
-  // Estados para diálogos de gestión
   const [manageType, setManageType] = React.useState<'category' | 'collection' | null>(null)
   const [newItemName, setNewItemName] = React.useState("")
   const [editingItem, setEditingItem] = React.useState<{id: string, name: string} | null>(null)
 
-  // Cargar borrador o datos de edición
   React.useEffect(() => {
     if (editingProduct) {
       setForm({
@@ -95,7 +91,6 @@ export default function RegistryPage() {
     }
   }, [editingProduct, editId])
 
-  // Persistir borrador
   React.useEffect(() => {
     if (!editId) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(form))
@@ -148,7 +143,6 @@ export default function RegistryPage() {
     const itemRef = doc(db, colName, editingItem.id)
     await updateDoc(itemRef, { name: editingItem.name.trim() })
     
-    // Opcional: Actualizar productos que usaban este nombre (esto es costoso, pero solicitado)
     const prodsQuery = query(collection(db, "products"), where(manageType, "==", editingItem.name))
     const prodsSnap = await getDocs(prodsQuery)
     prodsSnap.forEach(d => updateDoc(d.ref, { [manageType]: editingItem.name.trim() }))
@@ -228,7 +222,6 @@ export default function RegistryPage() {
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Categoría */}
                 <div className="space-y-2">
                   <Label className="text-[10px] uppercase font-black text-accent/70 ml-1">Categoría *</Label>
                   <div className="flex gap-2">
@@ -280,7 +273,6 @@ export default function RegistryPage() {
                   </div>
                 </div>
 
-                {/* Colección */}
                 <div className="space-y-2">
                   <Label className="text-[10px] uppercase font-black text-accent/70 ml-1">Colección *</Label>
                   <div className="flex gap-2">
