@@ -142,10 +142,9 @@ export default function RegistryPage() {
     setSaving(true)
     
     try {
-      // Subimos las imágenes a Drive y obtenemos las URLs reales
       const uploadedImageUrls = await Promise.all(
         localImagePreviews.map(async (img, index) => {
-          if (img.startsWith('http')) return img; // Si ya es una URL de Drive, no re-subir
+          if (img.startsWith('http')) return img;
           return await uploadImageToDrive(img, `${form.code}_${index}.jpg`);
         })
       );
@@ -167,7 +166,7 @@ export default function RegistryPage() {
       const pRef = editId ? doc(db, "products", editId) : doc(collection(db, "products"))
       setDoc(pRef, productData, { merge: true })
         .then(() => {
-          toast({ title: "Éxito", description: "Prenda registrada correctamente en Inventario y Drive." })
+          toast({ title: "Éxito", description: "Prenda registrada correctamente." })
           router.push('/inventory')
         })
         .catch((serverError: any) => {
@@ -178,8 +177,7 @@ export default function RegistryPage() {
           }));
         });
     } catch (error) {
-      console.error("Error general al guardar:", error);
-      toast({ variant: "destructive", title: "Error", description: "Hubo un problema al procesar las imágenes." })
+      toast({ variant: "destructive", title: "Error", description: "Hubo un problema al guardar las imágenes." })
     } finally {
       setSaving(false);
     }
@@ -209,7 +207,7 @@ export default function RegistryPage() {
         <div className="bg-destructive/10 border border-destructive/20 p-4 rounded-2xl flex items-center gap-3 text-destructive">
           <AlertCircle className="w-5 h-5" />
           <span className="text-xs font-black uppercase tracking-widest">
-            REGLA DIVA: Fardo es menor que Mayor y Mayor es menor que Unidad
+            Regla Diva: Fardo inferior a Mayor e inferior a Unidad
           </span>
         </div>
       )}
@@ -397,7 +395,7 @@ export default function RegistryPage() {
           <Button 
             className="w-full h-28 text-3xl font-headline shadow-2xl rounded-[3rem] bg-gradient-to-tr from-primary to-accent text-white font-black disabled:opacity-30 disabled:grayscale transition-all hover:scale-[1.02]" 
             onClick={handleSave}
-            disabled={!isFormValid}
+            disabled={!isFormValid || saving}
           >
             {saving ? <Loader2 className="w-10 h-10 animate-spin" /> : <Save className="w-8 h-8 mr-4" />}
             {editId ? 'ACTUALIZAR' : 'REGISTRAR'}
@@ -405,7 +403,7 @@ export default function RegistryPage() {
           
           <div className="p-8 bg-white/50 rounded-[2.5rem] border border-accent/10 text-center">
             <p className="text-[10px] text-accent font-black uppercase tracking-[0.2em]">
-              Guardado vía Google Drive. Calidad original garantizada.
+              Almacenamiento Seguro en Drive • Calidad Original.
             </p>
           </div>
         </div>
@@ -413,4 +411,3 @@ export default function RegistryPage() {
     </div>
   )
 }
-

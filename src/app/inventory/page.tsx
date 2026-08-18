@@ -91,7 +91,6 @@ export default function InventoryPage() {
                 {filteredProducts.length > 0 ? filteredProducts.map((p) => (
                   <TableRow key={p.id} className="group transition-colors hover:bg-primary/5">
                     <TableCell>
-                      {/* Modo icono: miniatura rápida */}
                       <button 
                         onClick={() => p.images && p.images[0] && setZoomedImage(p.images[0])}
                         className="w-12 h-12 rounded-2xl border border-accent/10 overflow-hidden bg-muted relative shadow-sm hover:scale-110 transition-transform group/img"
@@ -212,7 +211,6 @@ export default function InventoryPage() {
 
       <Dialog open={!!zoomedImage} onOpenChange={(o) => !o && setZoomedImage(null)}>
         <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 border-none bg-black/90 overflow-hidden flex items-center justify-center rounded-none">
-          {/* Modo Zoom: Tamaño completo y calidad original desde Drive */}
           {zoomedImage && (
             <div className="relative w-full h-full flex items-center justify-center">
               <button 
