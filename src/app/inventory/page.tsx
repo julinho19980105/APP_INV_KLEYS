@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -22,9 +21,8 @@ import {
   DialogTitle,
   DialogTrigger 
 } from "@/components/ui/dialog"
-import { Search, Edit2, ArrowDownRight, ArrowUpRight, Plus, ExternalLink, Maximize2, X } from "lucide-react"
+import { Search, Edit2, ArrowDownRight, ArrowUpRight, Plus, Maximize2, X } from "lucide-react"
 import { cn } from "@/lib/utils"
-import Image from "next/image"
 import { useCollection, useFirestore } from "@/firebase"
 import { collection, query, orderBy } from "firebase/firestore"
 
@@ -93,10 +91,11 @@ export default function InventoryPage() {
                 {filteredProducts.length > 0 ? filteredProducts.map((p) => (
                   <TableRow key={p.id} className="group transition-colors hover:bg-primary/5">
                     <TableCell>
+                      {/* Modo icono: miniatura rápida */}
                       <button 
                         onClick={() => p.images && p.images[0] && setZoomedImage(p.images[0])}
                         className="w-12 h-12 rounded-2xl border border-accent/10 overflow-hidden bg-muted relative shadow-sm hover:scale-110 transition-transform group/img"
-                        title="Presiona para Zoom (Calidad Original)"
+                        title="Ver Calidad Original (Zoom)"
                       >
                         {p.images && p.images[0] ? (
                           <>
@@ -213,6 +212,7 @@ export default function InventoryPage() {
 
       <Dialog open={!!zoomedImage} onOpenChange={(o) => !o && setZoomedImage(null)}>
         <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 border-none bg-black/90 overflow-hidden flex items-center justify-center rounded-none">
+          {/* Modo Zoom: Tamaño completo y calidad original desde Drive */}
           {zoomedImage && (
             <div className="relative w-full h-full flex items-center justify-center">
               <button 
@@ -223,7 +223,7 @@ export default function InventoryPage() {
               </button>
               <img 
                 src={zoomedImage} 
-                alt="Zoom Calidad Original" 
+                alt="Calidad Original Drive" 
                 className="max-w-full max-h-[90vh] object-contain shadow-2xl animate-in zoom-in-95 duration-300" 
               />
             </div>

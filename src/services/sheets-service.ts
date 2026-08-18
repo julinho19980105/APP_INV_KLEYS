@@ -1,13 +1,13 @@
 /**
- * INSTRUCCIONES PARA GOOGLE APPS SCRIPT (Código.gs):
+ * INSTRUCCIONES PARA GOOGLE APPS SCRIPT (script.google.com):
  * 
- * 1. Ve a https://script.google.com
- * 2. Borra TODO y pega ÚNICAMENTE este bloque:
+ * 1. Pega ÚNICAMENTE la función doPost(e) que aparece abajo.
+ * 2. NO pegues nada que diga "import" o "export".
  * 
  * function doPost(e) {
  *   try {
  *     var data = JSON.parse(e.postData.contents);
- *     var folderId = "1rE3cAp5g8M_QfSCSntyfybAXNqNDuu75"; // ID de tu carpeta
+ *     var folderId = "1eiNwGNeMfRcP7yd6-XkhLLzTCoxC4uOT";
  *     var folder = DriveApp.getFolderById(folderId);
  *     var contentType = data.mimeType || "image/jpeg";
  *     var base64 = data.base64.split(",")[1];
@@ -33,18 +33,18 @@
 import { API_CONFIG } from '@/lib/api-config';
 
 /**
- * Sube una imagen a Google Drive y devuelve la URL pública real.
+ * Sube una imagen a Google Drive y devuelve la URL pública real en calidad original.
  */
 export async function uploadImageToDrive(base64Data: string, fileName: string): Promise<string> {
   if (!API_CONFIG.WEB_APP_URL || API_CONFIG.WEB_APP_URL === '') {
-    console.warn("URL de Google Script no configurada. Se usará base64 temporalmente.");
+    console.warn("URL de Google Script no configurada.");
     return base64Data;
   }
 
   try {
     const mimeType = base64Data.split(';')[0].split(':')[1] || 'image/jpeg';
     
-    // Eliminamos 'no-cors' para poder leer la respuesta JSON del script
+    // Eliminado 'no-cors' para permitir leer la respuesta JSON del script
     const response = await fetch(API_CONFIG.WEB_APP_URL, {
       method: 'POST',
       body: JSON.stringify({
@@ -61,14 +61,14 @@ export async function uploadImageToDrive(base64Data: string, fileName: string): 
     const result = await response.json();
     
     if (result.success && result.url) {
-      console.log("Imagen guardada en Drive correctamente.");
+      console.log("Imagen guardada en Drive en calidad original.");
       return result.url;
     } else {
-      throw new Error(result.error || "Error desconocido al subir a Drive.");
+      throw new Error(result.error || "Error al subir a Drive.");
     }
   } catch (error) {
-    console.error("Error crítico al subir a Drive:", error);
-    // Retornamos el base64 como último recurso para no perder la imagen en la UI actual
+    console.error("Error al subir a Drive:", error);
+    // Retornamos el base64 como último recurso si el script falla
     return base64Data;
   }
 }
