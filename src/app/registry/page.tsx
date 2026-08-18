@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -25,10 +26,33 @@ import { ImagePlus, X, Save, History, Loader2, Sparkles, Settings2, Edit3, Plus,
 import { useToast } from "@/hooks/use-toast"
 import { useFirestore, useDoc, useCollection } from "@/firebase"
 import { doc, setDoc, collection, query, orderBy, serverTimestamp, updateDoc, addDoc, limit, getDocs } from "firebase/firestore"
-import { uploadImageToDrive } from "@/services/sheets-service"
 import { errorEmitter } from '@/firebase/error-emitter'
 import { FirestorePermissionError } from '@/firebase/errors'
 import { cn } from "@/lib/utils"
+
+// Función para comprimir imágenes antes de guardar como Base64
+async function compressImage(base64: string, maxWidth = 800, quality = 0.7): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.src = base64;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let width = img.width;
+      let height = img.height;
+
+      if (width > maxWidth) {
+        height = (maxWidth / width) * height;
+        width = maxWidth;
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx?.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+  });
+}
 
 export default function RegistryPage() {
   const searchParams = useSearchParams()
@@ -50,7 +74,7 @@ export default function RegistryPage() {
 
   const [form, setForm] = React.useState({
     name: "",
-    code: "P-...",
+    code: "P-001",
     category: "",
     collection: "",
     description: "",
@@ -60,12 +84,12 @@ export default function RegistryPage() {
     priceUnidad: "",
   })
 
-  const [localImagePreviews, setLocalImagePreviews] = React.useState<{file?: File, url: string}[]>([])
+  const [localImagePreviews, setLocalImagePreviews] = React.useState<string[]>([])
   const [manageType, setManageType] = React.useState<'category' | 'collection' | null>(null)
   const [newItemName, setNewItemName] = React.useState("")
   const [editingItem, setEditingItem] = React.useState<{id: string, name: string} | null>(null)
 
-  // Lógica para obtener el siguiente código correlativo real desde Firestore
+  // Obtener el siguiente código correlativo real
   const fetchNextCode = React.useCallback(async () => {
     if (!db || editId) return
     try {
@@ -102,20 +126,17 @@ export default function RegistryPage() {
         priceMayor: editingProduct.priceMayor?.toString() || "",
         priceUnidad: editingProduct.priceUnidad?.toString() || "",
       })
-      setLocalImagePreviews((editingProduct.images || []).map((url: string) => ({ url })))
+      setLocalImagePreviews(editingProduct.images || [])
     }
   }, [editingProduct])
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      if (file.size > 3 * 1024 * 1024) {
-        toast({ title: "Imagen muy pesada", description: "El límite es 3MB.", variant: "destructive" })
-        return
-      }
       const reader = new FileReader()
-      reader.onloadend = () => {
-        setLocalImagePreviews(prev => [...prev, { file, url: reader.result as string }].slice(0, 4))
+      reader.onloadend = async () => {
+        const compressed = await compressImage(reader.result as string)
+        setLocalImagePreviews(prev => [...prev, compressed].slice(0, 4))
       }
       reader.readAsDataURL(file)
     }
@@ -129,11 +150,6 @@ export default function RegistryPage() {
         setNewItemName("")
         toast({ title: "Agregado", description: "Nuevo elemento guardado." })
       })
-      .catch((err) => {
-        if (err.code === 'permission-denied') {
-          errorEmitter.emit('permission-error', new FirestorePermissionError({ path: colName, operation: 'create' }))
-        }
-      })
   }
 
   const handleRenameItem = async () => {
@@ -145,67 +161,44 @@ export default function RegistryPage() {
         setEditingItem(null)
         toast({ title: "Actualizado", description: "Nombre modificado correctamente." })
       })
-      .catch((err) => {
-        if (err.code === 'permission-denied') {
-          errorEmitter.emit('permission-error', new FirestorePermissionError({ path: itemRef.path, operation: 'update' }))
-        }
-      })
   }
 
   const handleSave = async () => {
     if (!db || !isFormValid) return
     
     setSaving(true)
-    try {
-      const imageUrls: string[] = []
-      for (const img of localImagePreviews) {
-        if (img.file) {
-          const driveUrl = await uploadImageToDrive(img.url, `${form.name}_${Date.now()}`)
-          // Si Drive no devuelve URL real, evitamos guardar el Base64 gigante en Firestore
-          if (driveUrl && !driveUrl.startsWith('data:')) {
-            imageUrls.push(driveUrl)
-          }
-        } else {
-          imageUrls.push(img.url)
-        }
-      }
-
-      const productData = {
-        name: form.name,
-        code: form.code,
-        category: form.category,
-        collection: form.collection,
-        description: form.description,
-        stock: Number(form.stock),
-        priceFardo: Number(form.priceFardo || 0),
-        priceMayor: Number(form.priceMayor || 0),
-        priceUnidad: Number(form.priceUnidad || 0),
-        images: imageUrls,
-        updatedAt: serverTimestamp()
-      }
-
-      const pRef = editId ? doc(db, "products", editId) : doc(collection(db, "products"))
-      setDoc(pRef, productData, { merge: true })
-        .then(() => {
-          toast({ title: "Éxito", description: "Prenda registrada correctamente." })
-          router.push('/inventory')
-        })
-        .catch((serverError: any) => {
-          if (serverError.code === 'permission-denied') {
-             errorEmitter.emit('permission-error', new FirestorePermissionError({ 
-               path: pRef.path, 
-               operation: editId ? 'update' : 'create', 
-               requestResourceData: productData 
-             }));
-          } else {
-             toast({ title: "Error de Memoria", description: "Los datos son demasiado pesados. Reduce el tamaño de las fotos.", variant: "destructive" });
-          }
-        })
-    } catch (e: any) {
-      toast({ title: "Error", description: e.message, variant: "destructive" })
-    } finally {
-      setSaving(false)
+    const productData = {
+      name: form.name,
+      code: form.code,
+      category: form.category,
+      collection: form.collection,
+      description: form.description,
+      stock: Number(form.stock),
+      priceFardo: Number(form.priceFardo || 0),
+      priceMayor: Number(form.priceMayor || 0),
+      priceUnidad: Number(form.priceUnidad || 0),
+      images: localImagePreviews,
+      updatedAt: serverTimestamp()
     }
+
+    const pRef = editId ? doc(db, "products", editId) : doc(collection(db, "products"))
+    setDoc(pRef, productData, { merge: true })
+      .then(() => {
+        toast({ title: "Éxito", description: "Prenda registrada correctamente." })
+        router.push('/inventory')
+      })
+      .catch((serverError: any) => {
+        if (serverError.code === 'permission-denied') {
+           errorEmitter.emit('permission-error', new FirestorePermissionError({ 
+             path: pRef.path, 
+             operation: editId ? 'update' : 'create', 
+             requestResourceData: productData 
+           }));
+        } else {
+           toast({ title: "Error", description: "Error al guardar. Los datos pueden ser muy pesados.", variant: "destructive" });
+        }
+      })
+      .finally(() => setSaving(false))
   }
 
   const priceError = form.priceFardo && form.priceMayor && form.priceUnidad && 
@@ -403,7 +396,7 @@ export default function RegistryPage() {
             <CardContent className="pt-6 grid grid-cols-2 gap-4 px-8">
                {localImagePreviews.map((img, idx) => (
                   <div key={idx} className="relative aspect-square rounded-[2rem] overflow-hidden border-2 border-accent/10 group shadow-md bg-muted">
-                    <img src={img.url} alt="" className="w-full h-full object-cover" />
+                    <img src={img} alt="" className="w-full h-full object-cover" />
                     <button onClick={() => setLocalImagePreviews(localImagePreviews.filter((_, i) => i !== idx))} className="absolute top-2 right-2 p-2 bg-destructive rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity"><X className="w-4 h-4" /></button>
                   </div>
                 ))}
@@ -428,7 +421,7 @@ export default function RegistryPage() {
           
           <div className="p-8 bg-white/50 rounded-[2.5rem] border border-accent/10 text-center">
             <p className="text-[10px] text-accent font-black uppercase tracking-[0.2em]">
-              Sincronización segura con Google Drive activada.
+              Imágenes optimizadas para visualización rápida.
             </p>
           </div>
         </div>
