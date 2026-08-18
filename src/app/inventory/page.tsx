@@ -46,7 +46,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { Search, Edit2, ArrowDownRight, ArrowUpRight, Maximize2, X, Layers, Trash2, LayoutGrid } from "lucide-react"
+import { Search, Edit2, ArrowDownRight, ArrowUpRight, X, Trash2, LayoutGrid, Layers } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useCollection, useFirestore } from "@/firebase"
 import { collection, query, orderBy, limit, doc, deleteDoc, getDocs, where, writeBatch } from "firebase/firestore"
@@ -87,7 +87,6 @@ export default function InventoryPage() {
       mainGroups[mainKey][subKey].push(p)
     })
 
-    // Ordenar items dentro de los subgrupos por stock desc
     Object.keys(mainGroups).forEach(mK => {
       Object.keys(mainGroups[mK]).forEach(sK => {
         mainGroups[mK][sK].sort((a, b) => (b.stock || 0) - (a.stock || 0))
@@ -107,9 +106,9 @@ export default function InventoryPage() {
       const batch = writeBatch(db)
       snapIn.forEach(doc => batch.delete(doc.ref))
       await batch.commit()
-      toast({ title: "Producto Eliminado", description: "Se borró el producto y sus entradas de inventario." })
+      toast({ title: "Producto Eliminado", description: "Se borró el producto y sus entradas." })
     } catch (e) {
-      toast({ variant: "destructive", title: "Error", description: "No se pudo eliminar el registro." })
+      toast({ variant: "destructive", title: "Error" })
     }
   }
 
@@ -121,14 +120,13 @@ export default function InventoryPage() {
   };
 
   return (
-    <div className="space-y-4 -mt-4">
-      {/* Cabecera solo buscador */}
+    <div className="space-y-4 pt-2">
       <div className="flex items-center gap-4">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-accent" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-black" />
           <Input 
-            placeholder="Buscar por código o nombre..." 
-            className="pl-10 h-10 rounded-xl border-accent/20 bg-white shadow-sm focus:ring-primary font-bold"
+            placeholder="BUSCAR PRENDA..." 
+            className="pl-10 h-10 rounded-xl border-black/10 bg-white shadow-sm focus:ring-primary font-black text-black uppercase"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
           />
@@ -163,45 +161,30 @@ export default function InventoryPage() {
           </div>
 
           {loadingProducts ? (
-            <div className="p-20 text-center text-accent font-black animate-pulse uppercase tracking-widest bg-white rounded-[2rem] border border-dashed">Sincronizando Inventario...</div>
+            <div className="p-20 text-center text-black font-black animate-pulse uppercase tracking-widest bg-white rounded-[2rem] border border-dashed">Sincronizando Inventario...</div>
           ) : Object.keys(groupedData).length > 0 ? (
             <Accordion type="multiple" defaultValue={Object.keys(groupedData)} className="space-y-2">
               {Object.entries(groupedData).map(([mainTitle, subGroups]) => (
                 <AccordionItem key={mainTitle} value={mainTitle} className="border rounded-2xl bg-white shadow-sm overflow-hidden border-none px-4">
-                  <AccordionTrigger className="hover:no-underline py-4 group">
-                    <div className="flex items-center gap-3">
-                      <div className={cn(
-                        "w-9 h-9 rounded-xl flex items-center justify-center transition-colors group-data-[state=open]:bg-primary group-data-[state=open]:text-white",
-                        viewType === 'category' ? "bg-accent/10 text-accent" : "bg-primary/10 text-primary"
-                      )}>
-                        {viewType === 'category' ? <Layers className="w-5 h-5" /> : <LayoutGrid className="w-5 h-5" />}
-                      </div>
-                      <div className="text-left">
-                        <div className="text-[10px] font-black text-accent uppercase tracking-widest">{viewType === 'category' ? 'CATEGORÍA DIVA' : 'COLECCIÓN'}</div>
-                        <div className="text-sm font-black text-black uppercase">{mainTitle}</div>
-                      </div>
-                    </div>
+                  <AccordionTrigger className="hover:no-underline py-4 px-2 group">
+                    <div className="text-sm font-black text-black uppercase tracking-tight">{mainTitle}</div>
                   </AccordionTrigger>
-                  <AccordionContent className="pb-4 pt-2 border-t border-accent/5">
-                    <Accordion type="multiple" className="space-y-2 ml-4">
+                  <AccordionContent className="pb-4 pt-0 border-t border-black/5">
+                    <Accordion type="multiple" className="space-y-2 mt-2 ml-2">
                       {Object.entries(subGroups).map(([subTitle, items]) => (
-                        <AccordionItem key={subTitle} value={subTitle} className="border rounded-xl border-accent/10">
-                          <AccordionTrigger className="py-2 px-4 hover:no-underline bg-accent/5">
-                            <div className="flex items-center gap-2">
-                              <span className="text-[9px] font-black text-accent uppercase">{viewType === 'category' ? 'Colección:' : 'Categoría:'}</span>
-                              <span className="text-xs font-black text-black uppercase">{subTitle}</span>
-                              <Badge variant="outline" className="text-[9px] font-black border-accent/20 bg-white ml-2">{items.length} PRENDAS</Badge>
-                            </div>
+                        <AccordionItem key={subTitle} value={subTitle} className="border rounded-xl border-black/5">
+                          <AccordionTrigger className="py-2 px-4 hover:no-underline bg-black/5">
+                            <span className="text-xs font-black text-black uppercase">{subTitle}</span>
                           </AccordionTrigger>
                           <AccordionContent className="p-0">
                             <Table>
                               <TableHeader>
                                 <TableRow className="bg-white hover:bg-white border-b-2">
-                                  <TableHead className="w-[60px] font-black uppercase text-[9px] text-accent text-center">Foto</TableHead>
-                                  <TableHead className="font-black uppercase text-[9px] text-accent">Detalle</TableHead>
-                                  <TableHead className="text-right font-black uppercase text-[9px] text-accent">Precios Diva</TableHead>
-                                  <TableHead className="text-center font-black uppercase text-[9px] text-accent">Stock</TableHead>
-                                  <TableHead className="text-right font-black uppercase text-[9px] text-accent w-[80px]">Acciones</TableHead>
+                                  <TableHead className="w-[60px] font-black uppercase text-[9px] text-black text-center">Foto</TableHead>
+                                  <TableHead className="font-black uppercase text-[9px] text-black">Detalle</TableHead>
+                                  <TableHead className="text-right font-black uppercase text-[9px] text-black">Precios Diva</TableHead>
+                                  <TableHead className="text-center font-black uppercase text-[9px] text-black">Stock</TableHead>
+                                  <TableHead className="text-right font-black uppercase text-[9px] text-black w-[80px]">Acciones</TableHead>
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
@@ -210,7 +193,7 @@ export default function InventoryPage() {
                                     <TableCell className="text-center">
                                       <button 
                                         onClick={() => p.images?.[0] && setZoomedImage(p.images[0])}
-                                        className="w-10 h-10 rounded-lg border border-accent/20 overflow-hidden bg-muted relative shadow-sm hover:scale-110 transition-transform"
+                                        className="w-10 h-10 rounded-lg border border-black/10 overflow-hidden bg-muted relative shadow-sm hover:scale-110 transition-transform"
                                       >
                                         {p.images && p.images[0] ? (
                                            <img 
@@ -225,8 +208,11 @@ export default function InventoryPage() {
                                       </button>
                                     </TableCell>
                                     <TableCell>
-                                      <div className="font-mono text-[9px] font-black text-accent">{p.code}</div>
+                                      <div className="font-mono text-[9px] font-black text-black/50">{p.code}</div>
                                       <div className="font-black text-black text-xs uppercase">{p.name}</div>
+                                      <Badge variant="outline" className="text-[8px] h-3 px-1 border-black/20 text-black font-black uppercase mt-1">
+                                        {viewType === 'collection' ? p.category : p.collection}
+                                      </Badge>
                                     </TableCell>
                                     <TableCell className="text-right">
                                       <div className="text-[9px] font-black text-black whitespace-nowrap">
@@ -246,7 +232,7 @@ export default function InventoryPage() {
                                         <Button 
                                           variant="ghost" 
                                           size="icon" 
-                                          className="h-7 w-7 text-primary hover:bg-primary/10 rounded-lg"
+                                          className="h-7 w-7 text-black hover:bg-primary/10 rounded-lg"
                                           onClick={() => router.push(`/registry?edit=${p.id}`)}
                                         >
                                           <Edit2 className="w-3 h-3" />
@@ -261,7 +247,7 @@ export default function InventoryPage() {
                                             <AlertDialogHeader>
                                               <AlertDialogTitle className="font-black text-primary">ELIMINAR PRENDA {p.code}</AlertDialogTitle>
                                               <AlertDialogDescription className="text-xs text-black font-bold">
-                                                Esta acción borrará el producto y sus ENTRADAS. Las ventas (salidas) se mantienen intactas.
+                                                Esta acción borrará el producto y sus ENTRADAS. Las ventas registradas se mantienen intactas.
                                               </AlertDialogDescription>
                                             </AlertDialogHeader>
                                             <AlertDialogFooter>
@@ -285,8 +271,8 @@ export default function InventoryPage() {
               ))}
             </Accordion>
           ) : (
-            <div className="text-center py-20 text-black font-black bg-white rounded-[2rem] border border-dashed border-accent/20 uppercase tracking-widest">
-              No hay productos para mostrar con este filtro.
+            <div className="text-center py-20 text-black font-black bg-white rounded-[2rem] border border-dashed border-black/10 uppercase tracking-widest">
+              No hay productos para mostrar.
             </div>
           )}
         </TabsContent>
@@ -294,7 +280,7 @@ export default function InventoryPage() {
         <TabsContent value="recent" className="pt-2">
           <div className="border rounded-[2rem] overflow-hidden bg-white shadow-sm max-w-4xl mx-auto">
             <div className="bg-primary/5 px-8 py-4 border-b">
-               <h3 className="font-black text-primary uppercase text-[10px] tracking-widest">Últimos 5 Cambios Industriales</h3>
+               <h3 className="font-black text-primary uppercase text-[10px] tracking-widest">Últimos 5 Movimientos</h3>
             </div>
             <Table>
               <TableHeader>
@@ -312,7 +298,7 @@ export default function InventoryPage() {
                     <TableCell className="text-[9px] font-black text-black">
                       {m.timestamp?.toDate ? m.timestamp.toDate().toLocaleString('es-PE') : ""}
                     </TableCell>
-                    <TableCell className="font-mono text-[10px] font-black text-accent">{m.productCode}</TableCell>
+                    <TableCell className="font-mono text-[10px] font-black text-black">{m.productCode}</TableCell>
                     <TableCell>
                       {m.type === 'in' || m.type === 'return' ? <Badge className="bg-green-500 text-[8px] border-none font-black uppercase">Ingreso</Badge> : <Badge variant="destructive" className="text-[8px] font-black uppercase border-none">Salida</Badge>}
                     </TableCell>
@@ -328,8 +314,8 @@ export default function InventoryPage() {
         <TabsContent value="movements" className="pt-2 space-y-4">
            <div className="flex justify-end px-2">
               <Select value={kardexFilter} onValueChange={setKardexFilter}>
-                <SelectTrigger className="w-[180px] h-8 text-[10px] font-black uppercase rounded-xl border-accent/20 bg-white text-black">
-                  <SelectValue placeholder="Filtrar Kardex" />
+                <SelectTrigger className="w-[180px] h-8 text-[10px] font-black uppercase rounded-xl border-black/10 bg-white text-black">
+                  <SelectValue placeholder="FILTRAR KARDEX" />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl">
                   <SelectItem value="all" className="text-[10px] uppercase font-black">Todos los Motivos</SelectItem>
@@ -363,7 +349,7 @@ export default function InventoryPage() {
                         <TableCell className="text-[9px] font-black text-black">
                           {m.timestamp?.toDate ? m.timestamp.toDate().toLocaleString('es-PE') : ""}
                         </TableCell>
-                        <TableCell className="font-black text-accent font-mono text-[10px]">{m.productCode}</TableCell>
+                        <TableCell className="font-black text-black font-mono text-[10px]">{m.productCode}</TableCell>
                         <TableCell>
                           {m.type === 'in' || m.type === 'return' ? (
                             <div className="flex items-center gap-1 text-green-600 font-black text-[9px] uppercase">
@@ -391,8 +377,8 @@ export default function InventoryPage() {
       <Dialog open={!!zoomedImage} onOpenChange={(o) => !o && setZoomedImage(null)}>
         <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 border-none bg-black/95 overflow-hidden flex items-center justify-center rounded-none shadow-none">
           <DialogHeader className="sr-only">
-            <DialogTitle>Imagen Original Drive</DialogTitle>
-            <DialogDescription>Visualización Calidad Máxima Diva</DialogDescription>
+            <DialogTitle>Imagen Drive</DialogTitle>
+            <DialogDescription>Zoom Industrial Diva</DialogDescription>
           </DialogHeader>
           {zoomedImage && (
             <div className="relative w-full h-full flex items-center justify-center">
