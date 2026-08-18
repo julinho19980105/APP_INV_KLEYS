@@ -50,7 +50,7 @@ export default function InventoryPage() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
         <div>
           <h1 className="text-3xl font-headline font-bold text-primary">Inventario Diva</h1>
-          <p className="text-muted-foreground font-medium uppercase tracking-widest text-[10px]">Cloud Sync Realtime • Calidad Original</p>
+          <p className="text-muted-foreground font-medium uppercase tracking-widest text-[10px]">Calidad Original • Almacenamiento Seguro</p>
         </div>
         <div className="flex w-full md:w-auto gap-2">
           <div className="relative flex-1 md:w-64">
@@ -76,7 +76,7 @@ export default function InventoryPage() {
         
         <TabsContent value="all" className="border rounded-[2rem] overflow-hidden bg-card shadow-xl border-none min-h-[400px]">
           {loadingProducts ? (
-            <div className="p-20 text-center text-accent font-bold animate-pulse uppercase tracking-widest">Sincronizando con Drive & Firestore...</div>
+            <div className="p-20 text-center text-accent font-bold animate-pulse uppercase tracking-widest">Sincronizando inventario...</div>
           ) : (
             <Table>
               <TableHeader>
@@ -96,6 +96,7 @@ export default function InventoryPage() {
                       <button 
                         onClick={() => p.images && p.images[0] && setZoomedImage(p.images[0])}
                         className="w-12 h-12 rounded-2xl border border-accent/10 overflow-hidden bg-muted relative shadow-sm hover:scale-110 transition-transform group/img"
+                        title="Presiona para Zoom (Calidad Original)"
                       >
                         {p.images && p.images[0] ? (
                           <>
@@ -222,7 +223,7 @@ export default function InventoryPage() {
               </button>
               <img 
                 src={zoomedImage} 
-                alt="Zoom" 
+                alt="Zoom Calidad Original" 
                 className="max-w-full max-h-[90vh] object-contain shadow-2xl animate-in zoom-in-95 duration-300" 
               />
             </div>
