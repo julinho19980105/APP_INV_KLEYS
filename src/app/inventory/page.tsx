@@ -46,7 +46,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { Search, Edit2, ArrowDownRight, ArrowUpRight, X, Trash2, LayoutGrid, Layers } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Search, Edit2, ArrowDownRight, ArrowUpRight, X, Trash2, MoreVertical, LayoutGrid, Layers } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useCollection, useFirestore } from "@/firebase"
 import { collection, query, orderBy, limit, doc, deleteDoc, getDocs, where, writeBatch } from "firebase/firestore"
@@ -60,6 +66,20 @@ export default function InventoryPage() {
   const [zoomedImage, setZoomedImage] = React.useState<string | null>(null)
   const [kardexFilter, setKardexFilter] = React.useState("all")
   const [viewType, setViewType] = React.useState<"collection" | "category">("collection")
+
+  // Cargar configuración de vista
+  React.useEffect(() => {
+    const loadSettings = () => {
+      const saved = localStorage.getItem('diva_settings')
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (parsed.inventoryViewMode) setViewType(parsed.inventoryViewMode)
+      }
+    }
+    loadSettings()
+    window.addEventListener('storage', loadSettings)
+    return () => window.removeEventListener('storage', loadSettings)
+  }, [])
 
   const productsRef = React.useMemo(() => db ? query(collection(db, "products"), orderBy("code", "asc")) : null, [db])
   const recentMovementsRef = React.useMemo(() => db ? query(collection(db, "movements"), orderBy("timestamp", "desc"), limit(5)) : null, [db])
@@ -134,30 +154,18 @@ export default function InventoryPage() {
       </div>
 
       <Tabs defaultValue="all" className="w-full">
-        <TabsList className="bg-muted/50 p-1 rounded-2xl w-full justify-start overflow-hidden border">
-          <TabsTrigger value="all" className="rounded-xl px-8 data-[state=active]:bg-primary data-[state=active]:text-white transition-all text-xs font-black font-headline">STOCK ACTUAL</TabsTrigger>
-          <TabsTrigger value="recent" className="rounded-xl px-8 data-[state=active]:bg-primary data-[state=active]:text-white transition-all text-xs font-black font-headline">RECIENTES</TabsTrigger>
-          <TabsTrigger value="movements" className="rounded-xl px-8 data-[state=active]:bg-primary data-[state=active]:text-white transition-all text-xs font-black font-headline">HISTORIAL KARDEX</TabsTrigger>
+        <TabsList className="bg-black/5 p-1 rounded-2xl w-full justify-start overflow-hidden border">
+          <TabsTrigger value="all" className="rounded-xl px-8 data-[state=active]:bg-black data-[state=active]:text-white transition-all text-[10px] font-black font-headline uppercase">STOCK ACTUAL</TabsTrigger>
+          <TabsTrigger value="recent" className="rounded-xl px-8 data-[state=active]:bg-black data-[state=active]:text-white transition-all text-[10px] font-black font-headline uppercase">RECIENTES</TabsTrigger>
+          <TabsTrigger value="movements" className="rounded-xl px-8 data-[state=active]:bg-black data-[state=active]:text-white transition-all text-[10px] font-black font-headline uppercase">KARDEX</TabsTrigger>
         </TabsList>
         
         <TabsContent value="all" className="space-y-4 pt-2">
-          <div className="flex gap-2 bg-white p-1 rounded-xl border w-fit shadow-sm">
-            <Button 
-              variant={viewType === 'collection' ? 'default' : 'ghost'} 
-              size="sm" 
-              className="text-[10px] font-black h-7 rounded-lg"
-              onClick={() => setViewType('collection')}
-            >
-              <LayoutGrid className="w-3 h-3 mr-1" /> VISTA COLECCIÓN
-            </Button>
-            <Button 
-              variant={viewType === 'category' ? 'default' : 'ghost'} 
-              size="sm" 
-              className="text-[10px] font-black h-7 rounded-lg"
-              onClick={() => setViewType('category')}
-            >
-              <Layers className="w-3 h-3 mr-1" /> VISTA CATEGORÍA
-            </Button>
+          <div className="flex items-center gap-2 px-2">
+            <Badge variant="outline" className="text-[9px] font-black uppercase px-2 py-0.5 border-black/20 text-black flex items-center gap-1">
+              {viewType === 'collection' ? <LayoutGrid className="w-3 h-3" /> : <Layers className="w-3 h-3" />}
+              MODO: {viewType === 'collection' ? 'COLECCIÓN' : 'CATEGORÍA'}
+            </Badge>
           </div>
 
           {loadingProducts ? (
@@ -180,20 +188,20 @@ export default function InventoryPage() {
                             <Table>
                               <TableHeader>
                                 <TableRow className="bg-white hover:bg-white border-b-2">
-                                  <TableHead className="w-[60px] font-black uppercase text-[9px] text-black text-center">Foto</TableHead>
-                                  <TableHead className="font-black uppercase text-[9px] text-black">Detalle</TableHead>
-                                  <TableHead className="text-right font-black uppercase text-[9px] text-black">Precios Diva</TableHead>
-                                  <TableHead className="text-center font-black uppercase text-[9px] text-black">Stock</TableHead>
-                                  <TableHead className="text-right font-black uppercase text-[9px] text-black w-[80px]">Acciones</TableHead>
+                                  <TableHead className="w-[50px] font-black uppercase text-[9px] text-black text-center">FOTO</TableHead>
+                                  <TableHead className="font-black uppercase text-[9px] text-black">PRENDA</TableHead>
+                                  <TableHead className="text-right font-black uppercase text-[9px] text-black">TARIFAS</TableHead>
+                                  <TableHead className="text-center font-black uppercase text-[9px] text-black">STOCK</TableHead>
+                                  <TableHead className="text-right font-black uppercase text-[9px] text-black w-[50px]"></TableHead>
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
                                 {items.map((p) => (
-                                  <TableRow key={p.id} className="group transition-colors hover:bg-primary/5">
-                                    <TableCell className="text-center">
+                                  <TableRow key={p.id} className="group transition-colors hover:bg-black/5">
+                                    <TableCell className="text-center p-2">
                                       <button 
                                         onClick={() => p.images?.[0] && setZoomedImage(p.images[0])}
-                                        className="w-10 h-10 rounded-lg border border-black/10 overflow-hidden bg-muted relative shadow-sm hover:scale-110 transition-transform"
+                                        className="w-10 h-10 rounded-lg border border-black/10 overflow-hidden bg-muted relative shadow-sm hover:scale-105 transition-transform"
                                       >
                                         {p.images && p.images[0] ? (
                                            <img 
@@ -207,19 +215,21 @@ export default function InventoryPage() {
                                         )}
                                       </button>
                                     </TableCell>
-                                    <TableCell>
-                                      <div className="font-mono text-[9px] font-black text-black/50">{p.code}</div>
-                                      <div className="font-black text-black text-xs uppercase">{p.name}</div>
-                                      <Badge variant="outline" className="text-[8px] h-3 px-1 border-black/20 text-black font-black uppercase mt-1">
+                                    <TableCell className="p-2">
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-mono text-[10px] font-black text-black/50">{p.code}</span>
+                                        <span className="font-black text-black text-xs uppercase truncate max-w-[150px]">{p.name}</span>
+                                      </div>
+                                      <div className="text-[9px] font-black text-black/40 uppercase mt-0.5">
                                         {viewType === 'collection' ? p.category : p.collection}
-                                      </Badge>
+                                      </div>
                                     </TableCell>
-                                    <TableCell className="text-right">
-                                      <div className="text-[9px] font-black text-black whitespace-nowrap">
+                                    <TableCell className="text-right p-2">
+                                      <div className="text-[10px] font-black text-black">
                                         F: {p.priceFardo} / M: {p.priceMayor} / <span className="text-primary">U: {p.priceUnidad}</span>
                                       </div>
                                     </TableCell>
-                                    <TableCell className="text-center">
+                                    <TableCell className="text-center p-2">
                                       <span className={cn(
                                         "font-black text-xs px-2.5 py-0.5 rounded-full border",
                                         p.stock <= 0 ? "bg-destructive/10 text-destructive border-destructive/20" : p.stock < 10 ? "bg-orange-50 text-orange-500 border-orange-200" : "bg-green-50 text-green-600 border-green-200"
@@ -227,36 +237,44 @@ export default function InventoryPage() {
                                         {p.stock}
                                       </span>
                                     </TableCell>
-                                    <TableCell className="text-right">
-                                      <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <Button 
-                                          variant="ghost" 
-                                          size="icon" 
-                                          className="h-7 w-7 text-black hover:bg-primary/10 rounded-lg"
-                                          onClick={() => router.push(`/registry?edit=${p.id}`)}
-                                        >
-                                          <Edit2 className="w-3 h-3" />
-                                        </Button>
-                                        <AlertDialog>
-                                          <AlertDialogTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10 rounded-lg">
-                                              <Trash2 className="w-3 h-3" />
-                                            </Button>
-                                          </AlertDialogTrigger>
-                                          <AlertDialogContent className="rounded-[2rem]">
-                                            <AlertDialogHeader>
-                                              <AlertDialogTitle className="font-black text-primary">ELIMINAR PRENDA {p.code}</AlertDialogTitle>
-                                              <AlertDialogDescription className="text-xs text-black font-bold">
-                                                Esta acción borrará el producto y sus ENTRADAS. Las ventas registradas se mantienen intactas.
-                                              </AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                              <AlertDialogCancel className="rounded-xl font-bold">CANCELAR</AlertDialogCancel>
-                                              <AlertDialogAction className="rounded-xl font-bold bg-destructive text-white hover:bg-destructive/90" onClick={() => handleDelete(p.id)}>ELIMINAR</AlertDialogAction>
-                                            </AlertDialogFooter>
-                                          </AlertDialogContent>
-                                        </AlertDialog>
-                                      </div>
+                                    <TableCell className="text-right p-2">
+                                      <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-black/10">
+                                            <MoreVertical className="w-4 h-4 text-black" />
+                                          </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" className="rounded-xl">
+                                          <DropdownMenuItem 
+                                            className="text-[10px] font-black uppercase cursor-pointer"
+                                            onClick={() => router.push(`/registry?edit=${p.id}`)}
+                                          >
+                                            <Edit2 className="w-3 h-3 mr-2" /> Editar
+                                          </DropdownMenuItem>
+                                          <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                              <DropdownMenuItem 
+                                                className="text-[10px] font-black uppercase cursor-pointer text-destructive focus:text-destructive"
+                                                onSelect={(e) => e.preventDefault()}
+                                              >
+                                                <Trash2 className="w-3 h-3 mr-2" /> Eliminar
+                                              </DropdownMenuItem>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent className="rounded-[2rem]">
+                                              <AlertDialogHeader>
+                                                <AlertDialogTitle className="font-black text-primary">ELIMINAR PRENDA {p.code}</AlertDialogTitle>
+                                                <AlertDialogDescription className="text-xs text-black font-bold">
+                                                  Esta acción borrará el producto y sus ENTRADAS. Las ventas registradas se mantienen intactas.
+                                                </AlertDialogDescription>
+                                              </AlertDialogHeader>
+                                              <AlertDialogFooter>
+                                                <AlertDialogCancel className="rounded-xl font-bold">CANCELAR</AlertDialogCancel>
+                                                <AlertDialogAction className="rounded-xl font-bold bg-destructive text-white hover:bg-destructive/90" onClick={() => handleDelete(p.id)}>ELIMINAR</AlertDialogAction>
+                                              </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                          </AlertDialog>
+                                        </DropdownMenuContent>
+                                      </DropdownMenu>
                                     </TableCell>
                                   </TableRow>
                                 ))}
@@ -279,8 +297,8 @@ export default function InventoryPage() {
 
         <TabsContent value="recent" className="pt-2">
           <div className="border rounded-[2rem] overflow-hidden bg-white shadow-sm max-w-4xl mx-auto">
-            <div className="bg-primary/5 px-8 py-4 border-b">
-               <h3 className="font-black text-primary uppercase text-[10px] tracking-widest">Últimos 5 Movimientos</h3>
+            <div className="bg-black/5 px-8 py-4 border-b">
+               <h3 className="font-black text-black uppercase text-[10px] tracking-widest">Últimos 5 Movimientos</h3>
             </div>
             <Table>
               <TableHeader>
@@ -300,7 +318,7 @@ export default function InventoryPage() {
                     </TableCell>
                     <TableCell className="font-mono text-[10px] font-black text-black">{m.productCode}</TableCell>
                     <TableCell>
-                      {m.type === 'in' || m.type === 'return' ? <Badge className="bg-green-500 text-[8px] border-none font-black uppercase">Ingreso</Badge> : <Badge variant="destructive" className="text-[8px] font-black uppercase border-none">Salida</Badge>}
+                      {m.type === 'in' || m.type === 'return' ? <Badge className="bg-green-600 text-[8px] border-none font-black uppercase">Ingreso</Badge> : <Badge variant="destructive" className="text-[8px] font-black uppercase border-none">Salida</Badge>}
                     </TableCell>
                     <TableCell className="text-center font-black text-sm text-black">{m.quantity}</TableCell>
                     <TableCell className="text-[9px] font-black uppercase text-black">{m.reason}</TableCell>
@@ -333,19 +351,19 @@ export default function InventoryPage() {
               ) : (
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-primary/5">
-                      <TableHead className="font-black uppercase text-[9px] text-primary">Fecha / Hora</TableHead>
-                      <TableHead className="font-black uppercase text-[9px] text-primary">Prenda</TableHead>
-                      <TableHead className="font-black uppercase text-[9px] text-primary">Operación</TableHead>
-                      <TableHead className="text-center font-black uppercase text-[9px] text-primary">Variación</TableHead>
-                      <TableHead className="font-black uppercase text-[9px] text-primary">Referencia / Motivo</TableHead>
+                    <TableRow className="bg-black/5">
+                      <TableHead className="font-black uppercase text-[9px] text-black">Fecha / Hora</TableHead>
+                      <TableHead className="font-black uppercase text-[9px] text-black">Prenda</TableHead>
+                      <TableHead className="font-black uppercase text-[9px] text-black">Operación</TableHead>
+                      <TableHead className="text-center font-black uppercase text-[9px] text-black">Variación</TableHead>
+                      <TableHead className="font-black uppercase text-[9px] text-black">Referencia / Motivo</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {allMovements
                       .filter(m => kardexFilter === 'all' || m.reason.includes(kardexFilter) || (kardexFilter === 'Venta' && m.type === 'out'))
                       .map((m) => (
-                      <TableRow key={m.id} className="hover:bg-primary/5 transition-colors">
+                      <TableRow key={m.id} className="hover:bg-black/5 transition-colors">
                         <TableCell className="text-[9px] font-black text-black">
                           {m.timestamp?.toDate ? m.timestamp.toDate().toLocaleString('es-PE') : ""}
                         </TableCell>
