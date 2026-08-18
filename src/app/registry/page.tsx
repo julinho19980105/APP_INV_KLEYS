@@ -51,7 +51,7 @@ export default function RegistryPage() {
 
   const [form, setForm] = React.useState({
     name: "",
-    code: "Cargando...",
+    code: "P-...",
     category: "",
     collection: "",
     description: "",
@@ -66,31 +66,29 @@ export default function RegistryPage() {
   const [newItemName, setNewItemName] = React.useState("")
   const [editingItem, setEditingItem] = React.useState<{id: string, name: string} | null>(null)
 
-  // Generar código correlativo único real consultando la base de datos
-  React.useEffect(() => {
-    async function getNextCorrelative() {
-      if (!db || editId) return
-      
-      try {
-        const q = query(collection(db, "products"), orderBy("code", "desc"), limit(1))
-        const snap = await getDocs(q)
-        
-        let nextNum = 1
-        if (!snap.empty) {
-          const lastCode = snap.docs[0].data().code || "P-000"
-          const match = lastCode.match(/\d+/)
-          const lastNum = match ? parseInt(match[0]) : 0
-          nextNum = lastNum + 1
-        }
-        
-        const newCode = `P-${nextNum.toString().padStart(3, '0')}`
-        setForm(prev => ({ ...prev, code: newCode }))
-      } catch (e) {
-        setForm(prev => ({ ...prev, code: "P-001" }))
+  // Función para obtener el siguiente código correlativo real
+  const fetchNextCode = React.useCallback(async () => {
+    if (!db || editId) return
+    try {
+      const q = query(collection(db, "products"), orderBy("code", "desc"), limit(1))
+      const snap = await getDocs(q)
+      let nextNum = 1
+      if (!snap.empty) {
+        const lastCode = snap.docs[0].data().code || "P-000"
+        const match = lastCode.match(/\d+/)
+        const lastNum = match ? parseInt(match[0]) : 0
+        nextNum = lastNum + 1
       }
+      const newCode = `P-${nextNum.toString().padStart(3, '0')}`
+      setForm(prev => ({ ...prev, code: newCode }))
+    } catch (e) {
+      setForm(prev => ({ ...prev, code: "P-001" }))
     }
-    getNextCorrelative()
   }, [db, editId])
+
+  React.useEffect(() => {
+    fetchNextCode()
+  }, [fetchNextCode])
 
   React.useEffect(() => {
     if (editingProduct) {
@@ -112,8 +110,8 @@ export default function RegistryPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      if (file.size > 2 * 1024 * 1024) {
-        toast({ title: "Imagen muy pesada", description: "El límite es 2MB para evitar errores.", variant: "destructive" })
+      if (file.size > 3 * 1024 * 1024) {
+        toast({ title: "Imagen muy pesada", description: "El límite es 3MB.", variant: "destructive" })
         return
       }
       const reader = new FileReader()
@@ -164,10 +162,10 @@ export default function RegistryPage() {
       for (const img of localImagePreviews) {
         if (img.file) {
           const driveUrl = await uploadImageToDrive(img.url, `${form.name}_${Date.now()}`)
-          // CRITICO: Solo guardamos si no es un Base64 gigante para evitar el error de 1MB
+          // Si Drive no devuelve URL real, evitamos guardar el Base64 gigante en Firestore
           if (driveUrl && !driveUrl.startsWith('data:')) {
             imageUrls.push(driveUrl)
-          } else if (img.url.length < 200000) { // Solo guardamos Base64 si es pequeño
+          } else if (img.url.length < 50000) { // Solo si es muy pequeño lo permitimos
             imageUrls.push(img.url)
           }
         } else {
@@ -203,7 +201,7 @@ export default function RegistryPage() {
                requestResourceData: productData 
              }));
           } else {
-             toast({ title: "Error", description: serverError.message, variant: "destructive" });
+             toast({ title: "Error de Memoria", description: "Los datos son demasiado pesados para Firestore. Reduce el tamaño de las fotos.", variant: "destructive" });
           }
         })
     } catch (e: any) {
@@ -226,10 +224,10 @@ export default function RegistryPage() {
             {editId ? 'Editar Prenda' : 'Nueva Prenda'}
             <Sparkles className="text-accent w-6 h-6" />
           </h1>
-          <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-1">StiloStack ERP Realtime</p>
+          <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-1">Gestión de Inventario Realtime</p>
         </div>
         <Button variant="outline" className="border-accent text-accent bg-white rounded-xl h-10 px-6 font-bold" onClick={() => router.push('/inventory')}>
-          <History className="w-4 h-4 mr-2" /> Inventario
+          <History className="w-4 h-4 mr-2" /> Kardex
         </Button>
       </div>
 
@@ -237,7 +235,7 @@ export default function RegistryPage() {
         <div className="bg-destructive/10 border border-destructive/20 p-4 rounded-2xl flex items-center gap-3 text-destructive">
           <AlertCircle className="w-5 h-5" />
           <span className="text-xs font-black uppercase tracking-widest">
-            REGLA DIVA: FARDO debe ser menor a MAYOR y MAYOR menor a UNIDAD
+            REGLA DIVA: El precio FARDO debe ser menor a MAYOR y este menor a UNIDAD
           </span>
         </div>
       )}
@@ -254,7 +252,7 @@ export default function RegistryPage() {
             <CardContent className="space-y-8 pt-8 px-8">
               <div className="space-y-2">
                 <Label className="text-[10px] uppercase font-black text-accent/70 tracking-widest ml-1">Nombre de Prenda *</Label>
-                <Input value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="h-16 border-accent/20 rounded-2xl text-xl font-bold" placeholder="Ej: Polo Tommy" />
+                <Input value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="h-16 border-accent/20 rounded-2xl text-xl font-bold" placeholder="Ej: Polo Tommy Oversize" />
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -368,19 +366,19 @@ export default function RegistryPage() {
               </div>
 
               <div className="space-y-2">
-                <Label className="text-[10px] uppercase font-black text-accent/70 tracking-widest ml-1">Descripción</Label>
-                <Textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="min-h-[120px] border-accent/20 rounded-[2rem] bg-accent/5 p-6" placeholder="Detalles estéticos..." />
+                <Label className="text-[10px] uppercase font-black text-accent/70 tracking-widest ml-1">Descripción Estética</Label>
+                <Textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="min-h-[120px] border-accent/20 rounded-[2rem] bg-accent/5 p-6" placeholder="Detalles de tela, ajuste, etc." />
               </div>
             </CardContent>
           </Card>
 
           <Card className="border-none shadow-2xl bg-white rounded-[2.5rem] overflow-hidden">
              <CardHeader className="bg-primary/5 border-b border-primary/10 py-6 px-8">
-              <CardTitle className="text-lg text-primary font-black uppercase tracking-widest">Inventario y Tarifas</CardTitle>
+              <CardTitle className="text-lg text-primary font-black uppercase tracking-widest">Stock y Tarifas Diva</CardTitle>
             </CardHeader>
             <CardContent className="pt-8 grid grid-cols-2 md:grid-cols-4 gap-8 px-8">
               <div className="space-y-2">
-                <Label className="text-[10px] text-center block font-black text-primary tracking-widest">STOCK *</Label>
+                <Label className="text-[10px] text-center block font-black text-primary tracking-widest">CANTIDAD *</Label>
                 <Input type="number" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} className="h-20 border-primary/20 text-center text-4xl font-black text-primary bg-primary/5 rounded-[1.5rem]" />
               </div>
               <div className="space-y-2">
@@ -388,7 +386,7 @@ export default function RegistryPage() {
                 <Input type="number" value={form.priceFardo} onChange={e => setForm({...form, priceFardo: e.target.value})} className="h-20 border-accent/20 text-center text-2xl font-black text-accent rounded-[1.5rem]" />
               </div>
               <div className="space-y-2">
-                <Label className="text-[10px] text-center block font-black text-accent/70 tracking-widest">MAYOR (S/)</Label>
+                <Label className="text-[10px] text-center block font-black text-accent/70 tracking-widest">AL MAYOR (S/)</Label>
                 <Input type="number" value={form.priceMayor} onChange={e => setForm({...form, priceMayor: e.target.value})} className="h-20 border-accent/20 text-center text-2xl font-black text-accent rounded-[1.5rem]" />
               </div>
               <div className="space-y-2">
@@ -402,7 +400,7 @@ export default function RegistryPage() {
         <div className="space-y-6">
           <Card className="border-none shadow-2xl bg-white rounded-[2.5rem] overflow-hidden">
             <CardHeader className="bg-accent/5 py-6 px-8 flex justify-between flex-row items-center">
-              <CardTitle className="text-sm font-black text-accent uppercase tracking-widest">Fotos Diva (Máx 4)</CardTitle>
+              <CardTitle className="text-sm font-black text-accent uppercase tracking-widest">Fotos (Máx 4)</CardTitle>
               <span className="text-xs bg-accent text-white px-3 py-1 rounded-full font-bold">{localImagePreviews.length}/4</span>
             </CardHeader>
             <CardContent className="pt-6 grid grid-cols-2 gap-4 px-8">
@@ -433,7 +431,7 @@ export default function RegistryPage() {
           
           <div className="p-8 bg-white/50 rounded-[2.5rem] border border-accent/10 text-center">
             <p className="text-[10px] text-accent font-black uppercase tracking-[0.2em]">
-              OBLIGATORIO: NOMBRE, CATEGORÍA, COLECCIÓN Y STOCK.
+              Sincronización segura con Google Drive activada.
             </p>
           </div>
         </div>
