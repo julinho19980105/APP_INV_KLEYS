@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -143,9 +142,10 @@ export default function RegistryPage() {
     setSaving(true)
     
     try {
+      // Subimos las imágenes a Drive y obtenemos las URLs reales
       const uploadedImageUrls = await Promise.all(
         localImagePreviews.map(async (img, index) => {
-          if (img.startsWith('http')) return img;
+          if (img.startsWith('http')) return img; // Si ya es una URL de Drive, no re-subir
           return await uploadImageToDrive(img, `${form.code}_${index}.jpg`);
         })
       );
@@ -167,7 +167,7 @@ export default function RegistryPage() {
       const pRef = editId ? doc(db, "products", editId) : doc(collection(db, "products"))
       setDoc(pRef, productData, { merge: true })
         .then(() => {
-          toast({ title: "Éxito", description: "Prenda registrada correctamente." })
+          toast({ title: "Éxito", description: "Prenda registrada correctamente en Inventario y Drive." })
           router.push('/inventory')
         })
         .catch((serverError: any) => {
@@ -179,6 +179,7 @@ export default function RegistryPage() {
         });
     } catch (error) {
       console.error("Error general al guardar:", error);
+      toast({ variant: "destructive", title: "Error", description: "Hubo un problema al procesar las imágenes." })
     } finally {
       setSaving(false);
     }
@@ -208,7 +209,7 @@ export default function RegistryPage() {
         <div className="bg-destructive/10 border border-destructive/20 p-4 rounded-2xl flex items-center gap-3 text-destructive">
           <AlertCircle className="w-5 h-5" />
           <span className="text-xs font-black uppercase tracking-widest">
-            REGLA DIVA: Fardo menor que Mayor y Mayor menor que Unidad
+            REGLA DIVA: Fardo es menor que Mayor y Mayor es menor que Unidad
           </span>
         </div>
       )}
@@ -412,3 +413,4 @@ export default function RegistryPage() {
     </div>
   )
 }
+
