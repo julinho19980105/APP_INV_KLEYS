@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -66,7 +65,7 @@ export default function RegistryPage() {
   const [newItemName, setNewItemName] = React.useState("")
   const [editingItem, setEditingItem] = React.useState<{id: string, name: string} | null>(null)
 
-  // Función para obtener el siguiente código correlativo real
+  // Lógica para obtener el siguiente código correlativo real desde Firestore
   const fetchNextCode = React.useCallback(async () => {
     if (!db || editId) return
     try {
@@ -165,8 +164,6 @@ export default function RegistryPage() {
           // Si Drive no devuelve URL real, evitamos guardar el Base64 gigante en Firestore
           if (driveUrl && !driveUrl.startsWith('data:')) {
             imageUrls.push(driveUrl)
-          } else if (img.url.length < 50000) { // Solo si es muy pequeño lo permitimos
-            imageUrls.push(img.url)
           }
         } else {
           imageUrls.push(img.url)
@@ -201,7 +198,7 @@ export default function RegistryPage() {
                requestResourceData: productData 
              }));
           } else {
-             toast({ title: "Error de Memoria", description: "Los datos son demasiado pesados para Firestore. Reduce el tamaño de las fotos.", variant: "destructive" });
+             toast({ title: "Error de Memoria", description: "Los datos son demasiado pesados. Reduce el tamaño de las fotos.", variant: "destructive" });
           }
         })
     } catch (e: any) {
