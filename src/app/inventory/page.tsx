@@ -94,7 +94,11 @@ export default function InventoryPage() {
                   <TableRow key={p.id} className="group transition-colors hover:bg-primary/5">
                     <TableCell>
                       <button 
-                        onClick={() => p.images && p.images[0] && setZoomedImage(p.images[0])}
+                        onClick={() => {
+                          if (p.images && p.images[0]) {
+                            setZoomedImage(p.images[0]);
+                          }
+                        }}
                         className="w-12 h-12 rounded-2xl border border-accent/10 overflow-hidden bg-muted relative shadow-sm hover:scale-110 transition-transform group/img"
                         title="Ver Calidad Original (Zoom)"
                       >
