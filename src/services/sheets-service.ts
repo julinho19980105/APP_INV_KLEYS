@@ -1,3 +1,4 @@
+
 /**
  * INSTRUCCIONES PARA GOOGLE APPS SCRIPT (script.google.com):
  * 
@@ -43,7 +44,6 @@ export async function uploadImageToDrive(base64Data: string, fileName: string): 
   try {
     const mimeType = base64Data.split(';')[0].split(':')[1] || 'image/jpeg';
     
-    // Eliminado 'no-cors' para poder leer el JSON de respuesta
     const response = await fetch(API_CONFIG.WEB_APP_URL, {
       method: 'POST',
       body: JSON.stringify({
@@ -66,7 +66,6 @@ export async function uploadImageToDrive(base64Data: string, fileName: string): 
     }
   } catch (error) {
     console.error("Error al subir a Drive:", error);
-    // Retornamos base64 solo como último recurso para evitar pérdida de datos
     return base64Data;
   }
 }

@@ -97,7 +97,7 @@ export default function InventoryPage() {
                   <TableHead className="w-[80px] font-black uppercase text-[10px] text-accent">Icono</TableHead>
                   <TableHead className="font-black uppercase text-[10px] text-accent">Cód / Nombre</TableHead>
                   <TableHead className="font-black uppercase text-[10px] text-accent">Categoría</TableHead>
-                  <TableHead className="text-right font-black uppercase text-[10px] text-accent">Fardo / Mayor / Unid</TableHead>
+                  <TableHead className="text-right font-black uppercase text-[10px] text-accent">Precios Diva</TableHead>
                   <TableHead className="text-center font-black uppercase text-[10px] text-accent">Stock</TableHead>
                   <TableHead className="text-right font-black uppercase text-[10px] text-accent">Acciones</TableHead>
                 </TableRow>
@@ -113,7 +113,6 @@ export default function InventoryPage() {
                           }
                         }}
                         className="w-12 h-12 rounded-2xl border border-accent/10 overflow-hidden bg-muted relative shadow-sm hover:scale-110 transition-transform group/img"
-                        title="Ver Calidad Original (Zoom)"
                       >
                         {p.images && p.images[0] ? (
                           <>
@@ -136,10 +135,10 @@ export default function InventoryPage() {
                     </TableCell>
                     <TableCell>
                       <div className="font-mono text-xs font-bold text-accent">{p.code}</div>
-                      <div className="font-bold text-primary group-hover:text-primary transition-colors">{p.name}</div>
+                      <div className="font-bold text-primary">{p.name}</div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="secondary" className="font-black text-[9px] uppercase tracking-widest bg-accent/10 text-accent border-none">
+                      <Badge variant="secondary" className="font-black text-[9px] uppercase bg-accent/10 text-accent border-none">
                         {p.category || 'Sin Cat.'}
                       </Badge>
                     </TableCell>
@@ -149,7 +148,7 @@ export default function InventoryPage() {
                     <TableCell className="text-center">
                       <span className={cn(
                         "font-black text-base px-3 py-1 rounded-full",
-                        p.stock === 0 ? "bg-destructive/10 text-destructive" : p.stock < 10 ? "bg-orange-100 text-orange-500" : "bg-green-100 text-green-600"
+                        p.stock <= 0 ? "bg-destructive/10 text-destructive" : p.stock < 10 ? "bg-orange-100 text-orange-500" : "bg-green-100 text-green-600"
                       )}>
                         {p.stock}
                       </span>
@@ -158,7 +157,7 @@ export default function InventoryPage() {
                       <Button 
                         variant="ghost" 
                         size="icon" 
-                        className="h-9 w-9 text-primary hover:bg-primary/10 rounded-xl transition-all hover:scale-110"
+                        className="h-9 w-9 text-primary hover:bg-primary/10 rounded-xl transition-all"
                         onClick={() => router.push(`/registry?edit=${p.id}`)}
                       >
                         <Edit2 className="w-4 h-4" />
@@ -185,7 +184,7 @@ export default function InventoryPage() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-primary/5 hover:bg-primary/5">
-                    <TableHead className="font-black uppercase text-[10px] text-primary">Fecha</TableHead>
+                    <TableHead className="font-black uppercase text-[10px] text-primary">Fecha / Hora</TableHead>
                     <TableHead className="font-black uppercase text-[10px] text-primary">Prenda</TableHead>
                     <TableHead className="font-black uppercase text-[10px] text-primary">Tipo</TableHead>
                     <TableHead className="text-center font-black uppercase text-[10px] text-primary">Cantidad</TableHead>
@@ -196,7 +195,7 @@ export default function InventoryPage() {
                   {movements.length > 0 ? movements.map((m) => (
                     <TableRow key={m.id} className="hover:bg-primary/5 transition-colors">
                       <TableCell className="text-xs font-medium text-muted-foreground">
-                        {m.timestamp?.toDate ? m.timestamp.toDate().toLocaleString() : ""}
+                        {m.timestamp?.toDate ? m.timestamp.toDate().toLocaleString('es-PE') : ""}
                       </TableCell>
                       <TableCell className="font-bold text-accent font-mono">{m.productCode}</TableCell>
                       <TableCell>
@@ -237,14 +236,13 @@ export default function InventoryPage() {
         <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 border-none bg-black/90 overflow-hidden flex items-center justify-center rounded-none shadow-none">
           <DialogHeader className="sr-only">
             <DialogTitle>Zoom de Prenda Diva</DialogTitle>
-            <DialogDescription>Imagen en calidad original de Google Drive</DialogDescription>
+            <DialogDescription>Visualización en calidad original de Google Drive</DialogDescription>
           </DialogHeader>
           {zoomedImage && (
             <div className="relative w-full h-full flex items-center justify-center">
               <button 
                 onClick={() => setZoomedImage(null)}
-                className="absolute top-4 right-4 z-50 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
-                aria-label="Cerrar vista ampliada"
+                className="absolute top-4 right-4 z-50 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white"
               >
                 <X className="w-6 h-6" />
               </button>
