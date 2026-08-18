@@ -230,8 +230,13 @@ export default function RegistryPage() {
   }
 
   const isFormValid = React.useMemo(() => {
-    const pricesValid = !form.priceFardo || !form.priceMayor || !form.priceUnidad || 
-      (Number(form.priceFardo) < Number(form.priceMayor) && Number(form.priceMayor) < Number(form.priceUnidad));
+    const fardo = Number(form.priceFardo || 0);
+    const mayor = Number(form.priceMayor || 0);
+    const unidad = Number(form.priceUnidad || 0);
+
+    const pricesValid = fardo === 0 && mayor === 0 && unidad === 0 
+      ? true 
+      : (fardo < mayor && mayor < unidad);
     
     return form.name && form.category && form.collection && form.stock !== "" && pricesValid && !saving;
   }, [form, saving]);

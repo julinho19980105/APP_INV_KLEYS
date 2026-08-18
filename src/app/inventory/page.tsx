@@ -29,13 +29,6 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from "@/components/ui/select"
-import { 
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -57,6 +50,8 @@ import { cn } from "@/lib/utils"
 import { useCollection, useFirestore } from "@/firebase"
 import { collection, query, orderBy, limit, doc, deleteDoc, getDocs, where, writeBatch } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
+import { errorEmitter } from "@/firebase/error-emitter"
+import { FirestorePermissionError } from "@/firebase/errors"
 
 export default function InventoryPage() {
   const router = useRouter()
@@ -67,18 +62,12 @@ export default function InventoryPage() {
   const [kardexFilter, setKardexFilter] = React.useState("all")
   const [viewType, setViewType] = React.useState<"collection" | "category">("collection")
 
-  // Cargar configuración de vista
   React.useEffect(() => {
-    const loadSettings = () => {
-      const saved = localStorage.getItem('diva_settings')
-      if (saved) {
-        const parsed = JSON.parse(saved)
-        if (parsed.inventoryViewMode) setViewType(parsed.inventoryViewMode)
-      }
+    const saved = localStorage.getItem('diva_settings')
+    if (saved) {
+      const parsed = JSON.parse(saved)
+      if (parsed.inventoryViewMode) setViewType(parsed.inventoryViewMode)
     }
-    loadSettings()
-    window.addEventListener('storage', loadSettings)
-    return () => window.removeEventListener('storage', loadSettings)
   }, [])
 
   const productsRef = React.useMemo(() => db ? query(collection(db, "products"), orderBy("code", "asc")) : null, [db])
@@ -116,20 +105,26 @@ export default function InventoryPage() {
     return mainGroups
   }, [filteredProducts, viewType])
 
-  const handleDelete = async (productId: string) => {
+  const handleDelete = (productId: string) => {
     if (!db) return
-    try {
-      await deleteDoc(doc(db, "products", productId))
-      const movementsRef = collection(db, "movements")
-      const qIn = query(movementsRef, where("productCode", "==", productId), where("type", "in", ["in", "return"]))
-      const snapIn = await getDocs(qIn)
+    
+    const productRef = doc(db, "products", productId)
+    deleteDoc(productRef).catch(async () => {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: productRef.path,
+        operation: 'delete'
+      }));
+    });
+
+    const movementsRef = collection(db, "movements")
+    const qIn = query(movementsRef, where("productCode", "==", productId), where("type", "in", ["in", "return"]))
+    getDocs(qIn).then(snapIn => {
       const batch = writeBatch(db)
       snapIn.forEach(doc => batch.delete(doc.ref))
-      await batch.commit()
-      toast({ title: "Producto Eliminado", description: "Se borró el producto y sus entradas." })
-    } catch (e) {
-      toast({ variant: "destructive", title: "Error" })
-    }
+      batch.commit().catch(() => {});
+    });
+
+    toast({ title: "Baja Procesada", description: "Se eliminó el producto y sus entradas." })
   }
 
   const getThumbnailUrl = (url: string) => {
@@ -161,17 +156,10 @@ export default function InventoryPage() {
         </TabsList>
         
         <TabsContent value="all" className="space-y-4 pt-2">
-          <div className="flex items-center gap-2 px-2">
-            <Badge variant="outline" className="text-[9px] font-black uppercase px-2 py-0.5 border-black/20 text-black flex items-center gap-1">
-              {viewType === 'collection' ? <LayoutGrid className="w-3 h-3" /> : <Layers className="w-3 h-3" />}
-              MODO: {viewType === 'collection' ? 'COLECCIÓN' : 'CATEGORÍA'}
-            </Badge>
-          </div>
-
           {loadingProducts ? (
             <div className="p-20 text-center text-black font-black animate-pulse uppercase tracking-widest bg-white rounded-[2rem] border border-dashed">Sincronizando Inventario...</div>
           ) : Object.keys(groupedData).length > 0 ? (
-            <Accordion type="multiple" defaultValue={Object.keys(groupedData)} className="space-y-2">
+            <Accordion type="multiple" className="space-y-2">
               {Object.entries(groupedData).map(([mainTitle, subGroups]) => (
                 <AccordionItem key={mainTitle} value={mainTitle} className="border rounded-2xl bg-white shadow-sm overflow-hidden border-none px-4">
                   <AccordionTrigger className="hover:no-underline py-4 px-2 group">
@@ -220,9 +208,6 @@ export default function InventoryPage() {
                                         <span className="font-mono text-[10px] font-black text-black/50">{p.code}</span>
                                         <span className="font-black text-black text-xs uppercase truncate max-w-[150px]">{p.name}</span>
                                       </div>
-                                      <div className="text-[9px] font-black text-black/40 uppercase mt-0.5">
-                                        {viewType === 'collection' ? p.category : p.collection}
-                                      </div>
                                     </TableCell>
                                     <TableCell className="text-right p-2">
                                       <div className="text-[10px] font-black text-black">
@@ -262,14 +247,14 @@ export default function InventoryPage() {
                                             </AlertDialogTrigger>
                                             <AlertDialogContent className="rounded-[2rem]">
                                               <AlertDialogHeader>
-                                                <AlertDialogTitle className="font-black text-primary">ELIMINAR PRENDA {p.code}</AlertDialogTitle>
-                                                <AlertDialogDescription className="text-xs text-black font-bold">
-                                                  Esta acción borrará el producto y sus ENTRADAS. Las ventas registradas se mantienen intactas.
+                                                <AlertDialogTitle className="font-black text-primary uppercase">Eliminar Prenda {p.code}</AlertDialogTitle>
+                                                <AlertDialogDescription className="text-xs text-black font-bold uppercase">
+                                                  Esta acción borrará el producto y sus ENTRADAS. Las ventas registradas se mantienen intactas para auditoría.
                                                 </AlertDialogDescription>
                                               </AlertDialogHeader>
                                               <AlertDialogFooter>
-                                                <AlertDialogCancel className="rounded-xl font-bold">CANCELAR</AlertDialogCancel>
-                                                <AlertDialogAction className="rounded-xl font-bold bg-destructive text-white hover:bg-destructive/90" onClick={() => handleDelete(p.id)}>ELIMINAR</AlertDialogAction>
+                                                <AlertDialogCancel className="rounded-xl font-bold uppercase">Cancelar</AlertDialogCancel>
+                                                <AlertDialogAction className="rounded-xl font-bold bg-destructive text-white hover:bg-destructive/90 uppercase" onClick={() => handleDelete(p.id)}>Confirmar</AlertDialogAction>
                                               </AlertDialogFooter>
                                             </AlertDialogContent>
                                           </AlertDialog>
@@ -331,18 +316,12 @@ export default function InventoryPage() {
 
         <TabsContent value="movements" className="pt-2 space-y-4">
            <div className="flex justify-end px-2">
-              <Select value={kardexFilter} onValueChange={setKardexFilter}>
-                <SelectTrigger className="w-[180px] h-8 text-[10px] font-black uppercase rounded-xl border-black/10 bg-white text-black">
-                  <SelectValue placeholder="FILTRAR KARDEX" />
-                </SelectTrigger>
-                <SelectContent className="rounded-xl">
-                  <SelectItem value="all" className="text-[10px] uppercase font-black">Todos los Motivos</SelectItem>
-                  <SelectItem value="Reposición de Mercadería" className="text-[10px] uppercase font-black">Reposición</SelectItem>
-                  <SelectItem value="Stock Inicial / Registro Nuevo" className="text-[10px] uppercase font-black">Stock Inicial</SelectItem>
-                  <SelectItem value="Devolución" className="text-[10px] uppercase font-black">Devolución</SelectItem>
-                  <SelectItem value="Venta" className="text-[10px] uppercase font-black text-primary">Ventas</SelectItem>
-                </SelectContent>
-              </Select>
+              <Input 
+                placeholder="FILTRAR POR MOTIVO..." 
+                className="w-[200px] h-8 text-[10px] font-black uppercase rounded-xl border-black/10 bg-white text-black"
+                value={kardexFilter === 'all' ? "" : kardexFilter}
+                onChange={e => setKardexFilter(e.target.value || 'all')}
+              />
             </div>
 
             <div className="border rounded-[2rem] overflow-hidden bg-white shadow-sm">
@@ -361,7 +340,7 @@ export default function InventoryPage() {
                   </TableHeader>
                   <TableBody>
                     {allMovements
-                      .filter(m => kardexFilter === 'all' || m.reason.includes(kardexFilter) || (kardexFilter === 'Venta' && m.type === 'out'))
+                      .filter(m => kardexFilter === 'all' || m.reason.toLowerCase().includes(kardexFilter.toLowerCase()))
                       .map((m) => (
                       <TableRow key={m.id} className="hover:bg-black/5 transition-colors">
                         <TableCell className="text-[9px] font-black text-black">
