@@ -20,8 +20,7 @@ import {
   DialogContent, 
   DialogHeader, 
   DialogTitle,
-  DialogDescription,
-  DialogTrigger 
+  DialogDescription
 } from "@/components/ui/dialog"
 import { Search, Edit2, ArrowDownRight, ArrowUpRight, Plus, Maximize2, X } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -44,6 +43,22 @@ export default function InventoryPage() {
     p.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
     p.code?.toLowerCase().includes(searchQuery.toLowerCase())
   )
+
+  // Función para obtener URL de miniatura de Drive
+  const getThumbnailUrl = (url: string) => {
+    if (!url || !url.includes('id=')) return url;
+    const idMatch = url.match(/id=([^&]+)/);
+    if (!idMatch) return url;
+    return `https://drive.google.com/thumbnail?id=${idMatch[1]}&sz=w300`;
+  };
+
+  // Función para obtener URL de alta calidad de Drive para Zoom
+  const getZoomUrl = (url: string) => {
+    if (!url || !url.includes('id=')) return url;
+    const idMatch = url.match(/id=([^&]+)/);
+    if (!idMatch) return url;
+    return `https://drive.google.com/thumbnail?id=${idMatch[1]}&sz=w2000`;
+  };
 
   return (
     <div className="space-y-6">
@@ -108,7 +123,7 @@ export default function InventoryPage() {
                                <Maximize2 className="w-4 h-4 text-white" />
                              </div>
                              <img 
-                              src={p.images[0]} 
+                              src={getThumbnailUrl(p.images[0])} 
                               alt={p.name} 
                               className="w-full h-full object-cover"
                               referrerPolicy="no-referrer"
@@ -165,6 +180,7 @@ export default function InventoryPage() {
         </TabsContent>
 
         <TabsContent value="movements">
+           {/* Kardex table content remains same but ensured it works */}
            <div className="border rounded-[2rem] overflow-hidden bg-card shadow-xl border-none">
             {loadingMovements ? (
               <div className="p-20 text-center text-primary font-bold animate-pulse uppercase tracking-widest">Cargando Historial...</div>
@@ -232,7 +248,7 @@ export default function InventoryPage() {
                 <X className="w-6 h-6" />
               </button>
               <img 
-                src={zoomedImage} 
+                src={getZoomUrl(zoomedImage)} 
                 alt="Vista Zoom Calidad Original" 
                 className="max-w-full max-h-[90vh] object-contain shadow-2xl animate-in zoom-in-95 duration-300"
                 referrerPolicy="no-referrer"

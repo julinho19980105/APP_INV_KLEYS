@@ -164,7 +164,7 @@ export default function RegistryPage() {
         updatedAt: serverTimestamp()
       }
 
-      // IMPORTANTE: El ID del documento es el código P-001, etc.
+      // IMPORTANTE: El ID del documento es el código P-001, P-002, etc.
       const pRef = editId ? doc(db, "products", editId) : doc(db, "products", form.code)
       
       setDoc(pRef, productData, { merge: true })
@@ -180,7 +180,7 @@ export default function RegistryPage() {
           }));
         });
     } catch (error) {
-      toast({ variant: "destructive", title: "Error", description: "Hubo un problema al guardar las imágenes." })
+      toast({ variant: "destructive", title: "Error", description: "Hubo un problema al guardar los datos." })
     } finally {
       setSaving(false);
     }
