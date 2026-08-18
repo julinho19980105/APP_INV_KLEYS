@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -75,7 +76,7 @@ export default function InventoryPage() {
         
         <TabsContent value="all" className="border rounded-[2rem] overflow-hidden bg-card shadow-xl border-none min-h-[400px]">
           {loadingProducts ? (
-            <div className="p-20 text-center text-accent font-bold animate-pulse uppercase tracking-widest">Sincronizando con Firestore...</div>
+            <div className="p-20 text-center text-accent font-bold animate-pulse uppercase tracking-widest">Sincronizando con Drive & Firestore...</div>
           ) : (
             <Table>
               <TableHeader>
@@ -101,17 +102,15 @@ export default function InventoryPage() {
                             <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity z-10">
                                <Maximize2 className="w-4 h-4 text-white" />
                              </div>
-                             <Image 
+                             <img 
                               src={p.images[0]} 
                               alt={p.name} 
-                              fill 
-                              className="object-cover"
-                              sizes="48px"
+                              className="w-full h-full object-cover"
                              />
                           </>
                         ) : (
                           <div className="w-full h-full flex items-center justify-center bg-accent/10">
-                             <Image src="https://picsum.photos/seed/empty/200/200" alt="" fill className="object-cover opacity-20" />
+                             <div className="text-[8px] font-black opacity-20">NO FOTO</div>
                           </div>
                         )}
                       </button>

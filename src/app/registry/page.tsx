@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -27,7 +28,7 @@ import { useFirestore, useDoc, useCollection } from "@/firebase"
 import { doc, setDoc, collection, query, orderBy, serverTimestamp, updateDoc, addDoc, limit, getDocs } from "firebase/firestore"
 import { errorEmitter } from '@/firebase/error-emitter'
 import { FirestorePermissionError } from '@/firebase/errors'
-import { cn } from "@/lib/utils"
+import { uploadImageToDrive } from "@/services/sheets-service"
 
 export default function RegistryPage() {
   const searchParams = useSearchParams()
@@ -104,12 +105,11 @@ export default function RegistryPage() {
     }
   }, [editingProduct])
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
       const reader = new FileReader()
       reader.onloadend = () => {
-        // Guardamos en calidad original (Raw Base64)
         setLocalImagePreviews(prev => [...prev, reader.result as string].slice(0, 4))
       }
       reader.readAsDataURL(file)
@@ -141,6 +141,15 @@ export default function RegistryPage() {
     if (!db || !isFormValid) return
     
     setSaving(true)
+    
+    // Subir imágenes a Drive antes de guardar en Firestore
+    const uploadedImageUrls = await Promise.all(
+      localImagePreviews.map(async (img, index) => {
+        if (img.startsWith('http')) return img; // Ya es una URL de Drive
+        return await uploadImageToDrive(img, `${form.code}_${index}.jpg`);
+      })
+    );
+
     const productData = {
       name: form.name,
       code: form.code,
@@ -151,7 +160,7 @@ export default function RegistryPage() {
       priceFardo: Number(form.priceFardo || 0),
       priceMayor: Number(form.priceMayor || 0),
       priceUnidad: Number(form.priceUnidad || 0),
-      images: localImagePreviews,
+      images: uploadedImageUrls,
       updatedAt: serverTimestamp()
     }
 
@@ -162,15 +171,11 @@ export default function RegistryPage() {
         router.push('/inventory')
       })
       .catch((serverError: any) => {
-        if (serverError.code === 'permission-denied') {
-           errorEmitter.emit('permission-error', new FirestorePermissionError({ 
-             path: pRef.path, 
-             operation: editId ? 'update' : 'create', 
-             requestResourceData: productData 
-           }));
-        } else {
-           toast({ title: "Error de Tamaño", description: "Las imágenes originales superan el límite de Firestore (1MB). Intenta con menos fotos o archivos más pequeños.", variant: "destructive" });
-        }
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ 
+          path: pRef.path, 
+          operation: editId ? 'update' : 'create', 
+          requestResourceData: productData 
+        }));
       })
       .finally(() => setSaving(false))
   }
@@ -395,7 +400,7 @@ export default function RegistryPage() {
           
           <div className="p-8 bg-white/50 rounded-[2.5rem] border border-accent/10 text-center">
             <p className="text-[10px] text-accent font-black uppercase tracking-[0.2em]">
-              Guardado en calidad original. Respete el límite de 1MB por producto.
+              Guardado vía Google Drive. Calidad original garantizada.
             </p>
           </div>
         </div>
