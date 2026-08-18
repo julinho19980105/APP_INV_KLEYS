@@ -30,6 +30,7 @@ import { useFirestore, useDoc, useCollection } from "@/firebase"
 import { doc, setDoc, collection, query, orderBy, serverTimestamp, updateDoc, addDoc, limit, getDocs, increment } from "firebase/firestore"
 import { uploadImageToDrive } from "@/services/sheets-service"
 import { Badge } from "@/components/ui/badge"
+import { cn } from "@/lib/utils"
 
 export default function RegistryPage() {
   const searchParams = useSearchParams()
