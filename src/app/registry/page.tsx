@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -29,30 +28,6 @@ import { doc, setDoc, collection, query, orderBy, serverTimestamp, updateDoc, ad
 import { errorEmitter } from '@/firebase/error-emitter'
 import { FirestorePermissionError } from '@/firebase/errors'
 import { cn } from "@/lib/utils"
-
-// Función para comprimir imágenes antes de guardar como Base64
-async function compressImage(base64: string, maxWidth = 800, quality = 0.7): Promise<string> {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.src = base64;
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      let width = img.width;
-      let height = img.height;
-
-      if (width > maxWidth) {
-        height = (maxWidth / width) * height;
-        width = maxWidth;
-      }
-
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      ctx?.drawImage(img, 0, 0, width, height);
-      resolve(canvas.toDataURL('image/jpeg', quality));
-    };
-  });
-}
 
 export default function RegistryPage() {
   const searchParams = useSearchParams()
@@ -89,7 +64,6 @@ export default function RegistryPage() {
   const [newItemName, setNewItemName] = React.useState("")
   const [editingItem, setEditingItem] = React.useState<{id: string, name: string} | null>(null)
 
-  // Obtener el siguiente código correlativo real
   const fetchNextCode = React.useCallback(async () => {
     if (!db || editId) return
     try {
@@ -134,9 +108,9 @@ export default function RegistryPage() {
     const file = e.target.files?.[0]
     if (file) {
       const reader = new FileReader()
-      reader.onloadend = async () => {
-        const compressed = await compressImage(reader.result as string)
-        setLocalImagePreviews(prev => [...prev, compressed].slice(0, 4))
+      reader.onloadend = () => {
+        // Guardamos en calidad original (Raw Base64)
+        setLocalImagePreviews(prev => [...prev, reader.result as string].slice(0, 4))
       }
       reader.readAsDataURL(file)
     }
@@ -195,7 +169,7 @@ export default function RegistryPage() {
              requestResourceData: productData 
            }));
         } else {
-           toast({ title: "Error", description: "Error al guardar. Los datos pueden ser muy pesados.", variant: "destructive" });
+           toast({ title: "Error de Tamaño", description: "Las imágenes originales superan el límite de Firestore (1MB). Intenta con menos fotos o archivos más pequeños.", variant: "destructive" });
         }
       })
       .finally(() => setSaving(false))
@@ -214,7 +188,7 @@ export default function RegistryPage() {
             {editId ? 'Editar Prenda' : 'Nueva Prenda'}
             <Sparkles className="text-accent w-6 h-6" />
           </h1>
-          <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-1">Gestión de Inventario Realtime</p>
+          <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-1">Gestión de Inventario • Calidad Original</p>
         </div>
         <Button variant="outline" className="border-accent text-accent bg-white rounded-xl h-10 px-6 font-bold" onClick={() => router.push('/inventory')}>
           <History className="w-4 h-4 mr-2" /> Kardex
@@ -225,7 +199,7 @@ export default function RegistryPage() {
         <div className="bg-destructive/10 border border-destructive/20 p-4 rounded-2xl flex items-center gap-3 text-destructive">
           <AlertCircle className="w-5 h-5" />
           <span className="text-xs font-black uppercase tracking-widest">
-            REGLA DIVA: El precio FARDO debe ser menor a MAYOR y este menor a UNIDAD
+            REGLA DIVA: El precio Fardo debe ser menor al Mayor y este al de Unidad
           </span>
         </div>
       )}
@@ -390,7 +364,7 @@ export default function RegistryPage() {
         <div className="space-y-6">
           <Card className="border-none shadow-2xl bg-white rounded-[2.5rem] overflow-hidden">
             <CardHeader className="bg-accent/5 py-6 px-8 flex justify-between flex-row items-center">
-              <CardTitle className="text-sm font-black text-accent uppercase tracking-widest">Fotos (Máx 4)</CardTitle>
+              <CardTitle className="text-sm font-black text-accent uppercase tracking-widest">Fotos Originales (Máx 4)</CardTitle>
               <span className="text-xs bg-accent text-white px-3 py-1 rounded-full font-bold">{localImagePreviews.length}/4</span>
             </CardHeader>
             <CardContent className="pt-6 grid grid-cols-2 gap-4 px-8">
@@ -421,7 +395,7 @@ export default function RegistryPage() {
           
           <div className="p-8 bg-white/50 rounded-[2.5rem] border border-accent/10 text-center">
             <p className="text-[10px] text-accent font-black uppercase tracking-[0.2em]">
-              Imágenes optimizadas para visualización rápida.
+              Guardado en calidad original. Respete el límite de 1MB por producto.
             </p>
           </div>
         </div>

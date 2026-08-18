@@ -14,7 +14,14 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Search, Filter, Edit2, ArrowDownRight, ArrowUpRight, Plus, ExternalLink } from "lucide-react"
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle,
+  DialogTrigger 
+} from "@/components/ui/dialog"
+import { Search, Edit2, ArrowDownRight, ArrowUpRight, Plus, ExternalLink, Maximize2, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
 import { useCollection, useFirestore } from "@/firebase"
@@ -24,6 +31,7 @@ export default function InventoryPage() {
   const router = useRouter()
   const db = useFirestore()
   const [searchQuery, setSearchQuery] = React.useState("")
+  const [zoomedImage, setZoomedImage] = React.useState<string | null>(null)
 
   const productsRef = React.useMemo(() => db ? query(collection(db, "products"), orderBy("updatedAt", "desc")) : null, [db])
   const movementsRef = React.useMemo(() => db ? query(collection(db, "movements"), orderBy("timestamp", "desc")) : null, [db])
@@ -41,7 +49,7 @@ export default function InventoryPage() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
         <div>
           <h1 className="text-3xl font-headline font-bold text-primary">Inventario Diva</h1>
-          <p className="text-muted-foreground font-medium uppercase tracking-widest text-[10px]">Cloud Sync Realtime • Firebase & Drive</p>
+          <p className="text-muted-foreground font-medium uppercase tracking-widest text-[10px]">Cloud Sync Realtime • Calidad Original</p>
         </div>
         <div className="flex w-full md:w-auto gap-2">
           <div className="relative flex-1 md:w-64">
@@ -72,7 +80,7 @@ export default function InventoryPage() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-accent/5 hover:bg-accent/5">
-                  <TableHead className="w-[80px] font-black uppercase text-[10px] text-accent">Foto</TableHead>
+                  <TableHead className="w-[80px] font-black uppercase text-[10px] text-accent">Icono</TableHead>
                   <TableHead className="font-black uppercase text-[10px] text-accent">Cód / Nombre</TableHead>
                   <TableHead className="font-black uppercase text-[10px] text-accent">Categoría</TableHead>
                   <TableHead className="text-right font-black uppercase text-[10px] text-accent">Fardo / Mayor / Unid</TableHead>
@@ -84,26 +92,29 @@ export default function InventoryPage() {
                 {filteredProducts.length > 0 ? filteredProducts.map((p) => (
                   <TableRow key={p.id} className="group transition-colors hover:bg-primary/5">
                     <TableCell>
-                      <div className="w-12 h-12 rounded-2xl border border-accent/10 overflow-hidden bg-muted relative shadow-sm group-hover:scale-110 transition-transform">
+                      <button 
+                        onClick={() => p.images && p.images[0] && setZoomedImage(p.images[0])}
+                        className="w-12 h-12 rounded-2xl border border-accent/10 overflow-hidden bg-muted relative shadow-sm hover:scale-110 transition-transform group/img"
+                      >
                         {p.images && p.images[0] ? (
-                          <a href={p.images[0]} target="_blank" rel="noopener noreferrer" title="Ver en Drive">
-                             <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                               <ExternalLink className="w-4 h-4 text-white" />
+                          <>
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity z-10">
+                               <Maximize2 className="w-4 h-4 text-white" />
                              </div>
-                             {p.images[0].startsWith('data:') ? (
-                               <Image src={p.images[0]} alt="" fill className="object-cover" />
-                             ) : (
-                               <div className="w-full h-full flex items-center justify-center bg-accent/20">
-                                 <Image src="https://picsum.photos/seed/placeholder/200/200" alt="" fill className="object-cover opacity-50" />
-                               </div>
-                             )}
-                          </a>
+                             <Image 
+                              src={p.images[0]} 
+                              alt={p.name} 
+                              fill 
+                              className="object-cover"
+                              sizes="48px"
+                             />
+                          </>
                         ) : (
                           <div className="w-full h-full flex items-center justify-center bg-accent/10">
                              <Image src="https://picsum.photos/seed/empty/200/200" alt="" fill className="object-cover opacity-20" />
                           </div>
                         )}
-                      </div>
+                      </button>
                     </TableCell>
                     <TableCell>
                       <div className="font-mono text-xs font-bold text-accent">{p.code}</div>
@@ -199,6 +210,26 @@ export default function InventoryPage() {
           </div>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={!!zoomedImage} onOpenChange={(o) => !o && setZoomedImage(null)}>
+        <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 border-none bg-black/90 overflow-hidden flex items-center justify-center rounded-none">
+          {zoomedImage && (
+            <div className="relative w-full h-full flex items-center justify-center">
+              <button 
+                onClick={() => setZoomedImage(null)}
+                className="absolute top-4 right-4 z-50 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+              <img 
+                src={zoomedImage} 
+                alt="Zoom" 
+                className="max-w-full max-h-[90vh] object-contain shadow-2xl animate-in zoom-in-95 duration-300" 
+              />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
