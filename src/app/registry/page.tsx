@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { 
   Select, 
   SelectContent, 
@@ -22,10 +23,10 @@ import {
   DialogTitle, 
   DialogTrigger
 } from "@/components/ui/dialog"
-import { ImagePlus, X, Save, History, Loader2, Sparkles, Settings2, Edit3, Plus, AlertCircle, Check } from "lucide-react"
+import { ImagePlus, X, Save, History, Loader2, Sparkles, Settings2, Edit3, Plus, AlertCircle, Check, Search } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useFirestore, useDoc, useCollection } from "@/firebase"
-import { doc, setDoc, collection, query, orderBy, serverTimestamp, updateDoc, addDoc, limit, getDocs } from "firebase/firestore"
+import { doc, setDoc, collection, query, orderBy, serverTimestamp, updateDoc, addDoc, limit, getDocs, increment } from "firebase/firestore"
 import { errorEmitter } from '@/firebase/error-emitter'
 import { FirestorePermissionError } from '@/firebase/errors'
 import { uploadImageToDrive } from "@/services/sheets-service"
@@ -45,12 +46,15 @@ export default function RegistryPage() {
   
   const categoriesQuery = React.useMemo(() => db ? query(collection(db, "categories"), orderBy("name")) : null, [db])
   const collectionsQuery = React.useMemo(() => db ? query(collection(db, "collections"), orderBy("name")) : null, [db])
+  const productsQuery = React.useMemo(() => db ? query(collection(db, "products"), orderBy("code")) : null, [db])
+  
   const { data: categories = [] } = useCollection(categoriesQuery)
   const { data: collectionsData = [] } = useCollection(collectionsQuery)
+  const { data: allProducts = [] } = useCollection(productsQuery)
 
   const [form, setForm] = React.useState({
     name: "",
-    code: "P-001",
+    code: "",
     category: "",
     collection: "",
     description: "",
@@ -58,6 +62,13 @@ export default function RegistryPage() {
     priceFardo: "",
     priceMayor: "",
     priceUnidad: "",
+  })
+
+  // Estado para el ingreso de stock existente
+  const [stockEntry, setStockEntry] = React.useState({
+    productCode: "",
+    quantity: "",
+    reason: "Reposición de Mercadería"
   })
 
   const [localImagePreviews, setLocalImagePreviews] = React.useState<string[]>([])
@@ -139,7 +150,6 @@ export default function RegistryPage() {
 
   const handleSave = async () => {
     if (!db || !isFormValid) return
-    
     setSaving(true)
     
     try {
@@ -164,25 +174,57 @@ export default function RegistryPage() {
         updatedAt: serverTimestamp()
       }
 
-      // IMPORTANTE: El ID del documento es el código P-001, P-002, etc.
-      const pRef = editId ? doc(db, "products", editId) : doc(db, "products", form.code)
+      const pRef = doc(db, "products", form.code)
       
-      setDoc(pRef, productData, { merge: true })
-        .then(() => {
-          toast({ title: "Éxito", description: `Prenda ${form.code} registrada correctamente.` })
-          router.push('/inventory')
+      await setDoc(pRef, productData, { merge: true })
+      
+      // Registrar Movimiento de Stock Inicial si es nuevo
+      if (!editId) {
+        await addDoc(collection(db, "movements"), {
+          productCode: form.code,
+          type: "in",
+          quantity: Number(form.stock),
+          reason: "Stock Inicial / Registro Nuevo",
+          timestamp: serverTimestamp()
         })
-        .catch((serverError: any) => {
-          errorEmitter.emit('permission-error', new FirestorePermissionError({ 
-            path: pRef.path, 
-            operation: editId ? 'update' : 'create', 
-            requestResourceData: productData 
-          }));
-        });
+      }
+
+      toast({ title: "Éxito", description: `Prenda ${form.code} registrada correctamente.` })
+      router.push('/inventory')
     } catch (error) {
       toast({ variant: "destructive", title: "Error", description: "Hubo un problema al guardar los datos." })
     } finally {
       setSaving(false);
+    }
+  }
+
+  const handleAddStock = async () => {
+    if (!db || !stockEntry.productCode || !stockEntry.quantity) return
+    setSaving(true)
+    try {
+      const pRef = doc(db, "products", stockEntry.productCode)
+      const qty = Number(stockEntry.quantity)
+      
+      await updateDoc(pRef, {
+        stock: increment(qty),
+        updatedAt: serverTimestamp()
+      })
+
+      await addDoc(collection(db, "movements"), {
+        productCode: stockEntry.productCode,
+        type: "in",
+        quantity: qty,
+        reason: stockEntry.reason,
+        timestamp: serverTimestamp()
+      })
+
+      toast({ title: "Ingreso Exitoso", description: `Se agregaron ${qty} unidades a ${stockEntry.productCode}.` })
+      setStockEntry({ productCode: "", quantity: "", reason: "Reposición de Mercadería" })
+      router.push('/inventory')
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error", description: "No se pudo registrar el ingreso." })
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -196,221 +238,277 @@ export default function RegistryPage() {
       <div className="flex justify-between items-center">
         <div>
            <h1 className="text-4xl font-headline font-bold text-primary flex items-center gap-3">
-            {editId ? 'Editar Prenda' : 'Nueva Prenda'}
+            Gestión de Inventario
             <Sparkles className="text-accent w-6 h-6" />
           </h1>
-          <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-1">Gestión de Inventario • Calidad Original</p>
+          <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-1">Control de Entradas y Salidas Diva</p>
         </div>
         <Button variant="outline" className="border-accent text-accent bg-white rounded-xl h-10 px-6 font-bold" onClick={() => router.push('/inventory')}>
           <History className="w-4 h-4 mr-2" /> Kardex
         </Button>
       </div>
 
-      {priceError && (
-        <div className="bg-destructive/10 border border-destructive/20 p-4 rounded-2xl flex items-center gap-3 text-destructive">
-          <AlertCircle className="w-5 h-5" />
-          <span className="text-xs font-black uppercase tracking-widest">
-            Regla Diva: Fardo inferior a Mayor e inferior a Unidad
-          </span>
-        </div>
-      )}
+      <Tabs defaultValue={editId ? "new" : "stock"} className="w-full">
+        <TabsList className="bg-muted/50 p-1 rounded-2xl mb-8">
+          <TabsTrigger value="stock" className="rounded-xl px-8 data-[state=active]:bg-primary data-[state=active]:text-white">Ingreso de Stock</TabsTrigger>
+          <TabsTrigger value="new" className="rounded-xl px-8 data-[state=active]:bg-primary data-[state=active]:text-white">{editId ? 'Editar Prenda' : 'Nueva Prenda'}</TabsTrigger>
+        </TabsList>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-6">
-          <Card className="border-none shadow-2xl bg-white rounded-[2.5rem] overflow-hidden">
-            <CardHeader className="bg-accent/5 border-b border-accent/10 py-6 flex flex-row items-center justify-between px-8">
-              <CardTitle className="text-lg text-accent font-black uppercase tracking-widest">Datos Principales</CardTitle>
-              <div className="bg-primary text-white px-8 py-3 rounded-2xl font-mono font-black text-3xl shadow-lg border-4 border-white">
-                {form.code}
-              </div>
+        <TabsContent value="stock">
+          <Card className="border-none shadow-2xl bg-white rounded-[2.5rem] overflow-hidden max-w-2xl mx-auto">
+            <CardHeader className="bg-accent/5 py-6 px-8">
+              <CardTitle className="text-lg text-accent font-black uppercase tracking-widest flex items-center gap-2">
+                <Search className="w-5 h-5" /> Registrar Entrada
+              </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-8 pt-8 px-8">
+            <CardContent className="p-8 space-y-6">
               <div className="space-y-2">
-                <Label className="text-[10px] uppercase font-black text-accent/70 tracking-widest ml-1">Nombre de Prenda *</Label>
-                <Input value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="h-16 border-accent/20 rounded-2xl text-xl font-bold" placeholder="Ej: Polo Tommy Oversize" />
+                <Label className="text-[10px] uppercase font-black text-accent/70 tracking-widest">Seleccionar Prenda Existente</Label>
+                <Select value={stockEntry.productCode} onValueChange={v => setStockEntry({...stockEntry, productCode: v})}>
+                  <SelectTrigger className="h-14 border-accent/20 rounded-2xl font-bold bg-white text-lg px-6">
+                    <SelectValue placeholder="Buscar prenda por código..." />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-2xl">
+                    {allProducts.map(p => (
+                      <SelectItem key={p.id} value={p.code} className="rounded-xl">
+                        {p.code} - {p.name} (Stock: {p.stock})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-[10px] uppercase font-black text-accent/70 tracking-widest ml-1">Categoría *</Label>
-                  <div className="flex gap-2">
-                    <Select value={form.category} onValueChange={v => setForm({...form, category: v})}>
-                      <SelectTrigger className="h-14 border-accent/20 rounded-2xl font-bold bg-white text-lg px-6">
-                        <SelectValue placeholder="Seleccionar..." />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-2xl">
-                        {categories.map(cat => (
-                          <SelectItem key={cat.id} value={cat.name} className="rounded-xl">{cat.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Dialog open={manageType === 'category'} onOpenChange={(o) => setManageType(o ? 'category' : null)}>
-                      <DialogTrigger asChild>
-                        <Button variant="outline" size="icon" className="h-14 w-14 rounded-2xl border-accent text-accent hover:bg-accent/10 shrink-0">
-                          <Settings2 className="w-6 h-6" />
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="rounded-[2.5rem] border-none shadow-2xl max-w-md">
-                        <DialogHeader>
-                          <DialogTitle className="text-primary font-black uppercase tracking-widest text-sm">Gestionar Categorías</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-6 pt-4">
-                          <div className="flex gap-2">
-                            <Input placeholder="Nueva categoría..." value={newItemName} onChange={e => setNewItemName(e.target.value)} className="h-12 rounded-xl" />
-                            <Button className="bg-primary h-12 w-12 rounded-xl" onClick={handleAddItem}><Plus className="w-5 h-5" /></Button>
-                          </div>
-                          <div className="max-h-64 overflow-y-auto space-y-2 pr-2">
+                  <Label className="text-[10px] uppercase font-black text-accent/70 tracking-widest">Cantidad a Ingresar</Label>
+                  <Input 
+                    type="number" 
+                    value={stockEntry.quantity} 
+                    onChange={e => setStockEntry({...stockEntry, quantity: e.target.value})} 
+                    className="h-14 border-accent/20 rounded-2xl text-xl font-bold text-center"
+                    placeholder="0"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] uppercase font-black text-accent/70 tracking-widest">Motivo del Ingreso</Label>
+                  <Select value={stockEntry.reason} onValueChange={v => setStockEntry({...stockEntry, reason: v})}>
+                    <SelectTrigger className="h-14 border-accent/20 rounded-2xl font-bold bg-white text-sm px-6">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-2xl">
+                      <SelectItem value="Reposición de Mercadería" className="rounded-xl">Reposición</SelectItem>
+                      <SelectItem value="Compra a Proveedor" className="rounded-xl">Compra</SelectItem>
+                      <SelectItem value="Ajuste de Inventario" className="rounded-xl">Ajuste (+)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <Button 
+                className="w-full h-16 text-xl font-black rounded-2xl bg-accent text-white shadow-xl hover:bg-accent/90"
+                onClick={handleAddStock}
+                disabled={!stockEntry.productCode || !stockEntry.quantity || saving}
+              >
+                {saving ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6 mr-2" />}
+                REGISTRAR ENTRADA
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="new">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 space-y-6">
+              <Card className="border-none shadow-2xl bg-white rounded-[2.5rem] overflow-hidden">
+                <CardHeader className="bg-accent/5 border-b border-accent/10 py-6 flex flex-row items-center justify-between px-8">
+                  <CardTitle className="text-lg text-accent font-black uppercase tracking-widest">Ficha de Prenda</CardTitle>
+                  <div className="bg-primary text-white px-8 py-3 rounded-2xl font-mono font-black text-3xl shadow-lg border-4 border-white">
+                    {form.code}
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-8 pt-8 px-8">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] uppercase font-black text-accent/70 tracking-widest ml-1">Nombre de Prenda *</Label>
+                    <Input value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="h-16 border-accent/20 rounded-2xl text-xl font-bold" placeholder="Ej: Polo Tommy Oversize" />
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-2">
+                      <Label className="text-[10px] uppercase font-black text-accent/70 tracking-widest ml-1">Categoría *</Label>
+                      <div className="flex gap-2">
+                        <Select value={form.category} onValueChange={v => setForm({...form, category: v})}>
+                          <SelectTrigger className="h-14 border-accent/20 rounded-2xl font-bold bg-white text-lg px-6">
+                            <SelectValue placeholder="Seleccionar..." />
+                          </SelectTrigger>
+                          <SelectContent className="rounded-2xl">
                             {categories.map(cat => (
-                              <div key={cat.id} className="flex items-center justify-between p-4 bg-accent/5 rounded-2xl border border-accent/10">
-                                {editingItem?.id === cat.id ? (
-                                  <div className="flex gap-2 w-full">
-                                    <Input value={editingItem.name} onChange={e => setEditingItem({...editingItem, name: e.target.value})} className="h-10 text-sm font-bold bg-white" />
-                                    <Button size="icon" className="h-10 w-10 bg-green-500 text-white rounded-xl" onClick={handleRenameItem}><Check className="w-4 h-4" /></Button>
-                                    <Button size="icon" variant="ghost" className="h-10 w-10 text-destructive rounded-xl" onClick={() => setEditingItem(null)}><X className="w-4 h-4" /></Button>
-                                  </div>
-                                ) : (
-                                  <>
-                                    <span className="font-bold text-accent">{cat.name}</span>
-                                    <Button variant="ghost" size="sm" className="h-8 px-3 text-accent rounded-xl hover:bg-white flex items-center gap-2" onClick={() => setEditingItem({id: cat.id, name: cat.name})}>
-                                      <Edit3 className="w-3 h-3" /> Renombrar
-                                    </Button>
-                                  </>
-                                )}
-                              </div>
+                              <SelectItem key={cat.id} value={cat.name} className="rounded-xl">{cat.name}</SelectItem>
                             ))}
-                          </div>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                  </div>
-                </div>
+                          </SelectContent>
+                        </Select>
+                        <Dialog open={manageType === 'category'} onOpenChange={(o) => setManageType(o ? 'category' : null)}>
+                          <DialogTrigger asChild>
+                            <Button variant="outline" size="icon" className="h-14 w-14 rounded-2xl border-accent text-accent hover:bg-accent/10 shrink-0">
+                              <Settings2 className="w-6 h-6" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="rounded-[2.5rem] border-none shadow-2xl max-w-md">
+                            <DialogHeader>
+                              <DialogTitle className="text-primary font-black uppercase tracking-widest text-sm">Gestionar Categorías</DialogTitle>
+                            </DialogHeader>
+                            <div className="space-y-6 pt-4">
+                              <div className="flex gap-2">
+                                <Input placeholder="Nueva categoría..." value={newItemName} onChange={e => setNewItemName(e.target.value)} className="h-12 rounded-xl" />
+                                <Button className="bg-primary h-12 w-12 rounded-xl" onClick={handleAddItem}><Plus className="w-5 h-5" /></Button>
+                              </div>
+                              <div className="max-h-64 overflow-y-auto space-y-2 pr-2">
+                                {categories.map(cat => (
+                                  <div key={cat.id} className="flex items-center justify-between p-4 bg-accent/5 rounded-2xl border border-accent/10">
+                                    {editingItem?.id === cat.id ? (
+                                      <div className="flex gap-2 w-full">
+                                        <Input value={editingItem.name} onChange={e => setEditingItem({...editingItem, name: e.target.value})} className="h-10 text-sm font-bold bg-white" />
+                                        <Button size="icon" className="h-10 w-10 bg-green-500 text-white rounded-xl" onClick={handleRenameItem}><Check className="w-4 h-4" /></Button>
+                                        <Button size="icon" variant="ghost" className="h-10 w-10 text-destructive rounded-xl" onClick={() => setEditingItem(null)}><X className="w-4 h-4" /></Button>
+                                      </div>
+                                    ) : (
+                                      <>
+                                        <span className="font-bold text-accent">{cat.name}</span>
+                                        <Button variant="ghost" size="sm" className="h-8 px-3 text-accent rounded-xl hover:bg-white flex items-center gap-2" onClick={() => setEditingItem({id: cat.id, name: cat.name})}>
+                                          <Edit3 className="w-3 h-3" /> Renombrar
+                                        </Button>
+                                      </>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      </div>
+                    </div>
 
-                <div className="space-y-2">
-                  <Label className="text-[10px] uppercase font-black text-accent/70 tracking-widest ml-1">Colección *</Label>
-                  <div className="flex gap-2">
-                    <Select value={form.collection} onValueChange={v => setForm({...form, collection: v})}>
-                      <SelectTrigger className="h-14 border-accent/20 rounded-2xl font-bold bg-white text-lg px-6">
-                        <SelectValue placeholder="Seleccionar..." />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-2xl">
-                        {collectionsData.map(col => (
-                          <SelectItem key={col.id} value={col.name} className="rounded-xl">{col.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Dialog open={manageType === 'collection'} onOpenChange={(o) => setManageType(o ? 'collection' : null)}>
-                      <DialogTrigger asChild>
-                        <Button variant="outline" size="icon" className="h-14 w-14 rounded-2xl border-accent text-accent hover:bg-accent/10 shrink-0">
-                          <Settings2 className="w-6 h-6" />
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="rounded-[2.5rem] border-none shadow-2xl max-w-md">
-                        <DialogHeader>
-                          <DialogTitle className="text-primary font-black uppercase tracking-widest text-sm">Gestionar Colecciones</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-6 pt-4">
-                          <div className="flex gap-2">
-                            <Input placeholder="Nueva colección..." value={newItemName} onChange={e => setNewItemName(e.target.value)} className="h-12 rounded-xl" />
-                            <Button className="bg-primary h-12 w-12 rounded-xl" onClick={handleAddItem}><Plus className="w-5 h-5" /></Button>
-                          </div>
-                          <div className="max-h-64 overflow-y-auto space-y-2 pr-2">
+                    <div className="space-y-2">
+                      <Label className="text-[10px] uppercase font-black text-accent/70 tracking-widest ml-1">Colección *</Label>
+                      <div className="flex gap-2">
+                        <Select value={form.collection} onValueChange={v => setForm({...form, collection: v})}>
+                          <SelectTrigger className="h-14 border-accent/20 rounded-2xl font-bold bg-white text-lg px-6">
+                            <SelectValue placeholder="Seleccionar..." />
+                          </SelectTrigger>
+                          <SelectContent className="rounded-2xl">
                             {collectionsData.map(col => (
-                              <div key={col.id} className="flex items-center justify-between p-4 bg-accent/5 rounded-2xl border border-accent/10">
-                                {editingItem?.id === col.id ? (
-                                  <div className="flex gap-2 w-full">
-                                    <Input value={editingItem.name} onChange={e => setEditingItem({...editingItem, name: e.target.value})} className="h-10 text-sm font-bold bg-white" />
-                                    <Button size="icon" className="h-10 w-10 bg-green-500 text-white rounded-xl" onClick={handleRenameItem}><Check className="w-4 h-4" /></Button>
-                                    <Button size="icon" variant="ghost" className="h-10 w-10 text-destructive rounded-xl" onClick={() => setEditingItem(null)}><X className="w-4 h-4" /></Button>
-                                  </div>
-                                ) : (
-                                  <>
-                                    <span className="font-bold text-accent">{col.name}</span>
-                                    <Button variant="ghost" size="sm" className="h-8 px-3 text-accent rounded-xl hover:bg-white flex items-center gap-2" onClick={() => setEditingItem({id: col.id, name: col.name})}>
-                                      <Edit3 className="w-3 h-3" /> Renombrar
-                                    </Button>
-                                  </>
-                                )}
-                              </div>
+                              <SelectItem key={col.id} value={col.name} className="rounded-xl">{col.name}</SelectItem>
                             ))}
-                          </div>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
+                          </SelectContent>
+                        </Select>
+                        <Dialog open={manageType === 'collection'} onOpenChange={(o) => setManageType(o ? 'collection' : null)}>
+                          <DialogTrigger asChild>
+                            <Button variant="outline" size="icon" className="h-14 w-14 rounded-2xl border-accent text-accent hover:bg-accent/10 shrink-0">
+                              <Settings2 className="w-6 h-6" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="rounded-[2.5rem] border-none shadow-2xl max-w-md">
+                            <DialogHeader>
+                              <DialogTitle className="text-primary font-black uppercase tracking-widest text-sm">Gestionar Colecciones</DialogTitle>
+                            </DialogHeader>
+                            <div className="space-y-6 pt-4">
+                              <div className="flex gap-2">
+                                <Input placeholder="Nueva colección..." value={newItemName} onChange={e => setNewItemName(e.target.value)} className="h-12 rounded-xl" />
+                                <Button className="bg-primary h-12 w-12 rounded-xl" onClick={handleAddItem}><Plus className="w-5 h-5" /></Button>
+                              </div>
+                              <div className="max-h-64 overflow-y-auto space-y-2 pr-2">
+                                {collectionsData.map(col => (
+                                  <div key={col.id} className="flex items-center justify-between p-4 bg-accent/5 rounded-2xl border border-accent/10">
+                                    {editingItem?.id === col.id ? (
+                                      <div className="flex gap-2 w-full">
+                                        <Input value={editingItem.name} onChange={e => setEditingItem({...editingItem, name: e.target.value})} className="h-10 text-sm font-bold bg-white" />
+                                        <Button size="icon" className="h-10 w-10 bg-green-500 text-white rounded-xl" onClick={handleRenameItem}><Check className="w-4 h-4" /></Button>
+                                        <Button size="icon" variant="ghost" className="h-10 w-10 text-destructive rounded-xl" onClick={() => setEditingItem(null)}><X className="w-4 h-4" /></Button>
+                                      </div>
+                                    ) : (
+                                      <>
+                                        <span className="font-bold text-accent">{col.name}</span>
+                                        <Button variant="ghost" size="sm" className="h-8 px-3 text-accent rounded-xl hover:bg-white flex items-center gap-2" onClick={() => setEditingItem({id: col.id, name: col.name})}>
+                                          <Edit3 className="w-3 h-3" /> Renombrar
+                                        </Button>
+                                      </>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
 
-              <div className="space-y-2">
-                <Label className="text-[10px] uppercase font-black text-accent/70 tracking-widest ml-1">Descripción Estética</Label>
-                <Textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="min-h-[120px] border-accent/20 rounded-[2rem] bg-accent/5 p-6" placeholder="Detalles de tela, ajuste, etc." />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-none shadow-2xl bg-white rounded-[2.5rem] overflow-hidden">
-             <CardHeader className="bg-primary/5 border-b border-primary/10 py-6 px-8">
-              <CardTitle className="text-lg text-primary font-black uppercase tracking-widest">Stock y Tarifas Diva</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-8 grid grid-cols-2 md:grid-cols-4 gap-8 px-8">
-              <div className="space-y-2">
-                <Label className="text-[10px] text-center block font-black text-primary tracking-widest">CANTIDAD *</Label>
-                <Input type="number" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} className="h-20 border-primary/20 text-center text-4xl font-black text-primary bg-primary/5 rounded-[1.5rem]" />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] text-center block font-black text-accent/70 tracking-widest">FARDO (S/)</Label>
-                <Input type="number" value={form.priceFardo} onChange={e => setForm({...form, priceFardo: e.target.value})} className="h-20 border-accent/20 text-center text-2xl font-black text-accent rounded-[1.5rem]" />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] text-center block font-black text-accent/70 tracking-widest">AL MAYOR (S/)</Label>
-                <Input type="number" value={form.priceMayor} onChange={e => setForm({...form, priceMayor: e.target.value})} className="h-20 border-accent/20 text-center text-2xl font-black text-accent rounded-[1.5rem]" />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] text-center block font-black text-accent/70 tracking-widest">UNIDAD (S/)</Label>
-                <Input type="number" value={form.priceUnidad} onChange={e => setForm({...form, priceUnidad: e.target.value})} className="h-20 border-accent/20 text-center text-2xl font-black text-accent rounded-[1.5rem]" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="space-y-6">
-          <Card className="border-none shadow-2xl bg-white rounded-[2.5rem] overflow-hidden">
-            <CardHeader className="bg-accent/5 py-6 px-8 flex justify-between flex-row items-center">
-              <CardTitle className="text-sm font-black text-accent uppercase tracking-widest">Fotos Originales (Máx 4)</CardTitle>
-              <span className="text-xs bg-accent text-white px-3 py-1 rounded-full font-bold">{localImagePreviews.length}/4</span>
-            </CardHeader>
-            <CardContent className="pt-6 grid grid-cols-2 gap-4 px-8">
-               {localImagePreviews.map((img, idx) => (
-                  <div key={idx} className="relative aspect-square rounded-[2rem] overflow-hidden border-2 border-accent/10 group shadow-md bg-muted">
-                    <img src={img} alt="" className="w-full h-full object-cover" />
-                    <button onClick={() => setLocalImagePreviews(localImagePreviews.filter((_, i) => i !== idx))} className="absolute top-2 right-2 p-2 bg-destructive rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity"><X className="w-4 h-4" /></button>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] uppercase font-black text-accent/70 tracking-widest ml-1">Descripción Estética</Label>
+                    <Textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="min-h-[120px] border-accent/20 rounded-[2rem] bg-accent/5 p-6" placeholder="Detalles de tela, ajuste, etc." />
                   </div>
-                ))}
-                {localImagePreviews.length < 4 && (
-                  <button onClick={() => fileInputRef.current?.click()} className="aspect-square rounded-[2rem] border-4 border-dashed border-accent/20 flex flex-col items-center justify-center gap-2 text-accent bg-accent/5 hover:bg-accent/10 transition-all">
-                    <ImagePlus className="w-10 h-10" />
-                    <span className="text-[10px] font-black uppercase tracking-widest">Subir</span>
-                    <input type="file" hidden ref={fileInputRef} onChange={handleFileChange} accept="image/*" />
-                  </button>
-                )}
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
 
-          <Button 
-            className="w-full h-28 text-3xl font-headline shadow-2xl rounded-[3rem] bg-gradient-to-tr from-primary to-accent text-white font-black disabled:opacity-30 disabled:grayscale transition-all hover:scale-[1.02]" 
-            onClick={handleSave}
-            disabled={!isFormValid || saving}
-          >
-            {saving ? <Loader2 className="w-10 h-10 animate-spin" /> : <Save className="w-8 h-8 mr-4" />}
-            {editId ? 'ACTUALIZAR' : 'REGISTRAR'}
-          </Button>
-          
-          <div className="p-8 bg-white/50 rounded-[2.5rem] border border-accent/10 text-center">
-            <p className="text-[10px] text-accent font-black uppercase tracking-[0.2em]">
-              Almacenamiento Seguro en Drive • Calidad Original.
-            </p>
+              <Card className="border-none shadow-2xl bg-white rounded-[2.5rem] overflow-hidden">
+                 <CardHeader className="bg-primary/5 border-b border-primary/10 py-6 px-8">
+                  <CardTitle className="text-lg text-primary font-black uppercase tracking-widest">Stock y Tarifas Diva</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-8 grid grid-cols-2 md:grid-cols-4 gap-8 px-8">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] text-center block font-black text-primary tracking-widest">CANTIDAD INICIAL *</Label>
+                    <Input type="number" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} className="h-20 border-primary/20 text-center text-4xl font-black text-primary bg-primary/5 rounded-[1.5rem]" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] text-center block font-black text-accent/70 tracking-widest">FARDO (S/)</Label>
+                    <Input type="number" value={form.priceFardo} onChange={e => setForm({...form, priceFardo: e.target.value})} className="h-20 border-accent/20 text-center text-2xl font-black text-accent rounded-[1.5rem]" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] text-center block font-black text-accent/70 tracking-widest">AL MAYOR (S/)</Label>
+                    <Input type="number" value={form.priceMayor} onChange={e => setForm({...form, priceMayor: e.target.value})} className="h-20 border-accent/20 text-center text-2xl font-black text-accent rounded-[1.5rem]" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] text-center block font-black text-accent/70 tracking-widest">UNIDAD (S/)</Label>
+                    <Input type="number" value={form.priceUnidad} onChange={e => setForm({...form, priceUnidad: e.target.value})} className="h-20 border-accent/20 text-center text-2xl font-black text-accent rounded-[1.5rem]" />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="space-y-6">
+              <Card className="border-none shadow-2xl bg-white rounded-[2.5rem] overflow-hidden">
+                <CardHeader className="bg-accent/5 py-6 px-8 flex justify-between flex-row items-center">
+                  <CardTitle className="text-sm font-black text-accent uppercase tracking-widest">Fotos Originales (Máx 4)</CardTitle>
+                  <span className="text-xs bg-accent text-white px-3 py-1 rounded-full font-bold">{localImagePreviews.length}/4</span>
+                </CardHeader>
+                <CardContent className="pt-6 grid grid-cols-2 gap-4 px-8">
+                   {localImagePreviews.map((img, idx) => (
+                      <div key={idx} className="relative aspect-square rounded-[2rem] overflow-hidden border-2 border-accent/10 group shadow-md bg-muted">
+                        <img src={img} alt="" className="w-full h-full object-cover" />
+                        <button onClick={() => setLocalImagePreviews(localImagePreviews.filter((_, i) => i !== idx))} className="absolute top-2 right-2 p-2 bg-destructive rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity"><X className="w-4 h-4" /></button>
+                      </div>
+                    ))}
+                    {localImagePreviews.length < 4 && (
+                      <button onClick={() => fileInputRef.current?.click()} className="aspect-square rounded-[2rem] border-4 border-dashed border-accent/20 flex flex-col items-center justify-center gap-2 text-accent bg-accent/5 hover:bg-accent/10 transition-all">
+                        <ImagePlus className="w-10 h-10" />
+                        <span className="text-[10px] font-black uppercase tracking-widest">Subir</span>
+                        <input type="file" hidden ref={fileInputRef} onChange={handleFileChange} accept="image/*" />
+                      </button>
+                    )}
+                </CardContent>
+              </Card>
+
+              <Button 
+                className="w-full h-28 text-3xl font-headline shadow-2xl rounded-[3rem] bg-gradient-to-tr from-primary to-accent text-white font-black disabled:opacity-30 disabled:grayscale transition-all hover:scale-[1.02]" 
+                onClick={handleSave}
+                disabled={!isFormValid || saving}
+              >
+                {saving ? <Loader2 className="w-10 h-10 animate-spin" /> : <Save className="w-8 h-8 mr-4" />}
+                {editId ? 'ACTUALIZAR' : 'REGISTRAR'}
+              </Button>
+            </div>
           </div>
-        </div>
-      </div>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

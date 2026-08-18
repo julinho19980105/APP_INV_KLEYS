@@ -44,7 +44,6 @@ export default function InventoryPage() {
     p.code?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  // Función para obtener URL de miniatura de Drive
   const getThumbnailUrl = (url: string) => {
     if (!url || !url.includes('id=')) return url;
     const idMatch = url.match(/id=([^&]+)/);
@@ -52,7 +51,6 @@ export default function InventoryPage() {
     return `https://drive.google.com/thumbnail?id=${idMatch[1]}&sz=w300`;
   };
 
-  // Función para obtener URL de alta calidad de Drive para Zoom
   const getZoomUrl = (url: string) => {
     if (!url || !url.includes('id=')) return url;
     const idMatch = url.match(/id=([^&]+)/);
@@ -180,7 +178,6 @@ export default function InventoryPage() {
         </TabsContent>
 
         <TabsContent value="movements">
-           {/* Kardex table content remains same but ensured it works */}
            <div className="border rounded-[2rem] overflow-hidden bg-card shadow-xl border-none">
             {loadingMovements ? (
               <div className="p-20 text-center text-primary font-bold animate-pulse uppercase tracking-widest">Cargando Historial...</div>
@@ -207,14 +204,18 @@ export default function InventoryPage() {
                           <div className="flex items-center gap-1 text-green-600 font-bold text-xs">
                             <ArrowUpRight className="w-3 h-3" /> INGRESO
                           </div>
-                        ) : (
+                        ) : m.type === 'out' ? (
                           <div className="flex items-center gap-1 text-destructive font-bold text-xs">
                             <ArrowDownRight className="w-3 h-3" /> SALIDA
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1 text-accent font-bold text-xs">
+                            <ArrowUpRight className="w-3 h-3" /> DEVOLUCIÓN
                           </div>
                         )}
                       </TableCell>
                       <TableCell className="text-center font-black text-lg">
-                        {m.type === 'in' ? '+' : '-'}{m.quantity}
+                        {m.type === 'in' || m.type === 'return' ? '+' : '-'}{m.quantity}
                       </TableCell>
                       <TableCell className="text-sm font-medium">{m.reason}</TableCell>
                     </TableRow>

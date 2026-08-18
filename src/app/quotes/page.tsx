@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -13,11 +14,13 @@ import {
   SelectTrigger, 
   SelectValue 
 } from "@/components/ui/select"
-import { Trash2, Plus, UserPlus, Search, ShoppingCart, Share2, Save, Printer, Sparkles, XCircle } from "lucide-react"
+import { Trash2, Plus, UserPlus, Search, ShoppingCart, Share2, Save, Printer, Sparkles, XCircle, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { semanticSuggestCustomersProducts } from "@/ai/flows/semantic-suggest-customers-products"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
+import { useFirestore, useCollection } from "@/firebase"
+import { collection, query, orderBy, addDoc, serverTimestamp, doc, updateDoc, increment } from "firebase/firestore"
 
 interface QuoteItem {
   id: string
@@ -32,6 +35,8 @@ interface QuoteItem {
 
 export default function QuotesPage() {
   const { toast } = useToast()
+  const db = useFirestore()
+  const [saving, setSaving] = React.useState(false)
   const [date, setDate] = React.useState("")
   const [time, setTime] = React.useState("")
   const [quoteId, setQuoteId] = React.useState("")
@@ -46,6 +51,10 @@ export default function QuotesPage() {
 
   const [items, setItems] = React.useState<QuoteItem[]>([])
   const [discount, setDiscount] = React.useState<string | number>("")
+
+  // Cargar productos reales para el sugeridor
+  const productsRef = React.useMemo(() => db ? query(collection(db, "products"), orderBy("code")) : null, [db])
+  const { data: dbProducts = [] } = useCollection(productsRef)
 
   React.useEffect(() => {
     setDate(new Date().toISOString().split('T')[0])
@@ -80,28 +89,37 @@ export default function QuotesPage() {
         setProductSuggestions([])
         return
       }
+      
+      const formattedProducts = dbProducts.map(p => ({
+        id: p.id,
+        name: p.name,
+        stock: p.stock,
+        imageUrl: p.images?.[0] || ""
+      }))
+
       const res = await semanticSuggestCustomersProducts({
         query: productQuery,
         type: "product",
-        products: [
-          { id: "P1", name: "Saco Velvet", stock: 24, imageUrl: "https://picsum.photos/seed/p1/200/200" },
-          { id: "P2", name: "Pantalón Slim", stock: 48, imageUrl: "https://picsum.photos/seed/p2/200/200" },
-        ]
+        products: formattedProducts
       })
       setProductSuggestions(res.suggestions)
     }
     const timeout = setTimeout(fetchSuggestions, 300)
     return () => clearTimeout(timeout)
-  }, [productQuery])
+  }, [productQuery, dbProducts])
 
   const addItem = (prod: any) => {
     if (items.find(i => i.productId === prod.id)) return
+    
+    // Obtener precios del producto real
+    const realProd = dbProducts.find(p => p.id === prod.id)
+    
     setItems([...items, {
       id: Math.random().toString(),
       productId: prod.id,
       name: prod.name,
       quantity: "",
-      price: "",
+      price: realProd?.priceMayor || "",
       priceType: 'mayor',
       stock: prod.stock,
       img: prod.imageUrl || ""
@@ -118,10 +136,72 @@ export default function QuotesPage() {
     setItems(items.filter(i => i.id !== id))
   }
 
-  const handleAnnul = () => {
+  const handleRegisterSale = async () => {
+    if (!db || items.length === 0 || !selectedCustomer) return
+    setSaving(true)
+    try {
+      // 1. Descontar Stock y Registrar Salidas en Kardex
+      for (const item of items) {
+        const qty = Number(item.quantity)
+        const pRef = doc(db, "products", item.productId)
+        
+        await updateDoc(pRef, {
+          stock: increment(-qty),
+          updatedAt: serverTimestamp()
+        })
+
+        await addDoc(collection(db, "movements"), {
+          productCode: item.productId,
+          type: "out",
+          quantity: qty,
+          reason: `Venta Boleta ${quoteId}`,
+          referenceId: quoteId,
+          timestamp: serverTimestamp()
+        })
+      }
+
+      toast({ title: "Venta Registrada", description: `La boleta ${quoteId} se guardó y el stock fue actualizado.` })
+      setItems([])
+      setSelectedCustomer(null)
+      setQuoteId(`B-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`)
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error", description: "No se pudo registrar la venta." })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleAnnul = async () => {
+    if (!db || items.length === 0) return
     if (confirm("¿Segura que deseas ANULAR esta venta? El stock se devolverá al inventario automáticamente.")) {
-      setStatus('annulled')
-      toast({ title: "Venta Anulada", description: "El stock ha sido devuelto al inventario." })
+      setSaving(true)
+      try {
+        for (const item of items) {
+          const qty = Number(item.quantity)
+          const pRef = doc(db, "products", item.productId)
+          
+          await updateDoc(pRef, {
+            stock: increment(qty),
+            updatedAt: serverTimestamp()
+          })
+
+          await addDoc(collection(db, "movements"), {
+            productCode: item.productId,
+            type: "return",
+            quantity: qty,
+            reason: `Devolución por Anulación ${quoteId}`,
+            referenceId: quoteId,
+            timestamp: serverTimestamp()
+          })
+        }
+        
+        setStatus('annulled')
+        toast({ title: "Venta Anulada", description: "El stock ha sido devuelto al inventario." })
+      } catch (e) {
+        toast({ variant: "destructive", title: "Error", description: "No se pudo anular la venta." })
+      } finally {
+        setSaving(false)
+      }
     }
   }
 
@@ -246,7 +326,7 @@ export default function QuotesPage() {
                       >
                         <div className="flex items-center gap-5">
                           <div className="relative w-14 h-14 rounded-2xl overflow-hidden border border-accent/10 shadow-sm">
-                              {p.imageUrl && <Image src={p.imageUrl} alt="" fill className="object-cover" />}
+                              {p.imageUrl && <img src={p.imageUrl} alt="" className="w-full h-full object-cover" />}
                           </div>
                           <div>
                             <div className="font-black text-lg group-hover:text-primary transition-colors">{p.name}</div>
@@ -267,7 +347,7 @@ export default function QuotesPage() {
                   <div key={item.id} className="flex flex-col md:flex-row gap-6 p-6 rounded-[2.5rem] border-2 border-primary/5 bg-gradient-to-r from-accent/5 to-white relative group transition-all hover:border-primary/20 hover:shadow-xl">
                     <div className="flex gap-6 flex-1">
                       <div className="relative w-24 h-24 rounded-[2rem] overflow-hidden bg-white shadow-md border border-accent/10 shrink-0">
-                          <Image src={item.img || "https://picsum.photos/seed/item/200/200"} alt="" fill className="object-cover" data-ai-hint="fashion clothes" />
+                          <img src={item.img || "https://picsum.photos/seed/item/200/200"} alt="" className="w-full h-full object-cover" />
                       </div>
                       <div className="space-y-4 flex-1">
                         <div>
@@ -277,7 +357,13 @@ export default function QuotesPage() {
                         <div className="flex items-center gap-4 pt-1">
                            <Select 
                             value={item.priceType} 
-                            onValueChange={(v: any) => updateItem(item.id, { priceType: v, price: v === 'fardo' ? 70 : v === 'mayor' ? 85 : 100 })}
+                            onValueChange={(v: any) => {
+                              const realProd = dbProducts.find(p => p.id === item.productId)
+                              let newPrice = realProd?.priceMayor
+                              if (v === 'fardo') newPrice = realProd?.priceFardo
+                              if (v === 'unidad') newPrice = realProd?.priceUnidad
+                              updateItem(item.id, { priceType: v, price: newPrice })
+                            }}
                           >
                              <SelectTrigger className="h-10 w-36 rounded-xl border-accent/20 bg-white font-bold text-accent">
                                <SelectValue />
@@ -382,8 +468,12 @@ export default function QuotesPage() {
               </div>
             </CardContent>
             <CardFooter className="flex flex-col gap-4 pt-8 pb-10 px-10">
-              <Button className="w-full h-16 bg-white text-primary hover:bg-white/90 font-black text-xl rounded-[1.5rem] border-none shadow-2xl active:scale-95 transition-all" onClick={() => toast({ title: "Venta Registrada", description: "La proforma se ha guardado y el stock se descontó." })}>
-                <Save className="w-6 h-6 mr-3" />
+              <Button 
+                className="w-full h-16 bg-white text-primary hover:bg-white/90 font-black text-xl rounded-[1.5rem] border-none shadow-2xl active:scale-95 transition-all" 
+                onClick={handleRegisterSale}
+                disabled={saving || items.length === 0 || !selectedCustomer}
+              >
+                {saving ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6 mr-3" />}
                 REGISTRAR VENTA
               </Button>
               <Button className="w-full h-14 bg-black/10 text-white hover:bg-black/20 border-2 border-white/20 font-black rounded-[1.5rem] tracking-widest" onClick={() => toast({ title: "WhatsApp Enviado", description: "Enviando PDF al cliente..." })}>

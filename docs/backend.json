@@ -10,15 +10,28 @@
         "name": { "type": "string", "description": "Nombre de la prenda" },
         "category": { "type": "string", "description": "Categoría de moda" },
         "collection": { "type": "string", "description": "Colección de temporada" },
-        "stock": { "type": "number", "description": "Cantidad disponible" },
+        "stock": { "type": "number", "description": "Cantidad disponible total" },
         "priceFardo": { "type": "number", "description": "Precio por fardo" },
         "priceMayor": { "type": "number", "description": "Precio al por mayor" },
         "priceUnidad": { "type": "number", "description": "Precio por unidad" },
-        "images": { "type": "array", "items": { "type": "string" }, "description": "URLs de imágenes en Storage" },
+        "images": { "type": "array", "items": { "type": "string" }, "description": "URLs de imágenes en Drive" },
         "description": { "type": "string", "description": "Descripción estética" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["code", "name", "category", "collection", "stock"]
+    },
+    "Movement": {
+      "title": "Movimiento de Inventario",
+      "description": "Registro de entrada o salida de stock",
+      "type": "object",
+      "properties": {
+        "productCode": { "type": "string" },
+        "type": { "type": "string", "enum": ["in", "out", "return"] },
+        "quantity": { "type": "number" },
+        "reason": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "referenceId": { "type": "string", "description": "ID de boleta o referencia" }
+      }
     },
     "Category": {
       "title": "Categoría",
@@ -43,7 +56,11 @@
   "firestore": {
     "/products/{productId}": {
       "schema": "Product",
-      "description": "Colección maestra de productos"
+      "description": "Colección maestra de productos (ID = Código)"
+    },
+    "/movements/{movementId}": {
+      "schema": "Movement",
+      "description": "Historial de Kardex de todos los productos"
     },
     "/categories/{categoryId}": {
       "schema": "Category",
