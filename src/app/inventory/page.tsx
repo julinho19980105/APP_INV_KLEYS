@@ -20,6 +20,7 @@ import {
   DialogContent, 
   DialogHeader, 
   DialogTitle,
+  DialogDescription,
   DialogTrigger 
 } from "@/components/ui/dialog"
 import { Search, Edit2, ArrowDownRight, ArrowUpRight, Plus, Maximize2, X } from "lucide-react"
@@ -33,7 +34,7 @@ export default function InventoryPage() {
   const [searchQuery, setSearchQuery] = React.useState("")
   const [zoomedImage, setZoomedImage] = React.useState<string | null>(null)
 
-  const productsRef = React.useMemo(() => db ? query(collection(db, "products"), orderBy("code", "desc")) : null, [db])
+  const productsRef = React.useMemo(() => db ? query(collection(db, "products"), orderBy("code", "asc")) : null, [db])
   const movementsRef = React.useMemo(() => db ? query(collection(db, "movements"), orderBy("timestamp", "desc")) : null, [db])
 
   const { data: products = [], loading: loadingProducts } = useCollection(productsRef)
@@ -111,7 +112,7 @@ export default function InventoryPage() {
                           </>
                         ) : (
                           <div className="w-full h-full flex items-center justify-center bg-accent/10">
-                             <div className="text-[8px] font-black opacity-20">NO FOTO</div>
+                             <div className="text-[8px] font-black opacity-20 text-center px-1">NO FOTO</div>
                           </div>
                         )}
                       </button>
@@ -126,7 +127,7 @@ export default function InventoryPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="text-[10px] text-muted-foreground">S/ {p.priceFardo} - {p.priceMayor} - <span className="text-primary font-bold">{p.priceUnidad}</span></div>
+                      <div className="text-[10px] text-muted-foreground whitespace-nowrap">S/ {p.priceFardo} - {p.priceMayor} - <span className="text-primary font-bold">{p.priceUnidad}</span></div>
                     </TableCell>
                     <TableCell className="text-center">
                       <span className={cn(
@@ -212,18 +213,23 @@ export default function InventoryPage() {
       </Tabs>
 
       <Dialog open={!!zoomedImage} onOpenChange={(o) => !o && setZoomedImage(null)}>
-        <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 border-none bg-black/90 overflow-hidden flex items-center justify-center rounded-none">
+        <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 border-none bg-black/90 overflow-hidden flex items-center justify-center rounded-none shadow-none">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Zoom de Prenda Diva</DialogTitle>
+            <DialogDescription>Imagen en calidad original de Google Drive</DialogDescription>
+          </DialogHeader>
           {zoomedImage && (
             <div className="relative w-full h-full flex items-center justify-center">
               <button 
                 onClick={() => setZoomedImage(null)}
                 className="absolute top-4 right-4 z-50 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
+                aria-label="Cerrar vista ampliada"
               >
                 <X className="w-6 h-6" />
               </button>
               <img 
                 src={zoomedImage} 
-                alt="Calidad Original Drive" 
+                alt="Vista Zoom Calidad Original" 
                 className="max-w-full max-h-[90vh] object-contain shadow-2xl animate-in zoom-in-95 duration-300"
                 referrerPolicy="no-referrer"
               />
