@@ -34,7 +34,7 @@ export default function InventoryPage() {
   const [searchQuery, setSearchQuery] = React.useState("")
   const [zoomedImage, setZoomedImage] = React.useState<string | null>(null)
 
-  const productsRef = React.useMemo(() => db ? query(collection(db, "products"), orderBy("updatedAt", "desc")) : null, [db])
+  const productsRef = React.useMemo(() => db ? query(collection(db, "products"), orderBy("code", "desc")) : null, [db])
   const movementsRef = React.useMemo(() => db ? query(collection(db, "movements"), orderBy("timestamp", "desc")) : null, [db])
 
   const { data: products = [], loading: loadingProducts } = useCollection(productsRef)
@@ -149,7 +149,7 @@ export default function InventoryPage() {
                 )) : (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center py-20 text-muted-foreground font-medium">
-                      No hay productos registrados que coincidan con la búsqueda.
+                      No hay productos registrados.
                     </TableCell>
                   </TableRow>
                 )}
@@ -199,7 +199,7 @@ export default function InventoryPage() {
                   )) : (
                     <TableRow>
                       <TableCell colSpan={5} className="text-center py-20 text-muted-foreground font-medium">
-                        Aún no hay movimientos registrados en el Kardex.
+                        Sin movimientos registrados.
                       </TableCell>
                     </TableRow>
                   )}

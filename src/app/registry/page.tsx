@@ -142,42 +142,46 @@ export default function RegistryPage() {
     
     setSaving(true)
     
-    // Subir imágenes a Drive antes de guardar en Firestore
-    const uploadedImageUrls = await Promise.all(
-      localImagePreviews.map(async (img, index) => {
-        if (img.startsWith('http')) return img; // Ya es una URL de Drive
-        return await uploadImageToDrive(img, `${form.code}_${index}.jpg`);
-      })
-    );
+    try {
+      const uploadedImageUrls = await Promise.all(
+        localImagePreviews.map(async (img, index) => {
+          if (img.startsWith('http')) return img;
+          return await uploadImageToDrive(img, `${form.code}_${index}.jpg`);
+        })
+      );
 
-    const productData = {
-      name: form.name,
-      code: form.code,
-      category: form.category,
-      collection: form.collection,
-      description: form.description,
-      stock: Number(form.stock),
-      priceFardo: Number(form.priceFardo || 0),
-      priceMayor: Number(form.priceMayor || 0),
-      priceUnidad: Number(form.priceUnidad || 0),
-      images: uploadedImageUrls,
-      updatedAt: serverTimestamp()
+      const productData = {
+        name: form.name,
+        code: form.code,
+        category: form.category,
+        collection: form.collection,
+        description: form.description,
+        stock: Number(form.stock),
+        priceFardo: Number(form.priceFardo || 0),
+        priceMayor: Number(form.priceMayor || 0),
+        priceUnidad: Number(form.priceUnidad || 0),
+        images: uploadedImageUrls,
+        updatedAt: serverTimestamp()
+      }
+
+      const pRef = editId ? doc(db, "products", editId) : doc(collection(db, "products"))
+      setDoc(pRef, productData, { merge: true })
+        .then(() => {
+          toast({ title: "Éxito", description: "Prenda registrada correctamente." })
+          router.push('/inventory')
+        })
+        .catch((serverError: any) => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({ 
+            path: pRef.path, 
+            operation: editId ? 'update' : 'create', 
+            requestResourceData: productData 
+          }));
+        });
+    } catch (error) {
+      console.error("Error general al guardar:", error);
+    } finally {
+      setSaving(false);
     }
-
-    const pRef = editId ? doc(db, "products", editId) : doc(collection(db, "products"))
-    setDoc(pRef, productData, { merge: true })
-      .then(() => {
-        toast({ title: "Éxito", description: "Prenda registrada correctamente." })
-        router.push('/inventory')
-      })
-      .catch((serverError: any) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({ 
-          path: pRef.path, 
-          operation: editId ? 'update' : 'create', 
-          requestResourceData: productData 
-        }));
-      })
-      .finally(() => setSaving(false))
   }
 
   const priceError = form.priceFardo && form.priceMayor && form.priceUnidad && 
@@ -204,7 +208,7 @@ export default function RegistryPage() {
         <div className="bg-destructive/10 border border-destructive/20 p-4 rounded-2xl flex items-center gap-3 text-destructive">
           <AlertCircle className="w-5 h-5" />
           <span className="text-xs font-black uppercase tracking-widest">
-            REGLA DIVA: El precio Fardo debe ser menor al Mayor y este al de Unidad
+            REGLA DIVA: Fardo menor que Mayor y Mayor menor que Unidad
           </span>
         </div>
       )}
