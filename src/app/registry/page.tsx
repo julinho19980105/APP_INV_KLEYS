@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { 
   Select, 
@@ -24,7 +24,7 @@ import {
   DialogTrigger,
   DialogDescription
 } from "@/components/ui/dialog"
-import { ImagePlus, X, Save, History, Loader2, Sparkles, Settings2, Edit3, Plus, Search, Maximize2 } from "lucide-react"
+import { ImagePlus, X, Save, Loader2, Sparkles, Edit3, Plus, Search, Maximize2, ArrowLeft } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useFirestore, useDoc, useCollection } from "@/firebase"
 import { doc, setDoc, collection, query, orderBy, serverTimestamp, updateDoc, addDoc, limit, getDocs, increment } from "firebase/firestore"
@@ -162,7 +162,7 @@ export default function RegistryPage() {
       );
 
       const productData = {
-        name: form.name,
+        name: form.name.toUpperCase(),
         code: form.code,
         category: form.category,
         collection: form.collection,
@@ -188,10 +188,10 @@ export default function RegistryPage() {
         })
       }
 
-      toast({ title: "Éxito", description: `Prenda ${form.code} registrada correctamente.` })
+      toast({ title: "Operación Exitosa", description: `Prenda ${form.code} guardada en inventario.` })
       router.push('/inventory')
     } catch (error) {
-      toast({ variant: "destructive", title: "Error", description: "Hubo un problema al guardar." })
+      toast({ variant: "destructive", title: "Error", description: "Fallo al guardar en base de datos." })
     } finally {
       setSaving(false);
     }
@@ -213,14 +213,14 @@ export default function RegistryPage() {
         productCode: stockEntry.productCode,
         type: "in",
         quantity: qty,
-        reason: stockEntry.reason,
+        reason: "Reposición de Mercadería",
         timestamp: serverTimestamp()
       })
 
-      toast({ title: "Ingreso Exitoso", description: `Se agregaron ${qty} unidades a ${stockEntry.productCode}.` })
+      toast({ title: "Stock Actualizado", description: `Se añadieron ${qty} unidades a ${stockEntry.productCode}.` })
       router.push('/inventory')
     } catch (e) {
-      toast({ variant: "destructive", title: "Error", description: "No se pudo registrar el ingreso." })
+      toast({ variant: "destructive", title: "Error", description: "Fallo en registro de reposición." })
     } finally {
       setSaving(false)
     }
@@ -236,60 +236,58 @@ export default function RegistryPage() {
   const isFormValid = form.name && form.category && form.collection && form.stock !== "" && !saving
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 pb-20">
-      <div className="flex justify-between items-center">
-        <div>
-           <h1 className="text-3xl font-headline font-bold text-primary flex items-center gap-3">
-            Gestión de Inventario
-            <Sparkles className="text-accent w-5 h-5" />
-          </h1>
-          <p className="text-[9px] text-muted-foreground uppercase font-black tracking-widest mt-1">Operaciones de Almacén Diva</p>
-        </div>
-        <Button variant="outline" className="border-accent text-accent bg-white rounded-xl h-8 px-4 font-bold text-xs" onClick={() => router.push('/inventory')}>
-          <History className="w-3 h-3 mr-2" /> Kardex
-        </Button>
-      </div>
-
+    <div className="max-w-6xl mx-auto space-y-4 -mt-4">
       <Tabs defaultValue="new" className="w-full">
-        <TabsList className="bg-muted/50 p-1 rounded-2xl mb-6">
-          <TabsTrigger value="new" className="rounded-xl px-6 data-[state=active]:bg-primary data-[state=active]:text-white text-xs">{editId ? 'Editar Prenda' : 'Nueva Prenda'}</TabsTrigger>
-          <TabsTrigger value="stock" className="rounded-xl px-6 data-[state=active]:bg-primary data-[state=active]:text-white text-xs">Ingreso de Stock</TabsTrigger>
+        <TabsList className="bg-muted/50 p-1 rounded-2xl w-full justify-start overflow-hidden border shadow-sm">
+          <TabsTrigger value="new" className="rounded-xl px-10 data-[state=active]:bg-primary data-[state=active]:text-white transition-all text-xs font-bold font-headline uppercase">
+            {editId ? 'Editando Prenda' : 'Nueva Prenda'}
+          </TabsTrigger>
+          <TabsTrigger value="stock" className="rounded-xl px-10 data-[state=active]:bg-primary data-[state=active]:text-white transition-all text-xs font-bold font-headline uppercase">
+            Ingreso de Stock
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="new">
+        <TabsContent value="new" className="pt-2">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-4">
-              <Card className="border-none shadow-xl bg-white rounded-[2rem] overflow-hidden">
-                <CardHeader className="bg-accent/5 border-b border-accent/10 py-4 flex flex-row items-center justify-between px-6">
-                  <CardTitle className="text-sm text-accent font-black uppercase tracking-widest">Ficha de Prenda</CardTitle>
-                  <div className="bg-primary text-white px-6 py-2 rounded-xl font-mono font-black text-xl shadow-md border-2 border-white">
+              <Card className="border shadow-sm bg-white rounded-2xl overflow-hidden">
+                <div className="bg-accent/5 border-b py-3 flex flex-row items-center justify-between px-6">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="text-primary w-4 h-4" />
+                    <span className="text-[10px] text-accent font-black uppercase tracking-widest">Ficha Técnica</span>
+                  </div>
+                  <div className="bg-primary text-white px-4 py-1 rounded-lg font-mono font-black text-lg shadow-sm border border-white">
                     {form.code}
                   </div>
-                </CardHeader>
-                <CardContent className="space-y-4 pt-6 px-6">
+                </div>
+                <CardContent className="space-y-4 pt-4 px-6">
                   <div className="space-y-1">
-                    <Label className="text-[9px] uppercase font-black text-accent/70 tracking-widest ml-1">Nombre de Prenda *</Label>
-                    <Input value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="h-10 border-accent/20 rounded-xl text-base font-bold" />
+                    <Label className="text-[9px] uppercase font-black text-accent/70 tracking-widest ml-1">Nombre Comercial *</Label>
+                    <Input 
+                      value={form.name} 
+                      onChange={e => setForm({...form, name: e.target.value})} 
+                      className="h-9 border-accent/20 rounded-xl text-sm font-bold uppercase" 
+                    />
                   </div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1">
-                      <Label className="text-[9px] uppercase font-black text-accent/70 tracking-widest ml-1">Categoría *</Label>
+                      <Label className="text-[9px] uppercase font-black text-accent/70 tracking-widest ml-1">Categoría Diva *</Label>
                       <div className="flex gap-2">
                         <Select value={form.category} onValueChange={v => setForm({...form, category: v})}>
-                          <SelectTrigger className="h-9 border-accent/20 rounded-xl font-bold bg-white text-sm px-4">
+                          <SelectTrigger className="h-8 border-accent/20 rounded-xl font-bold bg-white text-[11px] px-4">
                             <SelectValue placeholder="Seleccionar..." />
                           </SelectTrigger>
                           <SelectContent className="rounded-xl">
                             {categories.filter(c => c.name).map(cat => (
-                              <SelectItem key={cat.id} value={cat.name} className="rounded-lg">{cat.name}</SelectItem>
+                              <SelectItem key={cat.id} value={cat.name} className="rounded-lg text-xs font-bold">{cat.name}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                         <Dialog open={manageType === 'category'} onOpenChange={(o) => setManageType(o ? 'category' : null)}>
                           <DialogTrigger asChild>
-                            <Button variant="outline" size="icon" className="h-9 w-9 rounded-xl border-accent text-accent shrink-0">
-                              <Settings2 className="w-4 h-4" />
+                            <Button variant="outline" size="icon" className="h-8 w-8 rounded-xl border-accent text-accent shrink-0">
+                              <Edit3 className="w-4 h-4" />
                             </Button>
                           </DialogTrigger>
                           <DialogContent className="rounded-[2rem] border-none shadow-2xl max-w-sm">
@@ -298,7 +296,7 @@ export default function RegistryPage() {
                             </DialogHeader>
                             <div className="space-y-4 pt-2">
                               <div className="flex gap-2">
-                                <Input placeholder="Nueva..." value={newItemName} onChange={e => setNewItemName(e.target.value)} className="h-8 text-xs" />
+                                <Input placeholder="Nueva..." value={newItemName} onChange={e => setNewItemName(e.target.value)} className="h-8 text-xs font-bold" />
                                 <Button className="h-8 w-8 bg-primary p-0" onClick={handleAddItem}><Plus className="w-4 h-4" /></Button>
                               </div>
                               <div className="max-h-48 overflow-y-auto space-y-1 pr-1">
@@ -312,7 +310,7 @@ export default function RegistryPage() {
                                       </div>
                                     ) : (
                                       <>
-                                        <span className="font-bold text-accent text-xs">{cat.name}</span>
+                                        <span className="font-bold text-accent text-[11px]">{cat.name}</span>
                                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditingItem({id: cat.id, name: cat.name})}>
                                           <Edit3 className="w-3 h-3 text-accent" />
                                         </Button>
@@ -331,19 +329,19 @@ export default function RegistryPage() {
                       <Label className="text-[9px] uppercase font-black text-accent/70 tracking-widest ml-1">Colección *</Label>
                       <div className="flex gap-2">
                         <Select value={form.collection} onValueChange={v => setForm({...form, collection: v})}>
-                          <SelectTrigger className="h-9 border-accent/20 rounded-xl font-bold bg-white text-sm px-4">
+                          <SelectTrigger className="h-8 border-accent/20 rounded-xl font-bold bg-white text-[11px] px-4">
                             <SelectValue placeholder="Seleccionar..." />
                           </SelectTrigger>
                           <SelectContent className="rounded-xl">
                             {collectionsData.filter(c => c.name).map(col => (
-                              <SelectItem key={col.id} value={col.name} className="rounded-lg">{col.name}</SelectItem>
+                              <SelectItem key={col.id} value={col.name} className="rounded-lg text-xs font-bold">{col.name}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                         <Dialog open={manageType === 'collection'} onOpenChange={(o) => setManageType(o ? 'collection' : null)}>
                           <DialogTrigger asChild>
-                            <Button variant="outline" size="icon" className="h-9 w-9 rounded-xl border-accent text-accent shrink-0">
-                              <Settings2 className="w-4 h-4" />
+                            <Button variant="outline" size="icon" className="h-8 w-8 rounded-xl border-accent text-accent shrink-0">
+                              <Edit3 className="w-4 h-4" />
                             </Button>
                           </DialogTrigger>
                           <DialogContent className="rounded-[2rem] border-none shadow-2xl max-w-sm">
@@ -352,7 +350,7 @@ export default function RegistryPage() {
                             </DialogHeader>
                             <div className="space-y-4 pt-2">
                               <div className="flex gap-2">
-                                <Input placeholder="Nueva..." value={newItemName} onChange={e => setNewItemName(e.target.value)} className="h-8 text-xs" />
+                                <Input placeholder="Nueva..." value={newItemName} onChange={e => setNewItemName(e.target.value)} className="h-8 text-xs font-bold" />
                                 <Button className="h-8 w-8 bg-primary p-0" onClick={handleAddItem}><Plus className="w-4 h-4" /></Button>
                               </div>
                               <div className="max-h-48 overflow-y-auto space-y-1 pr-1">
@@ -366,7 +364,7 @@ export default function RegistryPage() {
                                       </div>
                                     ) : (
                                       <>
-                                        <span className="font-bold text-accent text-xs">{col.name}</span>
+                                        <span className="font-bold text-accent text-[11px]">{col.name}</span>
                                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditingItem({id: col.id, name: col.name})}>
                                           <Edit3 className="w-3 h-3 text-accent" />
                                         </Button>
@@ -383,120 +381,131 @@ export default function RegistryPage() {
                   </div>
 
                   <div className="space-y-1">
-                    <Label className="text-[9px] uppercase font-black text-accent/70 tracking-widest ml-1">Descripción</Label>
-                    <Textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="min-h-[80px] rounded-xl bg-accent/5 p-4 text-sm" />
+                    <Label className="text-[9px] uppercase font-black text-accent/70 tracking-widest ml-1">Observaciones Estéticas</Label>
+                    <Textarea 
+                      value={form.description} 
+                      onChange={e => setForm({...form, description: e.target.value})} 
+                      className="min-h-[60px] rounded-xl bg-accent/5 p-3 text-xs font-medium border-none focus:ring-1 focus:ring-accent" 
+                    />
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="border-none shadow-xl bg-white rounded-[2rem] overflow-hidden">
-                 <CardHeader className="bg-primary/5 border-b border-primary/10 py-3 px-6">
-                  <CardTitle className="text-xs text-primary font-black uppercase tracking-widest">Stock y Tarifas</CardTitle>
-                </CardHeader>
-                <CardContent className="pt-4 grid grid-cols-2 md:grid-cols-4 gap-4 px-6 pb-6">
+              <Card className="border shadow-sm bg-white rounded-2xl overflow-hidden">
+                <div className="bg-primary/5 border-b py-2 px-6">
+                  <span className="text-[9px] text-primary font-black uppercase tracking-widest">Saldo e Inversión</span>
+                </div>
+                <CardContent className="pt-3 grid grid-cols-2 md:grid-cols-4 gap-4 px-6 pb-4">
                   <div className="space-y-1">
                     <Label className="text-[8px] text-center block font-black text-primary uppercase">Stock Inicial *</Label>
-                    <Input type="number" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} className="h-10 text-center text-xl font-black text-primary bg-primary/5 rounded-xl" />
+                    <Input type="number" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} className="h-8 text-center text-lg font-black text-primary bg-primary/5 rounded-xl border-primary/20" />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-[8px] text-center block font-black text-accent/70 uppercase">Fardo (S/)</Label>
-                    <Input type="number" value={form.priceFardo} onChange={e => setForm({...form, priceFardo: e.target.value})} className="h-10 text-center text-sm font-black rounded-xl" />
+                    <Input type="number" value={form.priceFardo} onChange={e => setForm({...form, priceFardo: e.target.value})} className="h-8 text-center text-xs font-black rounded-xl border-accent/10" />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-[8px] text-center block font-black text-accent/70 uppercase">Al Mayor (S/)</Label>
-                    <Input type="number" value={form.priceMayor} onChange={e => setForm({...form, priceMayor: e.target.value})} className="h-10 text-center text-sm font-black rounded-xl" />
+                    <Input type="number" value={form.priceMayor} onChange={e => setForm({...form, priceMayor: e.target.value})} className="h-8 text-center text-xs font-black rounded-xl border-accent/10" />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-[8px] text-center block font-black text-accent/70 uppercase">Unidad (S/)</Label>
-                    <Input type="number" value={form.priceUnidad} onChange={e => setForm({...form, priceUnidad: e.target.value})} className="h-10 text-center text-sm font-black rounded-xl" />
+                    <Input type="number" value={form.priceUnidad} onChange={e => setForm({...form, priceUnidad: e.target.value})} className="h-8 text-center text-xs font-black rounded-xl border-accent/10" />
                   </div>
                 </CardContent>
               </Card>
             </div>
 
             <div className="space-y-4">
-              <Card className="border-none shadow-xl bg-white rounded-[2rem] overflow-hidden">
-                <CardHeader className="bg-accent/5 py-4 px-6 flex justify-between items-center">
-                  <CardTitle className="text-[10px] font-black text-accent uppercase">Fotos (4)</CardTitle>
-                  <span className="text-[9px] bg-accent text-white px-2 py-0.5 rounded-full">{localImagePreviews.length}/4</span>
-                </CardHeader>
+              <Card className="border shadow-sm bg-white rounded-2xl overflow-hidden">
+                <div className="bg-accent/5 py-3 px-6 flex justify-between items-center border-b">
+                  <span className="text-[9px] font-black text-accent uppercase tracking-widest">Catálogo Visual</span>
+                  <span className="text-[8px] bg-accent text-white px-1.5 py-0.5 rounded-full font-bold">{localImagePreviews.length}/4</span>
+                </div>
                 <CardContent className="pt-4 grid grid-cols-2 gap-2 px-6">
                    {localImagePreviews.map((img, idx) => (
-                      <div key={idx} className="relative aspect-square rounded-xl overflow-hidden border group shadow-sm bg-muted">
+                      <div key={idx} className="relative aspect-square rounded-xl overflow-hidden border group shadow-sm bg-muted/30">
                         <img src={img} alt="" className="w-full h-full object-cover" />
-                        <button onClick={() => setLocalImagePreviews(localImagePreviews.filter((_, i) => i !== idx))} className="absolute top-1 right-1 p-1 bg-destructive rounded-full text-white opacity-0 group-hover:opacity-100"><X className="w-3 h-3" /></button>
+                        <button onClick={() => setLocalImagePreviews(localImagePreviews.filter((_, i) => i !== idx))} className="absolute top-1 right-1 p-1 bg-destructive rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity"><X className="w-3 h-3" /></button>
                       </div>
                     ))}
                     {localImagePreviews.length < 4 && (
                       <button onClick={() => fileInputRef.current?.click()} className="aspect-square rounded-xl border-2 border-dashed border-accent/20 flex flex-col items-center justify-center gap-1 text-accent bg-accent/5 hover:bg-accent/10 transition-colors">
-                        <ImagePlus className="w-6 h-6" />
-                        <span className="text-[8px] font-black uppercase">Subir</span>
+                        <ImagePlus className="w-5 h-5 opacity-50" />
+                        <span className="text-[8px] font-black uppercase opacity-50">Cargar</span>
                         <input type="file" hidden ref={fileInputRef} onChange={handleFileChange} accept="image/*" />
                       </button>
                     )}
                 </CardContent>
               </Card>
 
-              <Button 
-                className="w-full h-16 text-xl font-headline shadow-lg rounded-[1.5rem] bg-gradient-to-tr from-primary to-accent text-white font-black hover:scale-[1.02] transition-transform" 
-                onClick={handleSave}
-                disabled={!isFormValid || saving}
-              >
-                {saving ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-5 h-5 mr-3" />}
-                {editId ? 'ACTUALIZAR' : 'REGISTRAR'}
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  className="flex-1 h-16 text-lg font-headline shadow-lg rounded-2xl bg-gradient-to-tr from-primary to-accent text-white font-black hover:scale-[1.02] transition-transform" 
+                  onClick={handleSave}
+                  disabled={!isFormValid || saving}
+                >
+                  {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                  {editId ? 'ACTUALIZAR' : 'REGISTRAR'}
+                </Button>
+                {editId && (
+                  <Button 
+                    variant="outline" 
+                    size="icon" 
+                    className="h-16 w-16 rounded-2xl border-destructive text-destructive hover:bg-destructive/5"
+                    onClick={() => router.push('/inventory')}
+                  >
+                    <X className="w-6 h-6" />
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         </TabsContent>
 
-        <TabsContent value="stock">
-          <Card className="border-none shadow-xl bg-white rounded-[2.5rem] overflow-hidden max-w-xl mx-auto">
-            <CardHeader className="bg-accent/5 py-4 px-8">
-              <CardTitle className="text-sm text-accent font-black uppercase tracking-widest flex items-center gap-2">
-                <Search className="w-4 h-4" /> Ingreso de Mercadería
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-6 space-y-6">
+        <TabsContent value="stock" className="pt-2">
+          <Card className="border shadow-sm bg-white rounded-[2rem] overflow-hidden max-w-xl mx-auto">
+            <div className="bg-accent/5 py-4 px-8 border-b">
+              <span className="text-xs text-accent font-black uppercase tracking-widest flex items-center gap-2">
+                <Plus className="w-4 h-4" /> Registro de Nuevo Stock
+              </span>
+            </div>
+            <CardContent className="p-6 space-y-4">
               <div className="space-y-2">
-                <Label className="text-[9px] uppercase font-black text-accent/70 tracking-widest">Seleccionar Prenda</Label>
-                <div className="space-y-2 max-h-80 overflow-y-auto pr-2 border rounded-2xl p-2 bg-muted/5">
+                <Label className="text-[9px] uppercase font-black text-accent/70 tracking-widest ml-1">Seleccionar Prenda Registrada</Label>
+                <div className="space-y-1.5 max-h-72 overflow-y-auto pr-2 border rounded-xl p-2 bg-muted/10">
                   {allProducts.map(p => (
                     <div 
                       key={p.id} 
                       className={cn(
-                        "flex items-center justify-between p-3 rounded-xl border-2 transition-all cursor-pointer",
-                        stockEntry.productCode === p.code ? "border-primary bg-primary/5" : "border-transparent hover:bg-accent/5"
+                        "flex items-center justify-between p-2 rounded-xl border transition-all cursor-pointer group",
+                        stockEntry.productCode === p.code ? "border-primary bg-primary/5" : "border-transparent hover:bg-white hover:border-accent/20"
                       )}
                       onClick={() => setStockEntry({...stockEntry, productCode: p.code})}
                     >
                       <div className="flex items-center gap-3">
-                        <div className="relative w-10 h-10 rounded-lg overflow-hidden border border-accent/10 bg-white">
+                        <button 
+                          className="w-8 h-8 rounded-lg overflow-hidden border border-accent/10 bg-white shrink-0 hover:scale-110 transition-transform"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (p.images?.[0]) setZoomedImage(p.images[0]);
+                          }}
+                        >
                            {p.images?.[0] ? (
-                             <>
-                               <img src={getThumbnailUrl(p.images[0])} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                               <button 
-                                 className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 hover:opacity-100 transition-opacity"
-                                 onClick={(e) => {
-                                   e.stopPropagation();
-                                   setZoomedImage(p.images[0]);
-                                 }}
-                               >
-                                 <Maximize2 className="w-4 h-4 text-white" />
-                               </button>
-                             </>
+                             <img src={getThumbnailUrl(p.images[0])} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                            ) : (
-                             <div className="w-full h-full flex items-center justify-center text-[8px] opacity-20">NO FOTO</div>
+                             <div className="text-[7px] opacity-20 font-black">N/A</div>
                            )}
-                        </div>
+                        </button>
                         <div>
-                          <div className="font-black text-xs text-primary">{p.code} - {p.name}</div>
-                          <div className="flex gap-2 items-center">
-                             <Badge variant="secondary" className="text-[8px] bg-accent/10 text-accent border-none">{p.category}</Badge>
-                             <span className="text-[9px] font-bold text-muted-foreground uppercase">Stock: {p.stock}</span>
+                          <div className="font-black text-xs text-primary group-hover:text-primary transition-colors">{p.code} - {p.name}</div>
+                          <div className="flex gap-2 items-center mt-0.5">
+                             <Badge variant="outline" className="text-[7px] h-3 px-1 border-accent/30 text-accent uppercase font-black">{p.category}</Badge>
+                             <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-tight">Saldo: {p.stock}</span>
                           </div>
                         </div>
                       </div>
-                      {stockEntry.productCode === p.code && <div className="w-3 h-3 rounded-full bg-primary" />}
+                      {stockEntry.productCode === p.code && <div className="w-2.5 h-2.5 rounded-full bg-primary shadow-sm" />}
                     </div>
                   ))}
                 </div>
@@ -504,30 +513,30 @@ export default function RegistryPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <Label className="text-[9px] uppercase font-black text-accent/70 tracking-widest">Cantidad a Ingresar</Label>
+                  <Label className="text-[9px] uppercase font-black text-accent/70 tracking-widest ml-1">Cant. Ingreso</Label>
                   <Input 
                     type="number" 
                     value={stockEntry.quantity} 
                     onChange={e => setStockEntry({...stockEntry, quantity: e.target.value})} 
-                    className="h-10 border-accent/20 rounded-xl text-lg font-bold text-center"
+                    className="h-10 border-accent/20 rounded-xl text-lg font-black text-center text-primary"
                     placeholder="0"
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-[9px] uppercase font-black text-accent/70 tracking-widest">Motivo</Label>
-                  <div className="h-10 flex items-center px-4 bg-muted/20 border-accent/20 border rounded-xl font-bold text-xs text-accent">
+                  <Label className="text-[9px] uppercase font-black text-accent/70 tracking-widest ml-1">Tipo de Ingreso</Label>
+                  <div className="h-10 flex items-center justify-center px-4 bg-accent/5 border border-accent/20 rounded-xl font-black text-[10px] text-accent uppercase tracking-widest">
                     REPOSICIÓN
                   </div>
                 </div>
               </div>
 
               <Button 
-                className="w-full h-14 text-lg font-black rounded-2xl bg-accent text-white shadow-lg hover:bg-accent/90"
+                className="w-full h-14 text-lg font-black rounded-2xl bg-accent text-white shadow-lg hover:bg-accent/90 mt-2"
                 onClick={handleAddStock}
                 disabled={!stockEntry.productCode || !stockEntry.quantity || saving}
               >
-                {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5 mr-2" />}
-                REGISTRAR REPOSICIÓN
+                {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                CONFIRMAR REPOSICIÓN
               </Button>
             </CardContent>
           </Card>
@@ -535,10 +544,10 @@ export default function RegistryPage() {
       </Tabs>
 
       <Dialog open={!!zoomedImage} onOpenChange={(o) => !o && setZoomedImage(null)}>
-        <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 border-none bg-black/90 overflow-hidden flex items-center justify-center rounded-none shadow-none">
+        <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 border-none bg-black/95 overflow-hidden flex items-center justify-center rounded-none shadow-none">
           <DialogHeader className="sr-only">
-            <DialogTitle>Zoom Prenda</DialogTitle>
-            <DialogDescription>Detalle de prenda en alta resolución</DialogDescription>
+            <DialogTitle>Detalle Visual</DialogTitle>
+            <DialogDescription>Imagen de alta resolución de Drive</DialogDescription>
           </DialogHeader>
           {zoomedImage && (
             <div className="relative w-full h-full flex items-center justify-center">
@@ -550,8 +559,8 @@ export default function RegistryPage() {
               </button>
               <img 
                 src={zoomedImage.includes('id=') ? zoomedImage.replace('export=view', 'export=download') : zoomedImage} 
-                alt="Vista Zoom" 
-                className="max-w-full max-h-[90vh] object-contain"
+                alt="" 
+                className="max-w-full max-h-[90vh] object-contain shadow-2xl animate-in zoom-in-95 duration-300"
                 referrerPolicy="no-referrer"
               />
             </div>
