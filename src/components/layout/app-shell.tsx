@@ -9,7 +9,8 @@ import {
   Users, 
   Truck, 
   Settings,
-  Sparkles
+  Sparkles,
+  Menu
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -24,7 +25,8 @@ import {
   SidebarMenuItem, 
   SidebarProvider,
   SidebarTrigger,
-  SidebarInset
+  SidebarInset,
+  useSidebar
 } from "@/components/ui/sidebar"
 
 const navItems = [
@@ -44,6 +46,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="flex min-h-screen w-full bg-background overflow-hidden">
         <Sidebar collapsible="icon" className="border-r border-sidebar-border shadow-2xl">
           <SidebarHeader className="h-20 flex items-center px-4 border-b border-sidebar-border bg-gradient-to-r from-primary/5 to-accent/5">
+            <SidebarTrigger className="hover:bg-primary/10 mr-2" />
             <div className="flex items-center gap-3 overflow-hidden">
               <div className="w-10 h-10 rounded-2xl bg-primary flex items-center justify-center shrink-0 shadow-lg shadow-primary/30">
                 <Sparkles className="w-6 h-6 text-primary-foreground fill-current" />
@@ -91,15 +94,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </SidebarFooter>
         </Sidebar>
         <SidebarInset className="flex-1 overflow-auto">
-          <header className="h-16 flex items-center px-6 border-b border-sidebar-border justify-between sticky top-0 bg-white/70 backdrop-blur-xl z-10">
-            <SidebarTrigger className="text-primary hover:bg-primary/10" />
-            <div className="flex items-center gap-4">
-               <div className="text-[10px] font-black uppercase tracking-widest text-accent">
-                 Fashion Logistics System
-               </div>
-            </div>
-          </header>
-          <main className="p-8 max-w-[1600px] mx-auto w-full">
+          <main className="p-8 max-w-[1600px] mx-auto w-full pt-4">
             {children}
           </main>
         </SidebarInset>

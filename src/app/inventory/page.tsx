@@ -75,35 +75,38 @@ export default function InventoryPage() {
   )
 
   const groupedData = React.useMemo(() => {
-    const groups: Record<string, any[]> = {}
+    const mainGroups: Record<string, Record<string, any[]>> = {}
+    
     filteredProducts.forEach(p => {
-      const key = viewType === "category" ? (p.category || "SIN CATEGORÍA") : (p.collection || "SIN COLECCIÓN")
-      if (!groups[key]) groups[key] = []
-      groups[key].push(p)
+      const mainKey = viewType === "collection" ? (p.collection || "SIN COLECCIÓN") : (p.category || "SIN CATEGORÍA")
+      const subKey = viewType === "collection" ? (p.category || "SIN CATEGORÍA") : (p.collection || "SIN COLECCIÓN")
+      
+      if (!mainGroups[mainKey]) mainGroups[mainKey] = {}
+      if (!mainGroups[mainKey][subKey]) mainGroups[mainKey][subKey] = []
+      
+      mainGroups[mainKey][subKey].push(p)
     })
 
-    Object.keys(groups).forEach(key => {
-      groups[key].sort((a, b) => (b.stock || 0) - (a.stock || 0))
+    // Ordenar items dentro de los subgrupos por stock desc
+    Object.keys(mainGroups).forEach(mK => {
+      Object.keys(mainGroups[mK]).forEach(sK => {
+        mainGroups[mK][sK].sort((a, b) => (b.stock || 0) - (a.stock || 0))
+      })
     })
 
-    return groups
+    return mainGroups
   }, [filteredProducts, viewType])
 
   const handleDelete = async (productId: string) => {
     if (!db) return
     try {
-      // 1. Borrar Producto
       await deleteDoc(doc(db, "products", productId))
-      
-      // 2. Borrar Movimientos de ENTRADA (in, return) según pedido
       const movementsRef = collection(db, "movements")
       const qIn = query(movementsRef, where("productCode", "==", productId), where("type", "in", ["in", "return"]))
       const snapIn = await getDocs(qIn)
-      
       const batch = writeBatch(db)
       snapIn.forEach(doc => batch.delete(doc.ref))
       await batch.commit()
-
       toast({ title: "Producto Eliminado", description: "Se borró el producto y sus entradas de inventario." })
     } catch (e) {
       toast({ variant: "destructive", title: "Error", description: "No se pudo eliminar el registro." })
@@ -119,13 +122,13 @@ export default function InventoryPage() {
 
   return (
     <div className="space-y-4 -mt-4">
-      {/* Cabecera Minimalista */}
+      {/* Cabecera solo buscador */}
       <div className="flex items-center gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-accent" />
           <Input 
             placeholder="Buscar por código o nombre..." 
-            className="pl-10 h-10 rounded-xl border-accent/20 bg-white shadow-sm focus:ring-primary"
+            className="pl-10 h-10 rounded-xl border-accent/20 bg-white shadow-sm focus:ring-primary font-bold"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
           />
@@ -134,9 +137,9 @@ export default function InventoryPage() {
 
       <Tabs defaultValue="all" className="w-full">
         <TabsList className="bg-muted/50 p-1 rounded-2xl w-full justify-start overflow-hidden border">
-          <TabsTrigger value="all" className="rounded-xl px-8 data-[state=active]:bg-primary data-[state=active]:text-white transition-all text-xs font-bold font-headline">STOCK ACTUAL</TabsTrigger>
-          <TabsTrigger value="recent" className="rounded-xl px-8 data-[state=active]:bg-primary data-[state=active]:text-white transition-all text-xs font-bold font-headline">RECIENTES</TabsTrigger>
-          <TabsTrigger value="movements" className="rounded-xl px-8 data-[state=active]:bg-primary data-[state=active]:text-white transition-all text-xs font-bold font-headline">HISTORIAL KARDEX</TabsTrigger>
+          <TabsTrigger value="all" className="rounded-xl px-8 data-[state=active]:bg-primary data-[state=active]:text-white transition-all text-xs font-black font-headline">STOCK ACTUAL</TabsTrigger>
+          <TabsTrigger value="recent" className="rounded-xl px-8 data-[state=active]:bg-primary data-[state=active]:text-white transition-all text-xs font-black font-headline">RECIENTES</TabsTrigger>
+          <TabsTrigger value="movements" className="rounded-xl px-8 data-[state=active]:bg-primary data-[state=active]:text-white transition-all text-xs font-black font-headline">HISTORIAL KARDEX</TabsTrigger>
         </TabsList>
         
         <TabsContent value="all" className="space-y-4 pt-2">
@@ -147,7 +150,7 @@ export default function InventoryPage() {
               className="text-[10px] font-black h-7 rounded-lg"
               onClick={() => setViewType('collection')}
             >
-              <LayoutGrid className="w-3 h-3 mr-1" /> POR COLECCIÓN
+              <LayoutGrid className="w-3 h-3 mr-1" /> VISTA COLECCIÓN
             </Button>
             <Button 
               variant={viewType === 'category' ? 'default' : 'ghost'} 
@@ -155,127 +158,135 @@ export default function InventoryPage() {
               className="text-[10px] font-black h-7 rounded-lg"
               onClick={() => setViewType('category')}
             >
-              <Layers className="w-3 h-3 mr-1" /> POR CATEGORÍA
+              <Layers className="w-3 h-3 mr-1" /> VISTA CATEGORÍA
             </Button>
           </div>
 
           {loadingProducts ? (
-            <div className="p-20 text-center text-accent font-bold animate-pulse uppercase tracking-widest bg-white rounded-[2rem] border border-dashed">Sincronizando...</div>
+            <div className="p-20 text-center text-accent font-black animate-pulse uppercase tracking-widest bg-white rounded-[2rem] border border-dashed">Sincronizando Inventario...</div>
           ) : Object.keys(groupedData).length > 0 ? (
             <Accordion type="multiple" defaultValue={Object.keys(groupedData)} className="space-y-2">
-              {Object.entries(groupedData).map(([title, items]) => (
-                <AccordionItem key={title} value={title} className="border rounded-2xl bg-white shadow-sm overflow-hidden border-none px-4">
-                  <AccordionTrigger className="hover:no-underline py-3 group">
+              {Object.entries(groupedData).map(([mainTitle, subGroups]) => (
+                <AccordionItem key={mainTitle} value={mainTitle} className="border rounded-2xl bg-white shadow-sm overflow-hidden border-none px-4">
+                  <AccordionTrigger className="hover:no-underline py-4 group">
                     <div className="flex items-center gap-3">
                       <div className={cn(
-                        "w-8 h-8 rounded-lg flex items-center justify-center transition-colors group-data-[state=open]:bg-primary group-data-[state=open]:text-white",
+                        "w-9 h-9 rounded-xl flex items-center justify-center transition-colors group-data-[state=open]:bg-primary group-data-[state=open]:text-white",
                         viewType === 'category' ? "bg-accent/10 text-accent" : "bg-primary/10 text-primary"
                       )}>
-                        {viewType === 'category' ? <Layers className="w-4 h-4" /> : <LayoutGrid className="w-4 h-4" />}
+                        {viewType === 'category' ? <Layers className="w-5 h-5" /> : <LayoutGrid className="w-5 h-5" />}
                       </div>
                       <div className="text-left">
-                        <div className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{viewType === 'category' ? 'CATEGORÍA' : 'COLECCIÓN'}</div>
-                        <div className="text-sm font-black text-foreground uppercase">{title}</div>
+                        <div className="text-[10px] font-black text-accent uppercase tracking-widest">{viewType === 'category' ? 'CATEGORÍA DIVA' : 'COLECCIÓN'}</div>
+                        <div className="text-sm font-black text-black uppercase">{mainTitle}</div>
                       </div>
-                      <Badge variant="outline" className="ml-2 text-[10px] font-black border-accent/20 text-accent">{items.length} ITEMS</Badge>
                     </div>
                   </AccordionTrigger>
-                  <AccordionContent className="pb-4">
-                    <div className="border rounded-xl overflow-hidden mt-2">
-                      <Table>
-                        <TableHeader>
-                          <TableRow className="bg-accent/5 hover:bg-accent/5">
-                            <TableHead className="w-[60px] font-black uppercase text-[9px] text-accent text-center">Icono</TableHead>
-                            <TableHead className="font-black uppercase text-[9px] text-accent">Prenda</TableHead>
-                            <TableHead className="font-black uppercase text-[9px] text-accent text-center">{viewType === 'category' ? 'Colección' : 'Categoría'}</TableHead>
-                            <TableHead className="text-right font-black uppercase text-[9px] text-accent">Tarifas</TableHead>
-                            <TableHead className="text-center font-black uppercase text-[9px] text-accent">Stock</TableHead>
-                            <TableHead className="text-right font-black uppercase text-[9px] text-accent w-[100px]">Acciones</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {items.map((p) => (
-                            <TableRow key={p.id} className="group transition-colors hover:bg-primary/5">
-                              <TableCell className="text-center">
-                                <button 
-                                  onClick={() => p.images?.[0] && setZoomedImage(p.images[0])}
-                                  className="w-9 h-9 rounded-lg border border-accent/10 overflow-hidden bg-muted relative shadow-sm hover:scale-110 transition-transform"
-                                >
-                                  {p.images && p.images[0] ? (
-                                     <img 
-                                      src={getThumbnailUrl(p.images[0])} 
-                                      alt="" 
-                                      className="w-full h-full object-cover"
-                                      referrerPolicy="no-referrer"
-                                     />
-                                  ) : (
-                                    <div className="text-[8px] font-black opacity-20">N/A</div>
-                                  )}
-                                </button>
-                              </TableCell>
-                              <TableCell>
-                                <div className="font-mono text-[9px] font-bold text-accent">{p.code}</div>
-                                <div className="font-black text-primary text-xs uppercase">{p.name}</div>
-                              </TableCell>
-                              <TableCell className="text-center">
-                                <Badge variant="secondary" className="text-[8px] uppercase font-black bg-muted/50 border-none">
-                                  {viewType === 'category' ? p.collection : p.category}
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <div className="text-[9px] font-bold text-muted-foreground whitespace-nowrap">S/ {p.priceMayor} / <span className="text-primary">{p.priceUnidad}</span></div>
-                              </TableCell>
-                              <TableCell className="text-center">
-                                <span className={cn(
-                                  "font-black text-xs px-2.5 py-0.5 rounded-full border",
-                                  p.stock <= 0 ? "bg-destructive/10 text-destructive border-destructive/20" : p.stock < 10 ? "bg-orange-50 text-orange-500 border-orange-200" : "bg-green-50 text-green-600 border-green-200"
-                                )}>
-                                  {p.stock}
-                                </span>
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    className="h-7 w-7 text-primary hover:bg-primary/10 rounded-lg"
-                                    onClick={() => router.push(`/registry?edit=${p.id}`)}
-                                  >
-                                    <Edit2 className="w-3 h-3" />
-                                  </Button>
-                                  <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10 rounded-lg">
-                                        <Trash2 className="w-3 h-3" />
-                                      </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent className="rounded-[2rem]">
-                                      <AlertDialogHeader>
-                                        <AlertDialogTitle className="font-black text-primary">¿ELIMINAR PRENDA {p.code}?</AlertDialogTitle>
-                                        <AlertDialogDescription className="text-xs">
-                                          Esta acción borrará la ficha del producto y sus registros de ENTRADA. Las salidas por ventas no se verán afectadas para mantener la integridad financiera.
-                                        </AlertDialogDescription>
-                                      </AlertDialogHeader>
-                                      <AlertDialogFooter>
-                                        <AlertDialogCancel className="rounded-xl font-bold">CANCELAR</AlertDialogCancel>
-                                        <AlertDialogAction className="rounded-xl font-bold bg-destructive text-white hover:bg-destructive/90" onClick={() => handleDelete(p.id)}>CONFIRMAR ELIMINACIÓN</AlertDialogAction>
-                                      </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                  </AlertDialog>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
+                  <AccordionContent className="pb-4 pt-2 border-t border-accent/5">
+                    <Accordion type="multiple" className="space-y-2 ml-4">
+                      {Object.entries(subGroups).map(([subTitle, items]) => (
+                        <AccordionItem key={subTitle} value={subTitle} className="border rounded-xl border-accent/10">
+                          <AccordionTrigger className="py-2 px-4 hover:no-underline bg-accent/5">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[9px] font-black text-accent uppercase">{viewType === 'category' ? 'Colección:' : 'Categoría:'}</span>
+                              <span className="text-xs font-black text-black uppercase">{subTitle}</span>
+                              <Badge variant="outline" className="text-[9px] font-black border-accent/20 bg-white ml-2">{items.length} PRENDAS</Badge>
+                            </div>
+                          </AccordionTrigger>
+                          <AccordionContent className="p-0">
+                            <Table>
+                              <TableHeader>
+                                <TableRow className="bg-white hover:bg-white border-b-2">
+                                  <TableHead className="w-[60px] font-black uppercase text-[9px] text-accent text-center">Foto</TableHead>
+                                  <TableHead className="font-black uppercase text-[9px] text-accent">Detalle</TableHead>
+                                  <TableHead className="text-right font-black uppercase text-[9px] text-accent">Precios Diva</TableHead>
+                                  <TableHead className="text-center font-black uppercase text-[9px] text-accent">Stock</TableHead>
+                                  <TableHead className="text-right font-black uppercase text-[9px] text-accent w-[80px]">Acciones</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {items.map((p) => (
+                                  <TableRow key={p.id} className="group transition-colors hover:bg-primary/5">
+                                    <TableCell className="text-center">
+                                      <button 
+                                        onClick={() => p.images?.[0] && setZoomedImage(p.images[0])}
+                                        className="w-10 h-10 rounded-lg border border-accent/20 overflow-hidden bg-muted relative shadow-sm hover:scale-110 transition-transform"
+                                      >
+                                        {p.images && p.images[0] ? (
+                                           <img 
+                                            src={getThumbnailUrl(p.images[0])} 
+                                            alt="" 
+                                            className="w-full h-full object-cover"
+                                            referrerPolicy="no-referrer"
+                                           />
+                                        ) : (
+                                          <div className="text-[8px] font-black opacity-20">N/A</div>
+                                        )}
+                                      </button>
+                                    </TableCell>
+                                    <TableCell>
+                                      <div className="font-mono text-[9px] font-black text-accent">{p.code}</div>
+                                      <div className="font-black text-black text-xs uppercase">{p.name}</div>
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                      <div className="text-[9px] font-black text-black whitespace-nowrap">
+                                        F: {p.priceFardo} / M: {p.priceMayor} / <span className="text-primary">U: {p.priceUnidad}</span>
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="text-center">
+                                      <span className={cn(
+                                        "font-black text-xs px-2.5 py-0.5 rounded-full border",
+                                        p.stock <= 0 ? "bg-destructive/10 text-destructive border-destructive/20" : p.stock < 10 ? "bg-orange-50 text-orange-500 border-orange-200" : "bg-green-50 text-green-600 border-green-200"
+                                      )}>
+                                        {p.stock}
+                                      </span>
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                      <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Button 
+                                          variant="ghost" 
+                                          size="icon" 
+                                          className="h-7 w-7 text-primary hover:bg-primary/10 rounded-lg"
+                                          onClick={() => router.push(`/registry?edit=${p.id}`)}
+                                        >
+                                          <Edit2 className="w-3 h-3" />
+                                        </Button>
+                                        <AlertDialog>
+                                          <AlertDialogTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10 rounded-lg">
+                                              <Trash2 className="w-3 h-3" />
+                                            </Button>
+                                          </AlertDialogTrigger>
+                                          <AlertDialogContent className="rounded-[2rem]">
+                                            <AlertDialogHeader>
+                                              <AlertDialogTitle className="font-black text-primary">ELIMINAR PRENDA {p.code}</AlertDialogTitle>
+                                              <AlertDialogDescription className="text-xs text-black font-bold">
+                                                Esta acción borrará el producto y sus ENTRADAS. Las ventas (salidas) se mantienen intactas.
+                                              </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                              <AlertDialogCancel className="rounded-xl font-bold">CANCELAR</AlertDialogCancel>
+                                              <AlertDialogAction className="rounded-xl font-bold bg-destructive text-white hover:bg-destructive/90" onClick={() => handleDelete(p.id)}>ELIMINAR</AlertDialogAction>
+                                            </AlertDialogFooter>
+                                          </AlertDialogContent>
+                                        </AlertDialog>
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </AccordionContent>
+                        </AccordionItem>
+                      ))}
+                    </Accordion>
                   </AccordionContent>
                 </AccordionItem>
               ))}
             </Accordion>
           ) : (
-            <div className="text-center py-20 text-muted-foreground font-medium bg-white rounded-[2rem] border border-dashed">
-              No hay productos registrados.
+            <div className="text-center py-20 text-black font-black bg-white rounded-[2rem] border border-dashed border-accent/20 uppercase tracking-widest">
+              No hay productos para mostrar con este filtro.
             </div>
           )}
         </TabsContent>
@@ -288,25 +299,25 @@ export default function InventoryPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="font-black uppercase text-[9px]">Fecha / Hora</TableHead>
-                  <TableHead className="font-black uppercase text-[9px]">Prenda</TableHead>
-                  <TableHead className="font-black uppercase text-[9px]">Tipo</TableHead>
-                  <TableHead className="text-center font-black uppercase text-[9px]">Cantidad</TableHead>
-                  <TableHead className="font-black uppercase text-[9px]">Motivo</TableHead>
+                  <TableHead className="font-black uppercase text-[9px] text-black">Fecha / Hora</TableHead>
+                  <TableHead className="font-black uppercase text-[9px] text-black">Prenda</TableHead>
+                  <TableHead className="font-black uppercase text-[9px] text-black">Tipo</TableHead>
+                  <TableHead className="text-center font-black uppercase text-[9px] text-black">Cantidad</TableHead>
+                  <TableHead className="font-black uppercase text-[9px] text-black">Motivo</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {recentMovements.map(m => (
                   <TableRow key={m.id}>
-                    <TableCell className="text-[9px] font-bold text-muted-foreground">
+                    <TableCell className="text-[9px] font-black text-black">
                       {m.timestamp?.toDate ? m.timestamp.toDate().toLocaleString('es-PE') : ""}
                     </TableCell>
                     <TableCell className="font-mono text-[10px] font-black text-accent">{m.productCode}</TableCell>
                     <TableCell>
                       {m.type === 'in' || m.type === 'return' ? <Badge className="bg-green-500 text-[8px] border-none font-black uppercase">Ingreso</Badge> : <Badge variant="destructive" className="text-[8px] font-black uppercase border-none">Salida</Badge>}
                     </TableCell>
-                    <TableCell className="text-center font-black text-sm">{m.quantity}</TableCell>
-                    <TableCell className="text-[9px] font-bold uppercase text-muted-foreground">{m.reason}</TableCell>
+                    <TableCell className="text-center font-black text-sm text-black">{m.quantity}</TableCell>
+                    <TableCell className="text-[9px] font-black uppercase text-black">{m.reason}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -317,22 +328,22 @@ export default function InventoryPage() {
         <TabsContent value="movements" className="pt-2 space-y-4">
            <div className="flex justify-end px-2">
               <Select value={kardexFilter} onValueChange={setKardexFilter}>
-                <SelectTrigger className="w-[180px] h-8 text-[10px] font-black uppercase rounded-xl border-accent/20 bg-white">
+                <SelectTrigger className="w-[180px] h-8 text-[10px] font-black uppercase rounded-xl border-accent/20 bg-white text-black">
                   <SelectValue placeholder="Filtrar Kardex" />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl">
-                  <SelectItem value="all" className="text-[10px] uppercase font-bold">Todos los Motivos</SelectItem>
-                  <SelectItem value="Reposición de Mercadería" className="text-[10px] uppercase font-bold">Reposición</SelectItem>
-                  <SelectItem value="Stock Inicial / Registro Nuevo" className="text-[10px] uppercase font-bold">Stock Inicial</SelectItem>
-                  <SelectItem value="Devolución" className="text-[10px] uppercase font-bold">Devolución</SelectItem>
-                  <SelectItem value="Venta" className="text-[10px] uppercase font-bold text-primary">Ventas</SelectItem>
+                  <SelectItem value="all" className="text-[10px] uppercase font-black">Todos los Motivos</SelectItem>
+                  <SelectItem value="Reposición de Mercadería" className="text-[10px] uppercase font-black">Reposición</SelectItem>
+                  <SelectItem value="Stock Inicial / Registro Nuevo" className="text-[10px] uppercase font-black">Stock Inicial</SelectItem>
+                  <SelectItem value="Devolución" className="text-[10px] uppercase font-black">Devolución</SelectItem>
+                  <SelectItem value="Venta" className="text-[10px] uppercase font-black text-primary">Ventas</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="border rounded-[2rem] overflow-hidden bg-white shadow-sm">
               {loadingMovements ? (
-                <div className="p-20 text-center text-primary font-bold animate-pulse uppercase tracking-widest">Auditoría en curso...</div>
+                <div className="p-20 text-center text-primary font-black animate-pulse uppercase tracking-widest">Auditoría en curso...</div>
               ) : (
                 <Table>
                   <TableHeader>
@@ -349,7 +360,7 @@ export default function InventoryPage() {
                       .filter(m => kardexFilter === 'all' || m.reason.includes(kardexFilter) || (kardexFilter === 'Venta' && m.type === 'out'))
                       .map((m) => (
                       <TableRow key={m.id} className="hover:bg-primary/5 transition-colors">
-                        <TableCell className="text-[9px] font-medium text-muted-foreground">
+                        <TableCell className="text-[9px] font-black text-black">
                           {m.timestamp?.toDate ? m.timestamp.toDate().toLocaleString('es-PE') : ""}
                         </TableCell>
                         <TableCell className="font-black text-accent font-mono text-[10px]">{m.productCode}</TableCell>
@@ -364,10 +375,10 @@ export default function InventoryPage() {
                             </div>
                           )}
                         </TableCell>
-                        <TableCell className="text-center font-black text-sm">
+                        <TableCell className="text-center font-black text-sm text-black">
                           {m.type === 'in' || m.type === 'return' ? '+' : '-'}{m.quantity}
                         </TableCell>
-                        <TableCell className="text-[9px] font-bold uppercase text-muted-foreground">{m.reason}</TableCell>
+                        <TableCell className="text-[9px] font-black uppercase text-black">{m.reason}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -380,8 +391,8 @@ export default function InventoryPage() {
       <Dialog open={!!zoomedImage} onOpenChange={(o) => !o && setZoomedImage(null)}>
         <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 border-none bg-black/95 overflow-hidden flex items-center justify-center rounded-none shadow-none">
           <DialogHeader className="sr-only">
-            <DialogTitle>Zoom Alta Resolución</DialogTitle>
-            <DialogDescription>Visualización calidad original Drive</DialogDescription>
+            <DialogTitle>Imagen Original Drive</DialogTitle>
+            <DialogDescription>Visualización Calidad Máxima Diva</DialogDescription>
           </DialogHeader>
           {zoomedImage && (
             <div className="relative w-full h-full flex items-center justify-center">
