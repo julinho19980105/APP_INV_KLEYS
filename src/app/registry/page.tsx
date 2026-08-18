@@ -71,6 +71,7 @@ export default function RegistryPage() {
   const [newItemName, setNewItemName] = React.useState("")
   const [editingItem, setEditingItem] = React.useState<{id: string, name: string} | null>(null)
   const [zoomedImage, setZoomedImage] = React.useState<string | null>(null)
+  const [stockSearchQuery, setStockSearchQuery] = React.useState("")
 
   const [stockEntry, setStockEntry] = React.useState({
     productCode: "",
@@ -242,6 +243,11 @@ export default function RegistryPage() {
     return `https://drive.google.com/thumbnail?id=${idMatch[1]}&sz=w200`;
   };
 
+  const filteredProductsForStock = allProducts.filter(p => 
+    p.code.toLowerCase().includes(stockSearchQuery.toLowerCase()) ||
+    p.name.toLowerCase().includes(stockSearchQuery.toLowerCase())
+  );
+
   return (
     <div className="max-w-6xl mx-auto space-y-4 pt-2">
       <Tabs defaultValue="new" className="w-full">
@@ -379,36 +385,72 @@ export default function RegistryPage() {
 
         <TabsContent value="stock" className="pt-2">
           <Card className="border shadow-sm bg-white rounded-[2rem] overflow-hidden max-w-xl mx-auto">
-            <div className="bg-black/5 py-4 px-8 border-b"><span className="text-xs text-black font-black uppercase">Reposición Stock</span></div>
+            <div className="bg-black/5 py-4 px-8 border-b">
+              <span className="text-xs text-black font-black uppercase">Reposición Stock</span>
+            </div>
             <CardContent className="p-6 space-y-4">
-              <div className="space-y-1.5 max-h-64 overflow-y-auto pr-2 border rounded-xl p-2 bg-muted/5">
-                {allProducts.map(p => (
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-black/40" />
+                <Input 
+                  placeholder="BUSCAR CÓDIGO O NOMBRE..." 
+                  value={stockSearchQuery}
+                  onChange={e => setStockSearchQuery(e.target.value)}
+                  className="pl-10 h-10 text-[11px] font-black uppercase rounded-xl border-black/10 focus:ring-primary"
+                />
+              </div>
+
+              <div className="space-y-1.5 max-h-64 overflow-y-auto pr-2 border rounded-xl p-2 bg-muted/5 custom-scrollbar">
+                {filteredProductsForStock.map(p => (
                   <div 
                     key={p.id} 
                     className={cn(
-                      "flex items-center justify-between p-3 rounded-xl border-2 transition-all cursor-pointer",
+                      "flex items-center justify-between p-3 rounded-xl border-2 transition-all cursor-pointer group",
                       stockEntry.productCode === p.code ? "border-primary bg-primary/5" : "border-transparent hover:bg-black/5"
                     )} 
                     onClick={() => setStockEntry({...stockEntry, productCode: p.code})}
                   >
                     <div className="flex items-center gap-3">
-                      <button className="w-10 h-10 rounded-lg overflow-hidden border border-black/10 bg-white" onClick={e => { e.stopPropagation(); if (p.images?.[0]) setZoomedImage(p.images[0]); }}>
+                      <button 
+                        className="w-10 h-10 rounded-lg overflow-hidden border border-black/10 bg-white hover:scale-110 transition-transform" 
+                        onClick={e => { e.stopPropagation(); if (p.images?.[0]) setZoomedImage(p.images[0]); }}
+                      >
                         {p.images?.[0] ? <img src={getThumbnailUrl(p.images[0])} className="w-full h-full object-cover" referrerPolicy="no-referrer" /> : <div className="text-[7px] font-black opacity-20">N/A</div>}
                       </button>
                       <div>
-                        <div className="font-black text-xs text-black">{p.code} - {p.name}</div>
+                        <div className="font-black text-xs text-black group-hover:text-primary transition-colors">{p.code} - {p.name}</div>
                         <Badge variant="outline" className="text-[7px] h-3 px-1 border-black/10 text-black/60 font-black uppercase">{p.category} | Stock: {p.stock}</Badge>
                       </div>
                     </div>
-                    {stockEntry.productCode === p.code && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
+                    {stockEntry.productCode === p.code && <div className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse" />}
                   </div>
                 ))}
+                {filteredProductsForStock.length === 0 && (
+                  <div className="py-10 text-center text-[10px] font-black uppercase text-black/20">Sin coincidencias</div>
+                )}
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-0.5"><Label className="text-[9px] font-black text-black">CANT. INGRESO</Label><Input type="number" value={stockEntry.quantity} onChange={e => setStockEntry({...stockEntry, quantity: e.target.value})} className="h-10 text-lg font-black text-center text-primary" placeholder="0" /></div>
-                <div className="h-10 mt-5 flex items-center justify-center bg-black/5 border border-black/10 rounded-xl font-black text-[10px] text-black">REPOSICIÓN</div>
-              </div>
-              <Button className="w-full h-14 text-lg font-black rounded-2xl bg-black text-white" onClick={handleAddStock} disabled={!stockEntry.productCode || !stockEntry.quantity || saving}>
+
+              {stockEntry.productCode && (
+                <div className="grid grid-cols-2 gap-4 animate-in slide-in-from-bottom-2 duration-300">
+                  <div className="space-y-0.5">
+                    <Label className="text-[9px] font-black text-black ml-1">CANT. INGRESO</Label>
+                    <Input 
+                      type="number" 
+                      autoFocus
+                      value={stockEntry.quantity} 
+                      onChange={e => setStockEntry({...stockEntry, quantity: e.target.value})} 
+                      className="h-10 text-lg font-black text-center text-primary rounded-xl border-primary/20 bg-primary/5" 
+                      placeholder="0" 
+                    />
+                  </div>
+                  <div className="h-10 mt-5 flex items-center justify-center bg-black/5 border border-black/10 rounded-xl font-black text-[10px] text-black uppercase">REPOSICIÓN</div>
+                </div>
+              )}
+
+              <Button 
+                className="w-full h-14 text-lg font-black rounded-2xl bg-black text-white active:scale-95 transition-all shadow-xl" 
+                onClick={handleAddStock} 
+                disabled={!stockEntry.productCode || !stockEntry.quantity || saving}
+              >
                 {saving ? <Loader2 className="animate-spin" /> : <Save className="mr-2" />} CONFIRMAR INGRESO
               </Button>
             </CardContent>
