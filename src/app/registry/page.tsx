@@ -234,6 +234,7 @@ export default function RegistryPage() {
     const mayor = Number(form.priceMayor || 0);
     const unidad = Number(form.priceUnidad || 0);
 
+    // Jerarquía Diva: Fardo < Mayor < Unidad
     const pricesValid = fardo === 0 && mayor === 0 && unidad === 0 
       ? true 
       : (fardo < mayor && mayor < unidad);
@@ -287,7 +288,9 @@ export default function RegistryPage() {
                             <SelectValue placeholder="Elegir..." />
                           </SelectTrigger>
                           <SelectContent className="rounded-xl">
-                            {categories.map(c => c.name && <SelectItem key={c.id} value={c.name} className="text-[10px] font-black">{c.name}</SelectItem>)}
+                            {categories.filter(c => !!c.name).map(c => (
+                              <SelectItem key={c.id} value={c.name} className="text-[10px] font-black">{c.name}</SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                         <Dialog open={manageType === 'category'} onOpenChange={(o) => setManageType(o ? 'category' : null)}>
@@ -317,7 +320,9 @@ export default function RegistryPage() {
                             <SelectValue placeholder="Elegir..." />
                           </SelectTrigger>
                           <SelectContent className="rounded-xl">
-                            {collectionsData.map(c => c.name && <SelectItem key={c.id} value={c.name} className="text-[10px] font-black">{c.name}</SelectItem>)}
+                            {collectionsData.filter(c => !!c.name).map(c => (
+                              <SelectItem key={c.id} value={c.name} className="text-[10px] font-black">{c.name}</SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                         <Dialog open={manageType === 'collection'} onOpenChange={(o) => setManageType(o ? 'collection' : null)}>

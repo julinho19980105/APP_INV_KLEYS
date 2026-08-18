@@ -37,7 +37,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import {
   DropdownMenu,
@@ -45,7 +44,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Search, Edit2, ArrowDownRight, ArrowUpRight, X, Trash2, MoreVertical, LayoutGrid, Layers } from "lucide-react"
+import { Search, Edit2, ArrowDownRight, ArrowUpRight, X, Trash2, MoreVertical } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useCollection, useFirestore } from "@/firebase"
 import { collection, query, orderBy, limit, doc, deleteDoc, getDocs, where, writeBatch } from "firebase/firestore"
@@ -61,6 +60,9 @@ export default function InventoryPage() {
   const [zoomedImage, setZoomedImage] = React.useState<string | null>(null)
   const [kardexFilter, setKardexFilter] = React.useState("all")
   const [viewType, setViewType] = React.useState<"collection" | "category">("collection")
+  
+  // Estado para optimizar eliminación y evitar lag
+  const [productToDelete, setProductToDelete] = React.useState<{id: string, code: string} | null>(null)
 
   React.useEffect(() => {
     const saved = localStorage.getItem('diva_settings')
@@ -96,6 +98,7 @@ export default function InventoryPage() {
       mainGroups[mainKey][subKey].push(p)
     })
 
+    // Ordenar por stock de mayor a menor
     Object.keys(mainGroups).forEach(mK => {
       Object.keys(mainGroups[mK]).forEach(sK => {
         mainGroups[mK][sK].sort((a, b) => (b.stock || 0) - (a.stock || 0))
@@ -105,10 +108,12 @@ export default function InventoryPage() {
     return mainGroups
   }, [filteredProducts, viewType])
 
-  const handleDelete = (productId: string) => {
-    if (!db) return
+  const confirmDelete = () => {
+    if (!db || !productToDelete) return
     
+    const productId = productToDelete.id
     const productRef = doc(db, "products", productId)
+    
     deleteDoc(productRef).catch(async () => {
       errorEmitter.emit('permission-error', new FirestorePermissionError({
         path: productRef.path,
@@ -125,6 +130,7 @@ export default function InventoryPage() {
     });
 
     toast({ title: "Baja Procesada", description: "Se eliminó el producto y sus entradas." })
+    setProductToDelete(null)
   }
 
   const getThumbnailUrl = (url: string) => {
@@ -157,7 +163,7 @@ export default function InventoryPage() {
         
         <TabsContent value="all" className="space-y-4 pt-2">
           {loadingProducts ? (
-            <div className="p-20 text-center text-black font-black animate-pulse uppercase tracking-widest bg-white rounded-[2rem] border border-dashed">Sincronizando Inventario...</div>
+            <div className="p-20 text-center text-black font-black animate-pulse uppercase tracking-widest bg-white rounded-[2rem] border border-dashed">Sincronizando...</div>
           ) : Object.keys(groupedData).length > 0 ? (
             <Accordion type="multiple" className="space-y-2">
               {Object.entries(groupedData).map(([mainTitle, subGroups]) => (
@@ -177,10 +183,9 @@ export default function InventoryPage() {
                               <TableHeader>
                                 <TableRow className="bg-white hover:bg-white border-b-2">
                                   <TableHead className="w-[50px] font-black uppercase text-[9px] text-black text-center">FOTO</TableHead>
-                                  <TableHead className="font-black uppercase text-[9px] text-black">PRENDA</TableHead>
-                                  <TableHead className="text-right font-black uppercase text-[9px] text-black">TARIFAS</TableHead>
+                                  <TableHead className="font-black uppercase text-[9px] text-black">PRENDA / TARIFAS</TableHead>
                                   <TableHead className="text-center font-black uppercase text-[9px] text-black">STOCK</TableHead>
-                                  <TableHead className="text-right font-black uppercase text-[9px] text-black w-[50px]"></TableHead>
+                                  <TableHead className="text-right font-black uppercase text-[9px] text-black w-[40px]"></TableHead>
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
@@ -204,14 +209,14 @@ export default function InventoryPage() {
                                       </button>
                                     </TableCell>
                                     <TableCell className="p-2">
-                                      <div className="flex items-center gap-2">
-                                        <span className="font-mono text-[10px] font-black text-black/50">{p.code}</span>
-                                        <span className="font-black text-black text-xs uppercase truncate max-w-[150px]">{p.name}</span>
-                                      </div>
-                                    </TableCell>
-                                    <TableCell className="text-right p-2">
-                                      <div className="text-[10px] font-black text-black">
-                                        F: {p.priceFardo} / M: {p.priceMayor} / <span className="text-primary">U: {p.priceUnidad}</span>
+                                      <div className="flex flex-col">
+                                        <div className="flex items-center gap-2">
+                                          <span className="font-mono text-[10px] font-black text-black/50">{p.code}</span>
+                                          <span className="font-black text-black text-xs uppercase truncate max-w-[150px]">{p.name}</span>
+                                        </div>
+                                        <div className="text-[9px] font-bold text-black/60 uppercase">
+                                          F: {p.priceFardo} / M: {p.priceMayor} / <span className="text-primary font-black">U: {p.priceUnidad}</span>
+                                        </div>
                                       </div>
                                     </TableCell>
                                     <TableCell className="text-center p-2">
@@ -236,28 +241,12 @@ export default function InventoryPage() {
                                           >
                                             <Edit2 className="w-3 h-3 mr-2" /> Editar
                                           </DropdownMenuItem>
-                                          <AlertDialog>
-                                            <AlertDialogTrigger asChild>
-                                              <DropdownMenuItem 
-                                                className="text-[10px] font-black uppercase cursor-pointer text-destructive focus:text-destructive"
-                                                onSelect={(e) => e.preventDefault()}
-                                              >
-                                                <Trash2 className="w-3 h-3 mr-2" /> Eliminar
-                                              </DropdownMenuItem>
-                                            </AlertDialogTrigger>
-                                            <AlertDialogContent className="rounded-[2rem]">
-                                              <AlertDialogHeader>
-                                                <AlertDialogTitle className="font-black text-primary uppercase">Eliminar Prenda {p.code}</AlertDialogTitle>
-                                                <AlertDialogDescription className="text-xs text-black font-bold uppercase">
-                                                  Esta acción borrará el producto y sus ENTRADAS. Las ventas registradas se mantienen intactas para auditoría.
-                                                </AlertDialogDescription>
-                                              </AlertDialogHeader>
-                                              <AlertDialogFooter>
-                                                <AlertDialogCancel className="rounded-xl font-bold uppercase">Cancelar</AlertDialogCancel>
-                                                <AlertDialogAction className="rounded-xl font-bold bg-destructive text-white hover:bg-destructive/90 uppercase" onClick={() => handleDelete(p.id)}>Confirmar</AlertDialogAction>
-                                              </AlertDialogFooter>
-                                            </AlertDialogContent>
-                                          </AlertDialog>
+                                          <DropdownMenuItem 
+                                            className="text-[10px] font-black uppercase cursor-pointer text-destructive focus:text-destructive"
+                                            onClick={() => setProductToDelete({id: p.id, code: p.code})}
+                                          >
+                                            <Trash2 className="w-3 h-3 mr-2" /> Eliminar
+                                          </DropdownMenuItem>
                                         </DropdownMenuContent>
                                       </DropdownMenu>
                                     </TableCell>
@@ -326,7 +315,7 @@ export default function InventoryPage() {
 
             <div className="border rounded-[2rem] overflow-hidden bg-white shadow-sm">
               {loadingMovements ? (
-                <div className="p-20 text-center text-primary font-black animate-pulse uppercase tracking-widest">Auditoría en curso...</div>
+                <div className="p-20 text-center text-primary font-black animate-pulse uppercase tracking-widest">Auditoría...</div>
               ) : (
                 <Table>
                   <TableHeader>
@@ -370,6 +359,22 @@ export default function InventoryPage() {
             </div>
         </TabsContent>
       </Tabs>
+
+      {/* Unico AlertDialog fuera del bucle para evitar lag */}
+      <AlertDialog open={!!productToDelete} onOpenChange={(o) => !o && setProductToDelete(null)}>
+        <AlertDialogContent className="rounded-[2rem]">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-black text-primary uppercase">Eliminar Prenda {productToDelete?.code}</AlertDialogTitle>
+            <AlertDialogDescription className="text-xs text-black font-bold uppercase">
+              Esta acción borrará el producto y sus ENTRADAS. Las ventas registradas se mantienen intactas para auditoría.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl font-bold uppercase">Cancelar</AlertDialogCancel>
+            <AlertDialogAction className="rounded-xl font-bold bg-destructive text-white hover:bg-destructive/90 uppercase" onClick={confirmDelete}>Confirmar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog open={!!zoomedImage} onOpenChange={(o) => !o && setZoomedImage(null)}>
         <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 border-none bg-black/95 overflow-hidden flex items-center justify-center rounded-none shadow-none">
