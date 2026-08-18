@@ -2,7 +2,7 @@
  * INSTRUCCIONES PARA GOOGLE APPS SCRIPT (script.google.com):
  * 
  * 1. Pega ÚNICAMENTE la función doPost(e) que aparece abajo.
- * 2. NO pegues nada que diga "import" o "export".
+ * 2. Asegúrate de que el ID de la carpeta sea: 1eiNwGNeMfRcP7yd6-XkhLLzTCoxC4uOT
  * 
  * function doPost(e) {
  *   try {
@@ -44,7 +44,7 @@ export async function uploadImageToDrive(base64Data: string, fileName: string): 
   try {
     const mimeType = base64Data.split(';')[0].split(':')[1] || 'image/jpeg';
     
-    // Eliminado 'no-cors' para permitir leer la respuesta JSON del script
+    // Petición al script de Google sin 'no-cors' para poder leer el JSON de respuesta
     const response = await fetch(API_CONFIG.WEB_APP_URL, {
       method: 'POST',
       body: JSON.stringify({
@@ -55,20 +55,19 @@ export async function uploadImageToDrive(base64Data: string, fileName: string): 
     });
     
     if (!response.ok) {
-      throw new Error("No se pudo conectar con Google Drive Script.");
+      throw new Error("No se pudo conectar con el servidor de imágenes.");
     }
 
     const result = await response.json();
     
     if (result.success && result.url) {
-      console.log("Imagen guardada en Drive en calidad original.");
       return result.url;
     } else {
       throw new Error(result.error || "Error al subir a Drive.");
     }
   } catch (error) {
     console.error("Error al subir a Drive:", error);
-    // Retornamos el base64 como último recurso si el script falla
+    // Si falla el script, devolvemos el base64 para no perder la imagen (aunque pesará en Firestore)
     return base64Data;
   }
 }
