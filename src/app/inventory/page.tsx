@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -105,6 +106,7 @@ export default function InventoryPage() {
                               src={p.images[0]} 
                               alt={p.name} 
                               className="w-full h-full object-cover"
+                              referrerPolicy="no-referrer"
                              />
                           </>
                         ) : (
@@ -222,7 +224,8 @@ export default function InventoryPage() {
               <img 
                 src={zoomedImage} 
                 alt="Calidad Original Drive" 
-                className="max-w-full max-h-[90vh] object-contain shadow-2xl animate-in zoom-in-95 duration-300" 
+                className="max-w-full max-h-[90vh] object-contain shadow-2xl animate-in zoom-in-95 duration-300"
+                referrerPolicy="no-referrer"
               />
             </div>
           )}

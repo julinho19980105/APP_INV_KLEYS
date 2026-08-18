@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -163,10 +164,12 @@ export default function RegistryPage() {
         updatedAt: serverTimestamp()
       }
 
-      const pRef = editId ? doc(db, "products", editId) : doc(collection(db, "products"))
+      // IMPORTANTE: El ID del documento es el código P-001, etc.
+      const pRef = editId ? doc(db, "products", editId) : doc(db, "products", form.code)
+      
       setDoc(pRef, productData, { merge: true })
         .then(() => {
-          toast({ title: "Éxito", description: "Prenda registrada correctamente." })
+          toast({ title: "Éxito", description: `Prenda ${form.code} registrada correctamente.` })
           router.push('/inventory')
         })
         .catch((serverError: any) => {
