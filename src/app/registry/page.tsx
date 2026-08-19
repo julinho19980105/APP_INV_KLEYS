@@ -35,13 +35,14 @@ import { cn } from "@/lib/utils"
 export default function RegistryPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
-  const editId = searchParams.get('edit')
+  const editId = searchParams.get('edit') // Este es el código P-XXX
   const db = useFirestore()
   const { toast } = useToast()
   
   const [saving, setSaving] = React.useState(false)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
   
+  // El documento se busca por el código directamente
   const docRef = React.useMemo(() => (db && editId) ? doc(db, "products", editId) : null, [db, editId])
   const { data: editingProduct } = useDoc(docRef)
   
@@ -79,6 +80,7 @@ export default function RegistryPage() {
     reason: "Reposición de Mercadería"
   })
 
+  // Cargar borrador persistente
   React.useEffect(() => {
     if (!editId) {
       const saved = localStorage.getItem('diva_registry_form')
@@ -93,12 +95,14 @@ export default function RegistryPage() {
     }
   }, [editId])
 
+  // Guardar borrador persistente
   React.useEffect(() => {
     if (!editId && form.name !== "") {
       localStorage.setItem('diva_registry_form', JSON.stringify(form))
     }
   }, [form, editId])
 
+  // Generador de correlativo P-XXX
   const fetchNextCode = React.useCallback(async () => {
     if (!db || editId) return
     try {
@@ -122,11 +126,12 @@ export default function RegistryPage() {
     fetchNextCode()
   }, [fetchNextCode])
 
+  // Cargar datos al editar
   React.useEffect(() => {
     if (editingProduct) {
       setForm({
         name: editingProduct.name || "",
-        code: editingProduct.code || "",
+        code: editingProduct.code || "", // Identidad única P-XXX
         category: editingProduct.category || "",
         collection: editingProduct.collection || "",
         description: editingProduct.description || "",
@@ -149,21 +154,22 @@ export default function RegistryPage() {
   const handleSave = async () => {
     if (!db || !isFormValid) return
     setSaving(true)
+    
+    // REGLA DE ORO: El ID del documento es el código P-XXX
+    const productCode = form.code.trim().toUpperCase();
+
     try {
+      // Subir imágenes a Drive
       const uploadedImageUrls = await Promise.all(
         localImagePreviews.map(async (img, index) => {
           if (img.startsWith('http')) return img;
-          return await uploadImageToDrive(img, `${form.code}_${index}.jpg`);
+          return await uploadImageToDrive(img, `${productCode}_${index}.jpg`);
         })
       );
 
-      // Usar form.code para el ID del documento, pero si estamos editando
-      // aseguramos que usamos el ID original (que debería ser el mismo código)
-      const targetId = editId || form.code;
-
       const productData = {
         name: form.name.toUpperCase(),
-        code: targetId, // El código es la identidad única
+        code: productCode,
         category: form.category,
         collection: form.collection,
         description: form.description,
@@ -175,11 +181,13 @@ export default function RegistryPage() {
         updatedAt: serverTimestamp()
       }
 
-      await setDoc(doc(db, "products", targetId), productData, { merge: true })
+      // El nombre del documento en Firebase es P-XXX
+      await setDoc(doc(db, "products", productCode), productData, { merge: true })
       
+      // Registrar movimiento inicial si es nuevo
       if (!editId) {
         await addDoc(collection(db, "movements"), {
-          productCode: targetId,
+          productCode: productCode,
           type: "in",
           quantity: Number(form.stock),
           reason: "Stock Inicial / Registro Nuevo",
@@ -188,10 +196,10 @@ export default function RegistryPage() {
       }
       
       localStorage.removeItem('diva_registry_form')
-      toast({ title: "Guardado", description: `Prenda ${targetId} lista.` })
+      toast({ title: "Guardado", description: `Prenda ${productCode} actualizada correctamente.` })
       router.push('/inventory')
     } catch (error) {
-      toast({ variant: "destructive", title: "Error al guardar" })
+      toast({ variant: "destructive", title: "Error al procesar la identidad del producto" })
     } finally {
       setSaving(false);
     }
@@ -241,6 +249,7 @@ export default function RegistryPage() {
       })
   }
 
+  // Validación Diva: Fardo < Mayor < Unidad
   const isFormValid = React.useMemo(() => {
     const fardo = Number(form.priceFardo || 0);
     const mayor = Number(form.priceMayor || 0);
@@ -296,13 +305,13 @@ export default function RegistryPage() {
                       <Label className="text-[9px] uppercase font-black text-black ml-1">Código Identidad *</Label>
                       <Input 
                         value={form.code} 
-                        readOnly={!!editId}
+                        readOnly={!!editId} // BLOQUEADO SI ES EDICIÓN
                         disabled={!!editId}
-                        onChange={e => setForm({...form, code: e.target.value})} 
                         className={cn(
                           "h-10 text-black border-black/10 rounded-xl font-black text-sm uppercase",
                           !!editId && "bg-black/5 opacity-50 cursor-not-allowed"
                         )} 
+                        onChange={e => !editId && setForm({...form, code: e.target.value})}
                       />
                     </div>
                     <div className="space-y-0.5">

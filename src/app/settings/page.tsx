@@ -26,6 +26,7 @@ export default function SettingsPage() {
 
   const handleSave = () => {
     localStorage.setItem('diva_settings', JSON.stringify(config))
+    // Notificar a otros componentes (como el AppShell)
     window.dispatchEvent(new Event('storage'))
     toast({ title: "Configuración Guardada", description: "Identidad actualizada correctamente." })
   }

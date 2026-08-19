@@ -42,7 +42,6 @@ import { useToast } from "@/hooks/use-toast"
 import { errorEmitter } from "@/firebase/error-emitter"
 import { FirestorePermissionError } from "@/firebase/errors"
 
-// Componente de fila individual para aislar el estado y evitar lag
 const ProductRow = ({ p, onZoom, onEdit, onDelete }: { 
   p: any, 
   onZoom: (img: string) => void,
@@ -149,7 +148,6 @@ const ProductRow = ({ p, onZoom, onEdit, onDelete }: {
   );
 };
 
-// Componente memoizado para evitar re-renderizados pesados y lag
 const MemoizedProductList = React.memo(({ 
   groupedData, 
   loading, 
