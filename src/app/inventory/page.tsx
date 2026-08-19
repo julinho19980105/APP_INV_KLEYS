@@ -26,6 +26,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Badge } from "@/components/ui/badge"
 import { Search, Edit2, X, Trash2, MoreVertical, Check, PackageSearch } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useCollection, useFirestore } from "@/firebase"
@@ -169,7 +170,6 @@ export default function InventoryPage() {
       groups[main].push(p)
     })
 
-    // Ordenar flat dentro de cada grupo principal sin sub-encabezados
     Object.keys(groups).forEach(key => {
       groups[key].sort((a, b) => {
         const subA = viewType === "collection" ? (a.category || "") : (a.collection || "")
