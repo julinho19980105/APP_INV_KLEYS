@@ -11,17 +11,9 @@ import {
   TableHeader, 
   TableRow 
 } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle,
-  DialogDescription
-} from "@/components/ui/dialog"
 import {
   Accordion,
   AccordionContent,
@@ -34,16 +26,17 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Search, Edit2, ArrowDownRight, ArrowUpRight, X, Trash2, MoreVertical, Check, XCircle } from "lucide-react"
+import { Search, Edit2, X, Trash2, MoreVertical, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useCollection, useFirestore } from "@/firebase"
-import { collection, query, orderBy, limit, doc, deleteDoc, getDocs, where, writeBatch } from "firebase/firestore"
+import { collection, query, orderBy, doc, deleteDoc, getDocs, where, writeBatch } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 
-const ProductRow = ({ p, onEdit, onDelete }: { 
+const ProductRow = ({ p, onEdit, onDelete, viewType }: { 
   p: any, 
   onEdit: (id: string) => void,
-  onDelete: (prod: {id: string, code: string}) => void
+  onDelete: (prod: {id: string, code: string}) => void,
+  viewType: string
 }) => {
   const [confirming, setConfirming] = React.useState(false);
 
@@ -51,7 +44,7 @@ const ProductRow = ({ p, onEdit, onDelete }: {
     if (!url || typeof url !== 'string' || !url.startsWith('http')) return url;
     if (!url.includes('id=')) return url;
     const idMatch = url.match(/id=([^&]+)/);
-    return idMatch ? `https://drive.google.com/thumbnail?id=${idMatch[1]}&sz=w300` : url;
+    return idMatch ? `https://drive.google.com/thumbnail?id=${idMatch[1]}&sz=300` : url;
   };
 
   return (
@@ -70,6 +63,9 @@ const ProductRow = ({ p, onEdit, onDelete }: {
           <div className="flex items-center gap-2">
             <span className="font-mono text-[10px] font-black text-black/50">{p.code}</span>
             <span className="font-black text-black text-xs uppercase truncate max-w-[150px]">{p.name}</span>
+            <span className="text-[8px] font-black bg-black/5 px-1.5 py-0.5 rounded text-black/60 uppercase">
+              {viewType === 'collection' ? p.category : p.collection}
+            </span>
           </div>
           <div className="text-[9px] font-bold text-black/60 uppercase">
             F: {p.priceFardo} / M: {p.priceMayor} / <span className="text-primary font-black">U: {p.priceUnidad}</span>
@@ -106,31 +102,30 @@ const ProductRow = ({ p, onEdit, onDelete }: {
   );
 };
 
-const MemoizedProductList = React.memo(({ groupedData, onEdit, onDelete }: any) => {
+const MemoizedProductList = React.memo(({ groupedData, onEdit, onDelete, viewType }: any) => {
   return (
     <Accordion type="multiple" className="space-y-2">
-      {Object.entries(groupedData).map(([mainTitle, subGroups]: [string, any]) => (
+      {Object.entries(groupedData).map(([mainTitle, items]: [string, any]) => (
         <AccordionItem key={mainTitle} value={mainTitle} className="border-none bg-white rounded-2xl shadow-sm px-4">
           <AccordionTrigger className="hover:no-underline py-4 px-2">
             <div className="text-sm font-black text-black uppercase tracking-tight">{mainTitle}</div>
           </AccordionTrigger>
-          <AccordionContent className="pb-4 pt-0">
-            <Accordion type="multiple" className="space-y-2 mt-2 ml-2">
-              {Object.entries(subGroups).map(([subTitle, items]: [string, any]) => (
-                <AccordionItem key={subTitle} value={subTitle} className="border rounded-xl border-black/5 overflow-hidden">
-                  <AccordionTrigger className="py-2 px-4 bg-black/5 hover:no-underline">
-                    <span className="text-xs font-black text-black uppercase">{subTitle}</span>
-                  </AccordionTrigger>
-                  <AccordionContent className="p-0">
-                    <Table>
-                      <TableBody>
-                        {items.map((p: any) => <ProductRow key={p.id} p={p} onEdit={onEdit} onDelete={onDelete} />)}
-                      </TableBody>
-                    </Table>
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
+          <AccordionContent className="pb-4 pt-0 overflow-hidden">
+            <div className="border rounded-xl border-black/5 overflow-hidden">
+              <Table>
+                <TableBody>
+                  {items.map((p: any) => (
+                    <ProductRow 
+                      key={p.id} 
+                      p={p} 
+                      onEdit={onEdit} 
+                      onDelete={onDelete} 
+                      viewType={viewType}
+                    />
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </AccordionContent>
         </AccordionItem>
       ))}
@@ -165,14 +160,22 @@ export default function InventoryPage() {
   )
 
   const groupedData = React.useMemo(() => {
-    const groups: Record<string, Record<string, any[]>> = {}
+    const groups: Record<string, any[]> = {}
     filteredProducts.forEach(p => {
       const main = viewType === "collection" ? (p.collection || "SIN COL") : (p.category || "SIN CAT")
-      const sub = viewType === "collection" ? (p.category || "SIN CAT") : (p.collection || "SIN COL")
-      if (!groups[main]) groups[main] = {}
-      if (!groups[main][sub]) groups[main][sub] = []
-      groups[main][sub].push(p)
+      if (!groups[main]) groups[main] = []
+      groups[main].push(p)
     })
+
+    // Sort items within each group by the secondary attribute
+    Object.keys(groups).forEach(key => {
+      groups[key].sort((a, b) => {
+        const subA = viewType === "collection" ? (a.category || "") : (a.collection || "")
+        const subB = viewType === "collection" ? (b.category || "") : (b.collection || "")
+        return subA.localeCompare(subB)
+      })
+    })
+
     return groups
   }, [filteredProducts, viewType])
 
@@ -209,7 +212,7 @@ export default function InventoryPage() {
         </TabsList>
         
         <TabsContent value="all" className="space-y-4 pt-2">
-          <MemoizedProductList groupedData={groupedData} onEdit={onEdit} onDelete={onDelete} />
+          <MemoizedProductList groupedData={groupedData} onEdit={onEdit} onDelete={onDelete} viewType={viewType} />
         </TabsContent>
 
         <TabsContent value="movements" className="pt-2">

@@ -21,28 +21,25 @@ import {
   DialogContent, 
   DialogHeader, 
   DialogTitle, 
-  DialogTrigger,
-  DialogDescription
+  DialogTrigger
 } from "@/components/ui/dialog"
 import { ImagePlus, X, Save, Loader2, Sparkles, Edit3, Plus, Search, Eraser } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useFirestore, useDoc, useCollection } from "@/firebase"
-import { doc, setDoc, collection, query, orderBy, serverTimestamp, updateDoc, addDoc, limit, getDocs, increment } from "firebase/firestore"
+import { doc, setDoc, collection, query, orderBy, serverTimestamp, updateDoc, addDoc, limit, getDocs, increment, where } from "firebase/firestore"
 import { uploadImageToDrive } from "@/services/sheets-service"
-import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 
 export default function RegistryPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
-  const editId = searchParams.get('edit') // El DNI del producto (P-XXX)
+  const editId = searchParams.get('edit')
   const db = useFirestore()
   const { toast } = useToast()
   
   const [saving, setSaving] = React.useState(false)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
   
-  // Referencia directa por el DNI/Código
   const docRef = React.useMemo(() => (db && editId) ? doc(db, "products", editId) : null, [db, editId])
   const { data: editingProduct } = useDoc(docRef)
   
@@ -71,7 +68,6 @@ export default function RegistryPage() {
   const [manageType, setManageType] = React.useState<'category' | 'collection' | null>(null)
   const [newItemName, setNewItemName] = React.useState("")
   const [editingItem, setEditingItem] = React.useState<{id: string, name: string} | null>(null)
-  const [zoomedImage, setZoomedImage] = React.useState<string | null>(null)
   const [stockSearchQuery, setStockSearchQuery] = React.useState("")
 
   const [stockEntry, setStockEntry] = React.useState({
@@ -80,7 +76,6 @@ export default function RegistryPage() {
     reason: "Reposición de Mercadería"
   })
 
-  // Persistencia del borrador
   React.useEffect(() => {
     if (!editId) {
       const saved = localStorage.getItem('diva_registry_form')
@@ -99,7 +94,6 @@ export default function RegistryPage() {
     }
   }, [form, editId])
 
-  // Generador Correlativo Automático (DNI)
   const fetchNextCode = React.useCallback(async () => {
     if (!db || editId) return
     try {
@@ -123,7 +117,6 @@ export default function RegistryPage() {
     fetchNextCode()
   }, [fetchNextCode])
 
-  // Carga de datos para edición
   React.useEffect(() => {
     if (editingProduct) {
       setForm({
@@ -152,7 +145,6 @@ export default function RegistryPage() {
     if (!db || !isFormValid) return
     setSaving(true)
     
-    // El ID del documento es el código P-XXX (Regla de Oro)
     const productCode = form.code.trim().toUpperCase();
 
     try {
@@ -177,10 +169,20 @@ export default function RegistryPage() {
         updatedAt: serverTimestamp()
       }
 
-      // Guardamos/Actualizamos usando el Código como ID
       await setDoc(doc(db, "products", productCode), productData, { merge: true })
       
-      if (!editId) {
+      if (editId) {
+        // Actualizar el "Stock Inicial" en Kardex si se cambia el stock base al editar
+        const mRef = collection(db, "movements")
+        const q = query(mRef, where("productCode", "==", productCode), where("reason", "==", "Stock Inicial"))
+        const snap = await getDocs(q)
+        if (!snap.empty) {
+          await updateDoc(snap.docs[0].ref, {
+            quantity: Number(form.stock),
+            timestamp: serverTimestamp()
+          })
+        }
+      } else {
         await addDoc(collection(db, "movements"), {
           productCode: productCode,
           type: "in",
@@ -254,7 +256,7 @@ export default function RegistryPage() {
     if (!url || typeof url !== 'string' || !url.startsWith('http')) return url;
     if (!url.includes('id=')) return url;
     const idMatch = url.match(/id=([^&]+)/);
-    return idMatch ? `https://drive.google.com/thumbnail?id=${idMatch[1]}&sz=w400` : url;
+    return idMatch ? `https://drive.google.com/thumbnail?id=${idMatch[1]}&sz=400` : url;
   };
 
   const filteredProductsForStock = allProducts.filter(p => 
@@ -397,7 +399,7 @@ export default function RegistryPage() {
                 <Button className="flex-1 h-12 text-base rounded-2xl bg-primary text-white font-black shadow-lg" onClick={handleSave} disabled={!isFormValid || saving}>
                   {saving ? <Loader2 className="animate-spin" /> : <Save className="mr-2 w-4 h-4" />} {editId ? 'ACTUALIZAR DNI' : 'GUARDAR PRENDA'}
                 </Button>
-                {editId && <Button variant="outline" size="icon" className="h-12 w-12 rounded-2xl border-destructive text-destructive hover:bg-destructive/10" onClick={() => router.push('/inventory')} title="Cancelar"><X className="w-6 h-6" /></Button>}
+                {editId && <Button variant="outline" size="icon" className="h-12 w-12 rounded-2xl border-destructive text-destructive hover:bg-destructive/10" onClick={() => router.push('/inventory')} title="Descartar"><X className="w-6 h-6" /></Button>}
               </div>
             </div>
           </div>
