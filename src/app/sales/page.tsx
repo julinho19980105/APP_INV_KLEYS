@@ -116,28 +116,29 @@ export default function SalesPage() {
     }
   }
 
-  // Utilidad para limpiar texto industrial (eliminar Ñ y tildes)
   const sanitize = (text: string) => {
     return text
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
       .replace(/ñ/g, "n")
       .replace(/Ñ/g, "N")
-      .substring(0, 32); // Limitar ancho para térmicas de 58/80mm
+  }
+
+  const padLine = (left: string, right: string, width: number) => {
+    const spaces = width - (left.length + right.length);
+    return left + " ".repeat(Math.max(1, spaces)) + right;
   }
 
   const handlePrintBLE = async (sale: any) => {
     if (!bleDevice || !bleCharacteristic) {
       try {
         toast({ title: "VINCULANDO IMPRESORA..." })
-        // Filtrar por impresoras compatibles (Servicio de escritura genérico)
         const device = await (navigator as any).bluetooth.requestDevice({
           acceptAllDevices: true,
-          optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb']
+          optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb', '0000ff00-0000-1000-8000-00805f9b34fb']
         })
         
         const server = await device.gatt.connect()
-        // Intentar encontrar el servicio de impresión común
         const services = await server.getPrimaryServices()
         let char = null
         for (const service of services) {
@@ -149,45 +150,63 @@ export default function SalesPage() {
         if (char) {
           setBleDevice(device)
           setBleCharacteristic(char)
-          toast({ title: "CONEXIÓN ESTABLECIDA", description: "Presiona Imprimir de nuevo." })
+          toast({ title: "IMPRESORA CONECTADA", description: "PULSE IMPRIMIR OTRA VEZ." })
         } else {
-          toast({ variant: "destructive", title: "IMPRESORA NO SOPORTADA" })
+          toast({ variant: "destructive", title: "ERROR DE COMPATIBILIDAD" })
         }
       } catch (e) {
-        toast({ variant: "destructive", title: "FALLO DE CONEXIÓN" })
+        toast({ variant: "destructive", title: "CONEXIÓN CANCELADA" })
       }
       return
     }
 
     try {
-      toast({ title: "EMITIENDO TICKET DIVA..." })
+      toast({ title: "IMPRIMIENDO..." })
       const companyName = companySettings?.companyName || "DIVA INDUSTRIAL";
+      const printerWidth = parseInt(companySettings?.printerWidth || "80");
+      const charLimit = printerWidth === 80 ? 48 : 32;
       
       const encoder = new TextEncoder()
-      let ticketData = `\x1B\x40` // Inicializar
-      ticketData += `\x1B\x61\x01` // Centrar
-      ticketData += `\x1B\x21\x30${sanitize(companyName)}\n`
-      ticketData += `\x1B\x21\x00BOLETA: ${sale.id}\n`
-      ticketData += `--------------------------------\n`
-      ticketData += `\x1B\x61\x00` // Izquierda
-      ticketData += `CLIENTE: ${sanitize(sale.customerName)}\n`
-      ticketData += `FECHA: ${new Date().toLocaleDateString()}\n`
-      ticketData += `--------------------------------\n`
+      let t = `\x1B\x40` // Reset
+      t += `\x1B\x61\x01` // Center
+      t += `\x1B\x21\x30${sanitize(companyName).toUpperCase()}\n`
+      t += `\x1B\x21\x08BOLETA INTERNA: ${sale.id}\n`
+      t += `\x1B\x61\x00` // Left
+      t += "-".repeat(charLimit) + "\n"
       
-      sale.items.forEach((i: any) => {
-        ticketData += `${sanitize(i.name)}\n`
-        ticketData += `${i.quantity} x S/ ${i.price.toFixed(2)}  S/ ${(i.quantity * i.price - i.discount).toFixed(2)}\n`
+      // Header Hierarchical
+      t += padLine("CLIENTE:", "FECHA:", charLimit) + "\n"
+      const dateStr = sale.createdAt?.toDate ? sale.createdAt.toDate().toLocaleDateString() : "";
+      t += padLine(sanitize(sale.customerName).substring(0, charLimit/2), dateStr, charLimit) + "\n"
+      t += "-".repeat(charLimit) + "\n"
+      
+      // Product List (3 Lines)
+      sale.items.forEach((i: any, idx: number) => {
+        const subtotal = `S/ ${(i.quantity * i.price - i.discount).toFixed(2)}`;
+        // Line 1: N- Name [Subtotal Right]
+        t += padLine(`${idx + 1}- ${sanitize(i.name)}`, subtotal, charLimit) + "\n"
+        // Line 2: Qty x Price (-Desc)
+        t += `   ${i.quantity} x S/ ${i.price.toFixed(2)} (-S/ ${i.discount.toFixed(2)})\n`
+        // Line 3: Description
+        if (i.description) {
+          t += `   ${sanitize(i.description).substring(0, charLimit - 3)}\n`
+        }
       })
       
-      ticketData += `--------------------------------\n`
-      ticketData += `\x1B\x61\x02` // Derecha
-      ticketData += `\x1B\x21\x10TOTAL: S/ ${sale.total.toFixed(2)}\n`
-      ticketData += `\x1B\x21\x00\n\n\n\n\x1D\x56\x42\x00` // Espacio y corte
+      t += "-".repeat(charLimit) + "\n"
+      
+      // Totals
+      const totalQty = sale.items.reduce((acc: number, item: any) => acc + (item.quantity || 0), 0);
+      t += padLine(`CANT. TOTAL: ${totalQty}`, `TOTAL: S/ ${sale.total.toFixed(2)}`, charLimit) + "\n"
+      
+      t += "\n\x1B\x61\x01" // Center
+      t += "Gracias por su Compra\n"
+      t += "\n\n\n\n\x1D\x56\x42\x00" // Cut
 
-      await bleCharacteristic.writeValue(encoder.encode(ticketData))
-      toast({ title: "TICKET IMPRESO" })
+      await bleCharacteristic.writeValue(encoder.encode(t))
+      toast({ title: "TICKET EMITIDO" })
     } catch (err) {
-      toast({ variant: "destructive", title: "ERROR DE IMPRESIÓN", description: "Revisa la conexión BLE." })
+      toast({ variant: "destructive", title: "ERROR DE HARDWARE" })
       setBleDevice(null)
       setBleCharacteristic(null)
     }
@@ -340,28 +359,27 @@ export default function SalesPage() {
         ))}
       </div>
 
-      {/* Hidden Receipt for JPG */}
       <div className="fixed -left-[3000px] top-0">
         {activeReceipt && (
           <div ref={receiptRef} className="w-[1000px] p-16 bg-white flex flex-col gap-10" style={{ borderTop: `25px solid ${brandColor}` }}>
             <div className="flex justify-between items-start">
               <div className="space-y-3">
                 <h2 className="text-7xl font-headline font-black uppercase tracking-tighter">{companyName}</h2>
-                <p className="text-xl font-black uppercase tracking-[0.4em] opacity-40">CARGA INDUSTRIAL - DIVA</p>
+                <p className="text-xl font-black uppercase tracking-[0.4em] opacity-40">BOLETA INTERNA - DIVA</p>
               </div>
               <div className="text-right">
-                <div className="text-3xl font-black uppercase opacity-40">Boleta Serie B</div>
+                <div className="text-3xl font-black uppercase opacity-40">Serie B</div>
                 <div className="text-6xl font-headline font-black" style={{ color: brandColor }}>{activeReceipt.id}</div>
               </div>
             </div>
             <div className="h-px bg-black/10 w-full" />
             <div className="grid grid-cols-2 gap-16">
               <div>
-                <div className="text-sm font-black uppercase opacity-40 mb-3">Cliente Diva</div>
+                <div className="text-sm font-black uppercase opacity-40 mb-3">Cliente:</div>
                 <div className="text-4xl font-black uppercase">{activeReceipt.customerName}</div>
               </div>
               <div className="text-right">
-                <div className="text-sm font-black uppercase opacity-40 mb-3">Fecha Emisión</div>
+                <div className="text-sm font-black uppercase opacity-40 mb-3">Fecha:</div>
                 <div className="text-4xl font-black uppercase">{activeReceipt.createdAt?.toDate ? activeReceipt.createdAt.toDate().toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' }).toUpperCase() : ""}</div>
               </div>
             </div>
@@ -378,7 +396,7 @@ export default function SalesPage() {
                 {activeReceipt.items.map((item: any, idx: number) => (
                   <tr key={idx}>
                     <td className="py-8">
-                      <div className="text-3xl font-black uppercase">{item.name}</div>
+                      <div className="text-3xl font-black uppercase">{idx + 1}- {item.name}</div>
                       <div className="text-sm font-black uppercase opacity-40">{item.productId} | {item.description}</div>
                     </td>
                     <td className="py-8 text-3xl font-black text-center">{item.quantity}</td>
@@ -389,7 +407,10 @@ export default function SalesPage() {
               </tbody>
             </table>
             <div className="mt-10 pt-10 border-t-8 border-black flex justify-between items-end">
-              <div className="text-2xl font-black uppercase opacity-50">¡GRACIAS POR SU PREFERENCIA!</div>
+              <div className="space-y-1">
+                <div className="text-2xl font-black uppercase opacity-40">Cantidad Total:</div>
+                <div className="text-5xl font-black">{activeReceipt.items.reduce((acc: number, item: any) => acc + (item.quantity || 0), 0)} UND</div>
+              </div>
               <div className="text-right space-y-2">
                 <div className="text-3xl font-black uppercase opacity-40">Monto Total Neto</div>
                 <div className="text-8xl font-headline font-black tracking-tighter" style={{ color: brandColor }}>
@@ -397,6 +418,7 @@ export default function SalesPage() {
                 </div>
               </div>
             </div>
+            <div className="text-center mt-12 text-2xl font-black uppercase opacity-50">Gracias por su Compra</div>
           </div>
         )}
       </div>

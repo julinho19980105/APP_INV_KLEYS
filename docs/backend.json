@@ -69,7 +69,8 @@
         "companyName": { "type": "string" },
         "companyLogo": { "type": "string" },
         "brandColor": { "type": "string" },
-        "inventoryViewMode": { "type": "string" }
+        "inventoryViewMode": { "type": "string" },
+        "printerWidth": { "type": "string", "enum": ["58", "80"] }
       }
     }
   },

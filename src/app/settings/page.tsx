@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from "react"
-import { Settings, Save, Sparkles, Building2, Upload, LayoutGrid, Layers, X, Loader2 } from "lucide-react"
+import { Settings, Save, Sparkles, Building2, Upload, LayoutGrid, Layers, X, Loader2, Printer } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -24,7 +24,8 @@ export default function SettingsPage() {
     companyName: "StiloStack",
     companyLogo: "",
     brandColor: "#FF3399",
-    inventoryViewMode: "collection"
+    inventoryViewMode: "collection",
+    printerWidth: "80"
   })
   const [saving, setSaving] = React.useState(false)
 
@@ -34,7 +35,8 @@ export default function SettingsPage() {
         companyName: dbConfig.companyName || "StiloStack",
         companyLogo: dbConfig.companyLogo || "",
         brandColor: dbConfig.brandColor || "#FF3399",
-        inventoryViewMode: dbConfig.inventoryViewMode || "collection"
+        inventoryViewMode: dbConfig.inventoryViewMode || "collection",
+        printerWidth: dbConfig.printerWidth || "80"
       })
     }
   }, [dbConfig])
@@ -43,7 +45,17 @@ export default function SettingsPage() {
     if (!db) return
     setSaving(true)
     try {
-      // Guardar en Firestore (Carpeta global de configuración)
+      // Validar tamaño del logo si existe (Firestore tiene límite de 1MB por documento)
+      if (form.companyLogo && form.companyLogo.length > 800000) {
+        toast({ 
+          variant: "destructive", 
+          title: "LOGO MUY PESADO", 
+          description: "POR FAVOR, USA UNA IMAGEN MÁS PEQUEÑA (< 800KB)." 
+        });
+        setSaving(false);
+        return;
+      }
+
       await setDoc(doc(db, "config", "global"), {
         ...form,
         updatedAt: serverTimestamp()
@@ -106,7 +118,7 @@ export default function SettingsPage() {
             </div>
             
             <div className="space-y-1.5">
-              <Label className="text-[9px] font-black uppercase text-black ml-1">Color de Marca (Ticket/Proforma)</Label>
+              <Label className="text-[9px] font-black uppercase text-black ml-1">Color de Marca</Label>
               <div className="flex gap-2">
                 <Input 
                   type="color"
@@ -151,36 +163,48 @@ export default function SettingsPage() {
         <Card className="rounded-[2.5rem] border shadow-sm bg-white overflow-hidden">
           <CardHeader className="bg-black/5 py-4 border-b">
             <CardTitle className="text-[10px] font-black text-black uppercase flex items-center gap-2">
-              <Sparkles className="w-4 h-4" /> Preferencias Operativas
+              <Printer className="w-4 h-4" /> Hardware y Vistas
             </CardTitle>
           </CardHeader>
           <CardContent className="p-8 space-y-8">
              <div className="space-y-4">
-               <Label className="text-[9px] font-black uppercase text-black ml-1">Vista Inicial de Almacén</Label>
+               <Label className="text-[9px] font-black uppercase text-black ml-1">Ancho de Ticket BLE</Label>
+               <RadioGroup 
+                 value={form.printerWidth} 
+                 onValueChange={v => setForm({...form, printerWidth: v})}
+                 className="grid grid-cols-2 gap-4"
+               >
+                 <div className="flex items-center space-x-3 bg-black/5 p-4 rounded-xl border-2 border-transparent has-[:checked]:border-primary transition-all">
+                   <RadioGroupItem value="80" id="w-80" />
+                   <Label htmlFor="w-80" className="text-[10px] font-black uppercase cursor-pointer">80 mm (Industrial)</Label>
+                 </div>
+                 <div className="flex items-center space-x-3 bg-black/5 p-4 rounded-xl border-2 border-transparent has-[:checked]:border-primary transition-all">
+                   <RadioGroupItem value="58" id="w-58" />
+                   <Label htmlFor="w-58" className="text-[10px] font-black uppercase cursor-pointer">58 mm (Estándar)</Label>
+                 </div>
+               </RadioGroup>
+             </div>
+
+             <div className="space-y-4">
+               <Label className="text-[9px] font-black uppercase text-black ml-1">Vista Inicial Almacén</Label>
                <RadioGroup 
                  value={form.inventoryViewMode} 
                  onValueChange={v => setForm({...form, inventoryViewMode: v})}
                  className="grid grid-cols-1 gap-4"
                >
-                 <div className="flex items-center space-x-3 bg-black/5 p-6 rounded-[1.5rem] border-2 border-transparent cursor-pointer has-[:checked]:border-primary transition-all">
+                 <div className="flex items-center space-x-3 bg-black/5 p-4 rounded-xl border-2 border-transparent has-[:checked]:border-primary transition-all">
                    <RadioGroupItem value="collection" id="v-collection" />
                    <Label htmlFor="v-collection" className="text-[11px] font-black uppercase cursor-pointer flex items-center gap-3">
                      <LayoutGrid className="w-4 h-4" /> Por Colección
                    </Label>
                  </div>
-                 <div className="flex items-center space-x-3 bg-black/5 p-6 rounded-[1.5rem] border-2 border-transparent cursor-pointer has-[:checked]:border-primary transition-all">
+                 <div className="flex items-center space-x-3 bg-black/5 p-4 rounded-xl border-2 border-transparent has-[:checked]:border-primary transition-all">
                    <RadioGroupItem value="category" id="v-category" />
                    <Label htmlFor="v-category" className="text-[11px] font-black uppercase cursor-pointer flex items-center gap-3">
                      <Layers className="w-4 h-4" /> Por Categoría
                    </Label>
                  </div>
                </RadioGroup>
-             </div>
-             
-             <div className="p-6 bg-primary/5 rounded-[1.5rem] border border-primary/10">
-               <p className="text-[10px] font-black text-primary uppercase leading-relaxed text-center tracking-widest">
-                 Diva sincronizará estos ajustes en todos tus dispositivos autorizados.
-               </p>
              </div>
           </CardContent>
         </Card>
