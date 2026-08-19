@@ -10,7 +10,8 @@ import {
   Truck, 
   Settings,
   Sparkles,
-  ShoppingBag
+  ShoppingBag,
+  Menu
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -25,14 +26,15 @@ import {
   SidebarMenuItem, 
   SidebarProvider,
   SidebarInset,
-  useSidebar
+  useSidebar,
+  SidebarTrigger
 } from "@/components/ui/sidebar"
 
 const navItems = [
+  { name: "Ventas", href: "/sales", icon: ShoppingBag },
+  { name: "Cotización", href: "/quotes", icon: FileText },
   { name: "Inventario", href: "/inventory", icon: Package },
   { name: "Registrar", href: "/registry", icon: PlusCircle },
-  { name: "Cotización", href: "/quotes", icon: FileText },
-  { name: "Ventas", href: "/sales", icon: ShoppingBag },
   { name: "Clientes", href: "/customers", icon: Users },
   { name: "Logística", href: "/shipping", icon: Truck },
   { name: "Ajustes", href: "/settings", icon: Settings },
@@ -46,6 +48,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="flex min-h-screen w-full bg-background overflow-hidden">
         <AppSidebar pathname={pathname} />
         <SidebarInset className="flex-1 overflow-auto">
+          {/* Mobile Header */}
+          <header className="md:hidden flex items-center justify-between p-4 bg-white border-b sticky top-0 z-50">
+            <div className="flex items-center gap-3">
+              <SidebarTrigger className="h-10 w-10 border rounded-xl" />
+              <span className="font-headline font-black text-xl tracking-tighter uppercase">Diva App</span>
+            </div>
+          </header>
           <main className="p-4 max-w-[1600px] mx-auto w-full pt-2">
             {children}
           </main>
