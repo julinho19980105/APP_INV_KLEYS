@@ -9,7 +9,8 @@ import {
   Users, 
   Truck, 
   Settings,
-  Sparkles
+  Sparkles,
+  ShoppingBag
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -30,7 +31,8 @@ import {
 const navItems = [
   { name: "Inventario", href: "/inventory", icon: Package },
   { name: "Registrar", href: "/registry", icon: PlusCircle },
-  { name: "Cotizaciones", href: "/quotes", icon: FileText },
+  { name: "Cotización", href: "/quotes", icon: FileText },
+  { name: "Ventas", href: "/sales", icon: ShoppingBag },
   { name: "Clientes", href: "/customers", icon: Users },
   { name: "Logística", href: "/shipping", icon: Truck },
   { name: "Ajustes", href: "/settings", icon: Settings },

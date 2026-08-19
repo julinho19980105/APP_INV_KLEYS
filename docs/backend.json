@@ -20,6 +20,18 @@
       },
       "required": ["code", "name", "category", "collection", "stock"]
     },
+    "Customer": {
+      "title": "Cliente",
+      "description": "Datos de cliente Diva",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "CL-001..." },
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "location": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
     "Movement": {
       "title": "Movimiento de Inventario",
       "description": "Registro de entrada o salida de stock",
@@ -33,20 +45,20 @@
         "referenceId": { "type": "string", "description": "ID de boleta o referencia" }
       }
     },
-    "Category": {
-      "title": "Categoría",
-      "description": "Categoría de producto",
+    "Quote": {
+      "title": "Cotización / Venta",
+      "description": "Registro de proforma o venta finalizada",
       "type": "object",
       "properties": {
-        "name": { "type": "string" }
-      }
-    },
-    "Collection": {
-      "title": "Colección",
-      "description": "Colección de temporada",
-      "type": "object",
-      "properties": {
-        "name": { "type": "string" }
+        "id": { "type": "string", "description": "B-001..." },
+        "customerName": { "type": "string" },
+        "customerId": { "type": "string" },
+        "items": { "type": "array" },
+        "subtotal": { "type": "number" },
+        "discount": { "type": "number" },
+        "total": { "type": "number" },
+        "status": { "type": "string", "enum": ["active", "annulled"] },
+        "createdAt": { "type": "string", "format": "date-time" }
       }
     }
   },
@@ -56,19 +68,19 @@
   "firestore": {
     "/products/{productId}": {
       "schema": "Product",
-      "description": "Colección maestra de productos (ID = Código)"
+      "description": "Inventario maestro"
+    },
+    "/customers/{customerId}": {
+      "schema": "Customer",
+      "description": "Cartera de clientes"
+    },
+    "/quotes/{quoteId}": {
+      "schema": "Quote",
+      "description": "Registro de cotizaciones y ventas"
     },
     "/movements/{movementId}": {
       "schema": "Movement",
-      "description": "Historial de Kardex de todos los productos"
-    },
-    "/categories/{categoryId}": {
-      "schema": "Category",
-      "description": "Lista maestra de categorías"
-    },
-    "/collections/{collectionId}": {
-      "schema": "Collection",
-      "description": "Lista maestra de colecciones"
+      "description": "Kardex de stock"
     }
   }
 }
