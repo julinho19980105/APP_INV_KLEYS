@@ -23,8 +23,8 @@ import {
   X,
   Edit2,
   Image as ImageIcon,
-  MessageSquare,
-  Bluetooth
+  Bluetooth,
+  FileText
 } from "lucide-react"
 import { 
   DropdownMenu, 
@@ -47,6 +47,7 @@ export default function SalesPage() {
   const [statusFilter, setStatusFilter] = React.useState<string>("active")
   const [confirmAnnulId, setConfirmAnnulId] = React.useState<string | null>(null)
   const [bleDevice, setBleDevice] = React.useState<BluetoothDevice | null>(null)
+  const [bleCharacteristic, setBleCharacteristic] = React.useState<BluetoothRemoteGATTCharacteristic | null>(null)
   const receiptRef = React.useRef<HTMLDivElement>(null)
   const [activeReceipt, setActiveReceipt] = React.useState<any>(null)
   
@@ -115,25 +116,81 @@ export default function SalesPage() {
     }
   }
 
+  // Utilidad para limpiar texto industrial (eliminar Ñ y tildes)
+  const sanitize = (text: string) => {
+    return text
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/ñ/g, "n")
+      .replace(/Ñ/g, "N")
+      .substring(0, 32); // Limitar ancho para térmicas de 58/80mm
+  }
+
   const handlePrintBLE = async (sale: any) => {
-    if (!bleDevice) {
+    if (!bleDevice || !bleCharacteristic) {
       try {
-        toast({ title: "BUSCANDO IMPRESORA..." })
+        toast({ title: "VINCULANDO IMPRESORA..." })
+        // Filtrar por impresoras compatibles (Servicio de escritura genérico)
         const device = await (navigator as any).bluetooth.requestDevice({
           acceptAllDevices: true,
           optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb']
         })
-        setBleDevice(device)
-        toast({ title: "VINCULADO EXITOSAMENTE", description: "Presiona imprimir nuevamente." })
+        
+        const server = await device.gatt.connect()
+        // Intentar encontrar el servicio de impresión común
+        const services = await server.getPrimaryServices()
+        let char = null
+        for (const service of services) {
+          const characteristics = await service.getCharacteristics()
+          char = characteristics.find((c: any) => c.properties.write || c.properties.writeWithoutResponse)
+          if (char) break
+        }
+
+        if (char) {
+          setBleDevice(device)
+          setBleCharacteristic(char)
+          toast({ title: "CONEXIÓN ESTABLECIDA", description: "Presiona Imprimir de nuevo." })
+        } else {
+          toast({ variant: "destructive", title: "IMPRESORA NO SOPORTADA" })
+        }
       } catch (e) {
-        toast({ variant: "destructive", title: "CONEXIÓN CANCELADA" })
+        toast({ variant: "destructive", title: "FALLO DE CONEXIÓN" })
       }
       return
     }
 
-    toast({ title: "IMPRIMIENDO TICKET..." })
-    // Real ESC/POS logic would go here
-    setTimeout(() => toast({ title: "TICKET EMITIDO" }), 1500)
+    try {
+      toast({ title: "EMITIENDO TICKET DIVA..." })
+      const companyName = companySettings?.companyName || "DIVA INDUSTRIAL";
+      
+      const encoder = new TextEncoder()
+      let ticketData = `\x1B\x40` // Inicializar
+      ticketData += `\x1B\x61\x01` // Centrar
+      ticketData += `\x1B\x21\x30${sanitize(companyName)}\n`
+      ticketData += `\x1B\x21\x00BOLETA: ${sale.id}\n`
+      ticketData += `--------------------------------\n`
+      ticketData += `\x1B\x61\x00` // Izquierda
+      ticketData += `CLIENTE: ${sanitize(sale.customerName)}\n`
+      ticketData += `FECHA: ${new Date().toLocaleDateString()}\n`
+      ticketData += `--------------------------------\n`
+      
+      sale.items.forEach((i: any) => {
+        ticketData += `${sanitize(i.name)}\n`
+        ticketData += `${i.quantity} x S/ ${i.price.toFixed(2)}  S/ ${(i.quantity * i.price - i.discount).toFixed(2)}\n`
+      })
+      
+      ticketData += `--------------------------------\n`
+      ticketData += `\x1B\x61\x02` // Derecha
+      ticketData += `\x1B\x21\x10TOTAL: S/ ${sale.total.toFixed(2)}\n`
+      ticketData += `\x1B\x21\x00\n\n\n\n\x1D\x56\x42\x00` // Espacio y corte
+
+      await bleCharacteristic.writeValue(encoder.encode(ticketData))
+      toast({ title: "TICKET IMPRESO" })
+    } catch (err) {
+      toast({ variant: "destructive", title: "ERROR DE IMPRESIÓN", description: "Revisa la conexión BLE." })
+      setBleDevice(null)
+      setBleCharacteristic(null)
+    }
   }
 
   const handleSendImage = async (sale: any) => {
@@ -214,8 +271,16 @@ export default function SalesPage() {
                       <div className="flex justify-between items-center pr-8 md:pr-16">
                         <div className="flex items-center gap-2">
                           <span className="font-black text-base text-black">{s.id}</span>
-                          <Badge variant="outline" className={cn("text-[7px] font-black h-4 px-2 uppercase", s.status === 'annulled' ? "border-destructive text-destructive" : "border-black/10")}>
-                            {s.status}
+                          <Badge 
+                            variant="outline" 
+                            className={cn(
+                              "text-[7px] font-black h-4 px-2 uppercase border-none", 
+                              s.status === 'active' && "bg-green-100 text-green-700",
+                              s.status === 'shipped' && "bg-blue-100 text-blue-700",
+                              s.status === 'annulled' && "bg-red-100 text-red-700"
+                            )}
+                          >
+                            {s.status === 'active' ? 'ACTIVO' : s.status === 'shipped' ? 'ENVIADO' : 'ANULADO'}
                           </Badge>
                         </div>
                         <span className="font-headline font-black text-xl text-black">S/ {s.total?.toFixed(2)}</span>
@@ -252,6 +317,13 @@ export default function SalesPage() {
                             </DropdownMenuItem>
                             <DropdownMenuItem className="text-[11px] font-black uppercase gap-3 p-4 rounded-xl" onClick={() => handleSendImage(s)}>
                               <ImageIcon className="w-4 h-4" /> Enviar Imagen
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="text-[11px] font-black uppercase gap-3 p-4 rounded-xl" onClick={() => {
+                              const summary = `Venta ${s.id}\nCliente: ${s.customerName}\nTotal: S/ ${s.total.toFixed(2)}\n\nItems:\n${s.items.map((i: any) => `- ${i.name} (${i.quantity})`).join('\n')}`;
+                              navigator.clipboard.writeText(summary);
+                              toast({ title: "RESUMEN COPIADO", description: "Listo para enviar por texto." });
+                            }}>
+                              <FileText className="w-4 h-4" /> Enviar Texto
                             </DropdownMenuItem>
                             <DropdownMenuItem className="text-[11px] font-black uppercase gap-3 p-4 rounded-xl text-destructive" onClick={() => setConfirmAnnulId(s.id)}>
                               <Ban className="w-4 h-4" /> Anular Boleta

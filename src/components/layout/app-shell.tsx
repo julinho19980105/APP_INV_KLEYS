@@ -49,11 +49,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="flex min-h-screen w-full bg-background overflow-hidden">
         <AppSidebar pathname={pathname} />
         <SidebarInset className="flex-1 overflow-auto bg-background">
-          {/* Mobile Header */}
-          <header className="md:hidden flex items-center justify-between p-4 bg-white border-b sticky top-0 z-50 shadow-sm">
+          {/* Mobile Header Industrial */}
+          <header className="md:hidden flex items-center justify-between p-4 bg-white border-b-2 border-black sticky top-0 z-50 shadow-sm">
             <div className="flex items-center gap-3">
-              <SidebarTrigger className="h-10 w-10 border-2 border-black rounded-xl flex items-center justify-center bg-white text-black" />
-              <span className="font-headline font-black text-xl tracking-tighter uppercase text-black">Diva App</span>
+              <SidebarTrigger className="h-10 w-10 border-2 border-black rounded-xl flex items-center justify-center bg-white text-black active:scale-95" />
+              <span className="font-headline font-black text-xl tracking-tighter uppercase text-black">Diva Industrial</span>
             </div>
           </header>
           <main className="p-4 max-w-[1600px] mx-auto w-full pt-2">
@@ -125,10 +125,10 @@ function AppSidebar({ pathname }: { pathname: string }) {
       <SidebarFooter className="border-t-2 border-black p-4 bg-black/5">
         <div className="flex items-center gap-3 p-2 rounded-2xl border-2 border-black bg-white shadow-md group-data-[collapsible=icon]:justify-center">
           <div className="w-8 h-8 rounded-full bg-black border-2 border-white shrink-0 flex items-center justify-center">
-             <span className="text-[8px] font-black text-white">D</span>
+             <span className="text-[8px] font-black text-white">AD</span>
           </div>
           <div className="flex flex-col group-data-[collapsible=icon]:hidden">
-            <span className="text-[10px] font-black text-black uppercase tracking-tighter">ADMINISTRADOR</span>
+            <span className="text-[10px] font-black text-black uppercase tracking-tighter">ADMI</span>
           </div>
         </div>
       </SidebarFooter>

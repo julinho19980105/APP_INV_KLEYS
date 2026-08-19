@@ -43,18 +43,15 @@ export default function SettingsPage() {
     if (!db) return
     setSaving(true)
     try {
+      // Guardar en Firestore (Carpeta global de configuración)
       await setDoc(doc(db, "config", "global"), {
         ...form,
         updatedAt: serverTimestamp()
       })
       
-      // Also save to localStorage for instant UI updates in components not yet using useDoc
-      localStorage.setItem('diva_settings', JSON.stringify(form))
-      window.dispatchEvent(new Event('storage'))
-      
       toast({ title: "CONFIGURACIÓN GUARDADA", description: "IDENTIDAD INDUSTRIAL ACTUALIZADA EN NUBE." })
     } catch (e) {
-      toast({ variant: "destructive", title: "ERROR AL GUARDAR" })
+      toast({ variant: "destructive", title: "ERROR AL GUARDAR EN NUBE" })
     } finally {
       setSaving(false)
     }
