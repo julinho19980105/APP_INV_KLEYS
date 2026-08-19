@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -40,7 +40,8 @@ import {
   increment, 
   getDocs, 
   limit, 
-  setDoc
+  setDoc,
+  getDoc
 } from "firebase/firestore"
 
 interface QuoteItem {
@@ -71,8 +72,11 @@ const EMPTY_ENTRY: QuoteItem = {
 
 export default function QuotesPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const editId = searchParams.get('edit')
   const { toast } = useToast()
   const db = useFirestore()
+  
   const [saving, setSaving] = React.useState(false)
   const [quoteId, setQuoteId] = React.useState("B-001")
   const [customerQuery, setCustomerQuery] = React.useState("")
@@ -81,6 +85,7 @@ export default function QuotesPage() {
   
   const [currentEntry, setCurrentEntry] = React.useState<QuoteItem>(EMPTY_ENTRY)
   const [items, setItems] = React.useState<QuoteItem[]>([])
+  const [originalItems, setOriginalItems] = React.useState<QuoteItem[]>([])
   const [confirmDeleteId, setConfirmDeleteId] = React.useState<string | null>(null)
 
   const productsRef = React.useMemo(() => db ? query(collection(db, "products"), orderBy("code")) : null, [db])
@@ -90,7 +95,7 @@ export default function QuotesPage() {
   const { data: dbCustomers = [] } = useCollection(customersRef)
 
   const fetchNextQuoteId = React.useCallback(async () => {
-    if (!db) return
+    if (!db || editId) return
     const q = query(collection(db, "quotes"), orderBy("id", "desc"), limit(1))
     const snap = await getDocs(q)
     if (!snap.empty) {
@@ -101,17 +106,47 @@ export default function QuotesPage() {
     } else {
       setQuoteId("B-001")
     }
-  }, [db])
+  }, [db, editId])
+
+  const loadQuoteForEdit = React.useCallback(async () => {
+    if (!db || !editId) return
+    const docSnap = await getDoc(doc(db, "quotes", editId))
+    if (docSnap.exists()) {
+      const data = docSnap.data()
+      setQuoteId(data.id)
+      setCustomerQuery(data.customerName)
+      // Intentar encontrar el objeto cliente si existe el ID
+      if (data.customerId && data.customerId !== "GENERIC") {
+        setSelectedCustomer({ id: data.customerId, name: data.customerName.split(' [')[0] })
+        setCustomerQuery("")
+      }
+      
+      const loadedItems = data.items.map((i: any) => ({
+        ...i,
+        quantity: i.quantity.toString(),
+        price: i.price.toString(),
+        discount: i.discount.toString(),
+        // Para items editados, el stock es el actual + lo que ya se quitó
+        stock: (dbProducts.find(p => p.code === i.productId)?.stock || 0)
+      }))
+      setItems(loadedItems)
+      setOriginalItems(loadedItems)
+    }
+  }, [db, editId, dbProducts])
 
   React.useEffect(() => {
-    fetchNextQuoteId()
-  }, [fetchNextQuoteId])
+    if (editId) {
+      loadQuoteForEdit()
+    } else {
+      fetchNextQuoteId()
+    }
+  }, [editId, fetchNextQuoteId, loadQuoteForEdit])
 
   const customerSuggestions = React.useMemo(() => {
     if (customerQuery.length < 2) return []
     const q = customerQuery.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     return dbCustomers.filter(c => 
-      c.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(q) ||
+      c.name?.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(q) ||
       c.id.toLowerCase().includes(q)
     )
   }, [customerQuery, dbCustomers])
@@ -210,7 +245,26 @@ export default function QuotesPage() {
     if (!db || items.length === 0 || (!selectedCustomer && !customerQuery)) return
     const finalCustomerName = selectedCustomer ? `${selectedCustomer.name} [${selectedCustomer.id}]` : customerQuery.toUpperCase().trim()
     setSaving(true)
+    
     try {
+      // 1. Si es edición, revertir stock de items originales
+      if (editId && originalItems.length > 0) {
+        for (const item of originalItems) {
+          if (item.isRegistered && item.productId !== "MANUAL") {
+            const qty = Number(item.quantity)
+            await updateDoc(doc(db, "products", item.productId), { stock: increment(qty) })
+            await addDoc(collection(db, "movements"), {
+              productCode: item.productId,
+              type: "return",
+              quantity: qty,
+              reason: `EDICIÓN BOLETA ${quoteId} - RETORNO STOCK`,
+              timestamp: serverTimestamp()
+            })
+          }
+        }
+      }
+
+      // 2. Guardar/Actualizar la venta
       await setDoc(doc(db, "quotes", quoteId), {
         id: quoteId,
         customerName: finalCustomerName,
@@ -221,21 +275,22 @@ export default function QuotesPage() {
         createdAt: serverTimestamp()
       })
 
+      // 3. Aplicar nuevas salidas de stock
       for (const item of items) {
         if (item.isRegistered && item.productId !== "MANUAL") {
           const qty = Number(item.quantity || 0)
-          updateDoc(doc(db, "products", item.productId), { stock: increment(-qty) })
-          addDoc(collection(db, "movements"), {
+          await updateDoc(doc(db, "products", item.productId), { stock: increment(-qty) })
+          await addDoc(collection(db, "movements"), {
             productCode: item.productId,
             type: "out",
             quantity: qty,
-            reason: `VENTA ${quoteId} - ${finalCustomerName}`,
+            reason: `${editId ? 'EDICIÓN' : 'VENTA'} ${quoteId} - ${finalCustomerName}`,
             timestamp: serverTimestamp()
           })
         }
       }
 
-      toast({ title: "VENTA REGISTRADA", description: `BOLETA ${quoteId} GUARDADA.` })
+      toast({ title: editId ? "VENTA ACTUALIZADA" : "VENTA REGISTRADA", description: `BOLETA ${quoteId} GUARDADA.` })
       router.push('/sales')
     } catch (e) {
       toast({ variant: "destructive", title: "ERROR CRÍTICO" })
@@ -260,7 +315,9 @@ export default function QuotesPage() {
     <div className="max-w-6xl mx-auto space-y-6 pb-24 pt-2">
       <div className="flex justify-between items-end border-b-2 border-black pb-4">
         <div>
-          <h1 className="text-4xl font-headline font-black text-black uppercase tracking-tight">COTIZACIÓN</h1>
+          <h1 className="text-4xl font-headline font-black text-black uppercase tracking-tight">
+            {editId ? 'EDITAR VENTA' : 'COTIZACIÓN'}
+          </h1>
           <Badge variant="outline" className="text-[9px] font-black border-black/20 uppercase tracking-[0.2em] px-3 mt-1">Serie {quoteId}</Badge>
         </div>
       </div>
@@ -394,7 +451,6 @@ export default function QuotesPage() {
             <div className="space-y-1">
               <Label className="text-[8px] font-black uppercase text-black/40 ml-1">Descripción / Notas Adicionales</Label>
               <Input 
-                placeholder="ESCRIBE AQUÍ CARACTERÍSTICAS DE LA PRENDA..." 
                 className="h-10 text-[10px] font-black uppercase bg-black/5 border-none rounded-xl px-5"
                 value={currentEntry.description}
                 onChange={e => setCurrentEntry({...currentEntry, description: e.target.value})}
@@ -506,7 +562,7 @@ export default function QuotesPage() {
           disabled={saving || items.length === 0 || (!selectedCustomer && !customerQuery)}
         >
           {saving ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6" />}
-          GUARDAR VENTA
+          {editId ? 'ACTUALIZAR VENTA' : 'GUARDAR VENTA'}
         </Button>
       </div>
     </div>

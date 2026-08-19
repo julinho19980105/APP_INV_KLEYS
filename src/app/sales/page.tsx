@@ -2,6 +2,7 @@
 "use client"
 
 import * as React from "react"
+import { useRouter } from "next/navigation"
 import { 
   Table, 
   TableBody, 
@@ -39,6 +40,7 @@ import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 
 export default function SalesPage() {
+  const router = useRouter()
   const db = useFirestore()
   const { toast } = useToast()
   const [searchQuery, setSearchQuery] = React.useState("")
@@ -100,6 +102,10 @@ export default function SalesPage() {
     } catch (e) {
       toast({ variant: "destructive", title: "ERROR AL ANULAR" })
     }
+  }
+
+  const handleEdit = (id: string) => {
+    router.push(`/quotes?edit=${id}`)
   }
 
   return (
@@ -170,7 +176,10 @@ export default function SalesPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="rounded-2xl border-black/10 shadow-2xl p-2 w-48">
-                            <DropdownMenuItem className="text-[10px] font-black uppercase gap-3 p-3 rounded-xl cursor-pointer">
+                            <DropdownMenuItem 
+                              className="text-[10px] font-black uppercase gap-3 p-3 rounded-xl cursor-pointer"
+                              onClick={() => handleEdit(s.id)}
+                            >
                               <Edit2 className="w-4 h-4" /> Editar Venta
                             </DropdownMenuItem>
                             <DropdownMenuItem className="text-[10px] font-black uppercase gap-3 p-3 rounded-xl cursor-pointer">
