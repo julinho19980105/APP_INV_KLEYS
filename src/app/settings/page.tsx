@@ -46,6 +46,7 @@ export default function SettingsPage() {
     setSaving(true)
     try {
       // Validar tamaño del logo si existe (Firestore tiene límite de 1MB por documento)
+      // Base64 ocupa más espacio, así que limitamos a 600KB reales aproximadamente
       if (form.companyLogo && form.companyLogo.length > 800000) {
         toast({ 
           variant: "destructive", 
@@ -61,7 +62,7 @@ export default function SettingsPage() {
         updatedAt: serverTimestamp()
       })
       
-      toast({ title: "CONFIGURACIÓN GUARDADA", description: "IDENTIDAD INDUSTRIAL ACTUALIZADA EN NUBE." })
+      toast({ title: "CONFIGURACIÓN GUARDADA", description: "IDENTIDAD ACTUALIZADA EN NUBE." })
     } catch (e) {
       toast({ variant: "destructive", title: "ERROR AL GUARDAR EN NUBE" })
     } finally {

@@ -132,7 +132,7 @@ export default function SalesPage() {
   const handlePrintBLE = async (sale: any) => {
     if (!bleDevice || !bleCharacteristic) {
       try {
-        toast({ title: "VINCULANDO IMPRESORA..." })
+        toast({ title: "BUSCANDO IMPRESORA..." })
         const device = await (navigator as any).bluetooth.requestDevice({
           acceptAllDevices: true,
           optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb', '0000ff00-0000-1000-8000-00805f9b34fb']
@@ -152,42 +152,38 @@ export default function SalesPage() {
           setBleCharacteristic(char)
           toast({ title: "IMPRESORA CONECTADA", description: "PULSE IMPRIMIR OTRA VEZ." })
         } else {
-          toast({ variant: "destructive", title: "ERROR DE COMPATIBILIDAD" })
+          toast({ variant: "destructive", title: "IMPRESORA NO COMPATIBLE" })
         }
       } catch (e) {
-        toast({ variant: "destructive", title: "CONEXIÓN CANCELADA" })
+        toast({ variant: "destructive", title: "ERROR DE CONEXIÓN" })
       }
       return
     }
 
     try {
-      toast({ title: "IMPRIMIENDO..." })
+      toast({ title: "GENERANDO TICKET..." })
       const companyName = companySettings?.companyName || "DIVA INDUSTRIAL";
       const printerWidth = parseInt(companySettings?.printerWidth || "80");
       const charLimit = printerWidth === 80 ? 48 : 32;
       
-      const encoder = new TextEncoder()
       let t = `\x1B\x40` // Reset
       t += `\x1B\x61\x01` // Center
       t += `\x1B\x21\x30${sanitize(companyName).toUpperCase()}\n`
-      t += `\x1B\x21\x08BOLETA INTERNA: ${sale.id}\n`
-      t += `\x1B\x61\x00` // Left
-      t += "-".repeat(charLimit) + "\n"
+      t += `\x1B\x21\x08BOLETA INTERNA: ${sale.id}\n\n`
       
-      // Header Hierarchical
+      t += `\x1B\x61\x00` // Left
       t += padLine("CLIENTE:", "FECHA:", charLimit) + "\n"
       const dateStr = sale.createdAt?.toDate ? sale.createdAt.toDate().toLocaleDateString() : "";
       t += padLine(sanitize(sale.customerName).substring(0, charLimit/2), dateStr, charLimit) + "\n"
       t += "-".repeat(charLimit) + "\n"
       
-      // Product List (3 Lines)
       sale.items.forEach((i: any, idx: number) => {
-        const subtotal = `S/ ${(i.quantity * i.price - i.discount).toFixed(2)}`;
-        // Line 1: N- Name [Subtotal Right]
+        const subtotal = `S/ ${(Number(i.quantity) * Number(i.price) - Number(i.discount)).toFixed(2)}`;
+        // Línea 1: N - Nombre [Subtotal Derecha]
         t += padLine(`${idx + 1}- ${sanitize(i.name)}`, subtotal, charLimit) + "\n"
-        // Line 2: Qty x Price (-Desc)
-        t += `   ${i.quantity} x S/ ${i.price.toFixed(2)} (-S/ ${i.discount.toFixed(2)})\n`
-        // Line 3: Description
+        // Línea 2: Cálculo
+        t += `   ${i.quantity} x S/ ${Number(i.price).toFixed(2)} (-S/ ${Number(i.discount).toFixed(2)})\n`
+        // Línea 3: Descripción
         if (i.description) {
           t += `   ${sanitize(i.description).substring(0, charLimit - 3)}\n`
         }
@@ -195,16 +191,23 @@ export default function SalesPage() {
       
       t += "-".repeat(charLimit) + "\n"
       
-      // Totals
-      const totalQty = sale.items.reduce((acc: number, item: any) => acc + (item.quantity || 0), 0);
-      t += padLine(`CANT. TOTAL: ${totalQty}`, `TOTAL: S/ ${sale.total.toFixed(2)}`, charLimit) + "\n"
+      const totalQty = sale.items.reduce((acc: number, item: any) => acc + (Number(item.quantity) || 0), 0);
+      t += padLine(`CANT. TOTAL: ${totalQty}`, `TOTAL: S/ ${Number(sale.total).toFixed(2)}`, charLimit) + "\n"
       
       t += "\n\x1B\x61\x01" // Center
       t += "Gracias por su Compra\n"
       t += "\n\n\n\n\x1D\x56\x42\x00" // Cut
 
-      await bleCharacteristic.writeValue(encoder.encode(t))
-      toast({ title: "TICKET EMITIDO" })
+      // Chunked Writing to avoid MTU limits
+      const encoder = new TextEncoder()
+      const data = encoder.encode(t)
+      const chunkSize = 20
+      for (let i = 0; i < data.length; i += chunkSize) {
+        const chunk = data.slice(i, i + chunkSize)
+        await bleCharacteristic.writeValue(chunk)
+      }
+      
+      toast({ title: "TICKET ENVIADO" })
     } catch (err) {
       toast({ variant: "destructive", title: "ERROR DE HARDWARE" })
       setBleDevice(null)
@@ -219,20 +222,20 @@ export default function SalesPage() {
         try {
           const dataUrl = await toJpeg(receiptRef.current, { quality: 0.95, backgroundColor: '#ffffff' })
           const blob = await (await fetch(dataUrl)).blob()
-          const file = new File([blob], `Venta_${sale.id}.jpg`, { type: 'image/jpeg' })
+          const file = new File([blob], `Boleta_${sale.id}.jpg`, { type: 'image/jpeg' })
           if (navigator.share) {
             await navigator.share({ files: [file], title: `Boleta ${sale.id}` })
           } else {
             const link = document.createElement('a')
-            link.download = `Venta_${sale.id}.jpg`
+            link.download = `Boleta_${sale.id}.jpg`
             link.href = dataUrl
             link.click()
           }
         } catch (err) {
-          toast({ variant: "destructive", title: "ERROR IMAGEN" })
+          toast({ variant: "destructive", title: "ERROR AL GENERAR IMAGEN" })
         }
       }
-    }, 300)
+    }, 400)
   }
 
   const brandColor = companySettings?.brandColor || "#FF3399";
@@ -302,14 +305,14 @@ export default function SalesPage() {
                             {s.status === 'active' ? 'ACTIVO' : s.status === 'shipped' ? 'ENVIADO' : 'ANULADO'}
                           </Badge>
                         </div>
-                        <span className="font-headline font-black text-xl text-black">S/ {s.total?.toFixed(2)}</span>
+                        <span className="font-headline font-black text-xl text-black">S/ {Number(s.total).toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between items-center pr-8 md:pr-16">
                         <span className="text-[10px] font-black text-black/60 uppercase truncate max-w-[150px] md:max-w-none">
                           {s.customerName}
                         </span>
                         <span className="text-[10px] font-black text-black/40 uppercase">
-                          {s.items?.reduce((acc: number, item: any) => acc + (item.quantity || 0), 0)} UNID
+                          {s.items?.reduce((acc: number, item: any) => acc + (Number(item.quantity) || 0), 0)} UNID
                         </span>
                       </div>
                     </div>
@@ -328,23 +331,23 @@ export default function SalesPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="rounded-2xl border-black/10 shadow-2xl p-2 w-56">
-                            <DropdownMenuItem className="text-[11px] font-black uppercase gap-3 p-4 rounded-xl" onClick={() => router.push(`/quotes?edit=${s.id}`)}>
+                            <DropdownMenuItem className="text-[11px] font-black uppercase gap-3 p-4 rounded-xl cursor-pointer" onClick={() => router.push(`/quotes?edit=${s.id}`)}>
                               <Edit2 className="w-4 h-4" /> Editar Venta
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="text-[11px] font-black uppercase gap-3 p-4 rounded-xl" onClick={() => handlePrintBLE(s)}>
+                            <DropdownMenuItem className="text-[11px] font-black uppercase gap-3 p-4 rounded-xl cursor-pointer" onClick={() => handlePrintBLE(s)}>
                               {bleDevice ? <Printer className="w-4 h-4" /> : <Bluetooth className="w-4 h-4" />} {bleDevice ? 'Imprimir Ticket' : 'Conectar Impresora'}
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="text-[11px] font-black uppercase gap-3 p-4 rounded-xl" onClick={() => handleSendImage(s)}>
+                            <DropdownMenuItem className="text-[11px] font-black uppercase gap-3 p-4 rounded-xl cursor-pointer" onClick={() => handleSendImage(s)}>
                               <ImageIcon className="w-4 h-4" /> Enviar Imagen
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="text-[11px] font-black uppercase gap-3 p-4 rounded-xl" onClick={() => {
-                              const summary = `Venta ${s.id}\nCliente: ${s.customerName}\nTotal: S/ ${s.total.toFixed(2)}\n\nItems:\n${s.items.map((i: any) => `- ${i.name} (${i.quantity})`).join('\n')}`;
+                            <DropdownMenuItem className="text-[11px] font-black uppercase gap-3 p-4 rounded-xl cursor-pointer" onClick={() => {
+                              const summary = `Venta ${s.id}\nCliente: ${s.customerName}\nTotal: S/ ${Number(s.total).toFixed(2)}\n\nItems:\n${s.items.map((i: any) => `- ${i.name} (${i.quantity})`).join('\n')}`;
                               navigator.clipboard.writeText(summary);
-                              toast({ title: "RESUMEN COPIADO", description: "Listo para enviar por texto." });
+                              toast({ title: "RESUMEN COPIADO", description: "Listo para enviar." });
                             }}>
                               <FileText className="w-4 h-4" /> Enviar Texto
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="text-[11px] font-black uppercase gap-3 p-4 rounded-xl text-destructive" onClick={() => setConfirmAnnulId(s.id)}>
+                            <DropdownMenuItem className="text-[11px] font-black uppercase gap-3 p-4 rounded-xl text-destructive cursor-pointer" onClick={() => setConfirmAnnulId(s.id)}>
                               <Ban className="w-4 h-4" /> Anular Boleta
                             </DropdownMenuItem>
                           </DropdownMenuContent>
@@ -359,6 +362,7 @@ export default function SalesPage() {
         ))}
       </div>
 
+      {/* Hidden Receipt for Image Generation */}
       <div className="fixed -left-[3000px] top-0">
         {activeReceipt && (
           <div ref={receiptRef} className="w-[1000px] p-16 bg-white flex flex-col gap-10" style={{ borderTop: `25px solid ${brandColor}` }}>
@@ -400,8 +404,8 @@ export default function SalesPage() {
                       <div className="text-sm font-black uppercase opacity-40">{item.productId} | {item.description}</div>
                     </td>
                     <td className="py-8 text-3xl font-black text-center">{item.quantity}</td>
-                    <td className="py-8 text-3xl font-black text-right">S/ {item.price.toFixed(2)}</td>
-                    <td className="py-8 text-3xl font-black text-right">S/ {(item.quantity * item.price - item.discount).toFixed(2)}</td>
+                    <td className="py-8 text-3xl font-black text-right">S/ {Number(item.price).toFixed(2)}</td>
+                    <td className="py-8 text-3xl font-black text-right">S/ {(Number(item.quantity) * Number(item.price) - Number(item.discount)).toFixed(2)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -409,12 +413,12 @@ export default function SalesPage() {
             <div className="mt-10 pt-10 border-t-8 border-black flex justify-between items-end">
               <div className="space-y-1">
                 <div className="text-2xl font-black uppercase opacity-40">Cantidad Total:</div>
-                <div className="text-5xl font-black">{activeReceipt.items.reduce((acc: number, item: any) => acc + (item.quantity || 0), 0)} UND</div>
+                <div className="text-5xl font-black">{activeReceipt.items.reduce((acc: number, item: any) => acc + (Number(item.quantity) || 0), 0)} UND</div>
               </div>
               <div className="text-right space-y-2">
                 <div className="text-3xl font-black uppercase opacity-40">Monto Total Neto</div>
                 <div className="text-8xl font-headline font-black tracking-tighter" style={{ color: brandColor }}>
-                  S/ {activeReceipt.total.toFixed(2)}
+                  S/ {Number(activeReceipt.total).toFixed(2)}
                 </div>
               </div>
             </div>
