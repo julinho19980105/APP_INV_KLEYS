@@ -10,8 +10,7 @@ import {
   Truck, 
   Settings,
   Sparkles,
-  ShoppingBag,
-  Menu
+  ShoppingBag
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -29,6 +28,8 @@ import {
   useSidebar,
   SidebarTrigger
 } from "@/components/ui/sidebar"
+import { useFirestore, useDoc } from "@/firebase"
+import { doc } from "firebase/firestore"
 
 const navItems = [
   { name: "Ventas", href: "/sales", icon: ShoppingBag },
@@ -47,12 +48,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <SidebarProvider defaultOpen>
       <div className="flex min-h-screen w-full bg-background overflow-hidden">
         <AppSidebar pathname={pathname} />
-        <SidebarInset className="flex-1 overflow-auto">
+        <SidebarInset className="flex-1 overflow-auto bg-background">
           {/* Mobile Header */}
-          <header className="md:hidden flex items-center justify-between p-4 bg-white border-b sticky top-0 z-50">
+          <header className="md:hidden flex items-center justify-between p-4 bg-white border-b sticky top-0 z-50 shadow-sm">
             <div className="flex items-center gap-3">
-              <SidebarTrigger className="h-10 w-10 border rounded-xl" />
-              <span className="font-headline font-black text-xl tracking-tighter uppercase">Diva App</span>
+              <SidebarTrigger className="h-10 w-10 border-2 border-black rounded-xl flex items-center justify-center bg-white text-black" />
+              <span className="font-headline font-black text-xl tracking-tighter uppercase text-black">Diva App</span>
             </div>
           </header>
           <main className="p-4 max-w-[1600px] mx-auto w-full pt-2">
@@ -66,29 +67,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
 function AppSidebar({ pathname }: { pathname: string }) {
   const { toggleSidebar } = useSidebar()
-  const [settings, setSettings] = React.useState({
-    companyName: "StiloStack",
-    companyLogo: ""
-  })
+  const db = useFirestore()
+  const configDocRef = React.useMemo(() => db ? doc(db, "config", "global") : null, [db])
+  const { data: companySettings } = useDoc(configDocRef)
 
-  React.useEffect(() => {
-    const loadSettings = () => {
-      const saved = localStorage.getItem('diva_settings')
-      if (saved) setSettings(JSON.parse(saved))
-    }
-    loadSettings()
-    window.addEventListener('storage', loadSettings)
-    return () => window.removeEventListener('storage', loadSettings)
-  }, [])
+  const settings = {
+    companyName: companySettings?.companyName || "StiloStack",
+    companyLogo: companySettings?.companyLogo || ""
+  }
 
   return (
-    <Sidebar collapsible="icon" className="border-r border-sidebar-border shadow-2xl">
-      <SidebarHeader className="h-20 flex items-center px-4 border-b border-sidebar-border bg-white">
+    <Sidebar collapsible="icon" className="border-r-2 border-black shadow-2xl bg-white">
+      <SidebarHeader className="h-20 flex items-center px-4 border-b-2 border-black bg-white">
         <div 
           className="flex items-center gap-3 overflow-hidden cursor-pointer w-full" 
           onClick={toggleSidebar}
         >
-          <div className="w-10 h-10 rounded-2xl bg-black flex items-center justify-center shrink-0 shadow-lg overflow-hidden">
+          <div className="w-10 h-10 rounded-2xl bg-black flex items-center justify-center shrink-0 shadow-lg overflow-hidden border-2 border-white">
             {settings.companyLogo ? (
               <img src={settings.companyLogo} alt="Logo" className="w-full h-full object-cover" />
             ) : (
@@ -100,7 +95,7 @@ function AppSidebar({ pathname }: { pathname: string }) {
           </span>
         </div>
       </SidebarHeader>
-      <SidebarContent className="py-6 px-2">
+      <SidebarContent className="py-6 px-2 bg-white">
         <SidebarMenu>
           {navItems.map((item, index) => (
             <SidebarMenuItem key={item.name}>
@@ -109,10 +104,10 @@ function AppSidebar({ pathname }: { pathname: string }) {
                 isActive={pathname === item.href}
                 tooltip={item.name}
                 className={cn(
-                  "h-12 px-4 rounded-xl transition-all duration-300 mb-1",
+                  "h-12 px-4 rounded-xl transition-all duration-300 mb-1 border-2 border-transparent",
                   pathname === item.href 
-                    ? "bg-black text-white shadow-lg scale-105" 
-                    : "hover:bg-black/5 hover:text-black"
+                    ? "bg-black text-white shadow-xl scale-105 border-black" 
+                    : "hover:bg-black/5 hover:text-black hover:border-black/10"
                 )}
               >
                 <Link href={item.href}>
@@ -127,13 +122,13 @@ function AppSidebar({ pathname }: { pathname: string }) {
           ))}
         </SidebarMenu>
       </SidebarContent>
-      <SidebarFooter className="border-t border-sidebar-border p-4 bg-black/5">
-        <div className="flex items-center gap-3 p-2 rounded-2xl border border-black/10 bg-white shadow-sm group-data-[collapsible=icon]:justify-center">
+      <SidebarFooter className="border-t-2 border-black p-4 bg-black/5">
+        <div className="flex items-center gap-3 p-2 rounded-2xl border-2 border-black bg-white shadow-md group-data-[collapsible=icon]:justify-center">
           <div className="w-8 h-8 rounded-full bg-black border-2 border-white shrink-0 flex items-center justify-center">
              <span className="text-[8px] font-black text-white">D</span>
           </div>
           <div className="flex flex-col group-data-[collapsible=icon]:hidden">
-            <span className="text-[10px] font-black text-black uppercase tracking-tighter">ADMI</span>
+            <span className="text-[10px] font-black text-black uppercase tracking-tighter">ADMINISTRADOR</span>
           </div>
         </div>
       </SidebarFooter>

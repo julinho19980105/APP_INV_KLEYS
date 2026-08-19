@@ -2,33 +2,62 @@
 "use client"
 
 import * as React from "react"
-import { Settings, Save, Sparkles, Building2, Upload, LayoutGrid, Layers, X, Palette } from "lucide-react"
+import { Settings, Save, Sparkles, Building2, Upload, LayoutGrid, Layers, X, Loader2 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { useToast } from "@/hooks/use-toast"
+import { useFirestore, useDoc } from "@/firebase"
+import { doc, setDoc, serverTimestamp } from "firebase/firestore"
 
 export default function SettingsPage() {
   const { toast } = useToast()
+  const db = useFirestore()
   const fileInputRef = React.useRef<HTMLInputElement>(null)
-  const [config, setConfig] = React.useState({
+  
+  const configDocRef = React.useMemo(() => db ? doc(db, "config", "global") : null, [db])
+  const { data: dbConfig, loading } = useDoc(configDocRef)
+
+  const [form, setForm] = React.useState({
     companyName: "StiloStack",
     companyLogo: "",
     brandColor: "#FF3399",
     inventoryViewMode: "collection"
   })
+  const [saving, setSaving] = React.useState(false)
 
   React.useEffect(() => {
-    const saved = localStorage.getItem('diva_settings')
-    if (saved) setConfig(prev => ({ ...prev, ...JSON.parse(saved) }))
-  }, [])
+    if (dbConfig) {
+      setForm({
+        companyName: dbConfig.companyName || "StiloStack",
+        companyLogo: dbConfig.companyLogo || "",
+        brandColor: dbConfig.brandColor || "#FF3399",
+        inventoryViewMode: dbConfig.inventoryViewMode || "collection"
+      })
+    }
+  }, [dbConfig])
 
-  const handleSave = () => {
-    localStorage.setItem('diva_settings', JSON.stringify(config))
-    window.dispatchEvent(new Event('storage'))
-    toast({ title: "Configuración Guardada", description: "Identidad industrial actualizada." })
+  const handleSave = async () => {
+    if (!db) return
+    setSaving(true)
+    try {
+      await setDoc(doc(db, "config", "global"), {
+        ...form,
+        updatedAt: serverTimestamp()
+      })
+      
+      // Also save to localStorage for instant UI updates in components not yet using useDoc
+      localStorage.setItem('diva_settings', JSON.stringify(form))
+      window.dispatchEvent(new Event('storage'))
+      
+      toast({ title: "CONFIGURACIÓN GUARDADA", description: "IDENTIDAD INDUSTRIAL ACTUALIZADA EN NUBE." })
+    } catch (e) {
+      toast({ variant: "destructive", title: "ERROR AL GUARDAR" })
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -36,75 +65,83 @@ export default function SettingsPage() {
     if (file) {
       const reader = new FileReader()
       reader.onloadend = () => {
-        setConfig(prev => ({ ...prev, companyLogo: reader.result as string }))
+        setForm(prev => ({ ...prev, companyLogo: reader.result as string }))
       }
       reader.readAsDataURL(file)
     }
   }
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="w-10 h-10 animate-spin text-primary" />
+      </div>
+    )
+  }
+
   return (
-    <div className="max-w-4xl mx-auto space-y-6 pt-2">
-      <div className="flex items-center gap-3">
-        <div className="w-12 h-12 bg-black/5 rounded-2xl flex items-center justify-center border border-black/10">
-          <Settings className="w-6 h-6 text-black" />
+    <div className="max-w-4xl mx-auto space-y-6 pt-2 pb-24">
+      <div className="flex items-center gap-3 border-b-2 border-black pb-4">
+        <div className="w-12 h-12 bg-black rounded-2xl flex items-center justify-center border border-black/10">
+          <Settings className="w-6 h-6 text-white" />
         </div>
         <div>
           <h1 className="text-3xl font-headline font-black text-black uppercase tracking-tight">Configuración</h1>
-          <p className="text-[10px] font-black text-primary uppercase tracking-widest">Identidad Visual y Operativa Diva</p>
+          <p className="text-[10px] font-black text-primary uppercase tracking-[0.3em] ml-1 mt-1">Identidad Industrial Diva en Nube</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card className="rounded-[2rem] border shadow-sm bg-white overflow-hidden">
-          <CardHeader className="bg-black/5 py-3 border-b">
+        <Card className="rounded-[2.5rem] border shadow-sm bg-white overflow-hidden">
+          <CardHeader className="bg-black/5 py-4 border-b">
             <CardTitle className="text-[10px] font-black text-black uppercase flex items-center gap-2">
               <Building2 className="w-4 h-4" /> Datos de Empresa
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-6 space-y-4">
-            <div className="space-y-1">
+          <CardContent className="p-8 space-y-6">
+            <div className="space-y-1.5">
               <Label className="text-[9px] font-black uppercase text-black ml-1">Nombre del Sistema</Label>
               <Input 
-                value={config.companyName}
-                onChange={e => setConfig({...config, companyName: e.target.value})}
-                className="h-10 font-black border-black/10 rounded-xl text-black uppercase bg-black/5" 
+                value={form.companyName}
+                onChange={e => setForm({...form, companyName: e.target.value})}
+                className="h-12 font-black border-black/10 rounded-xl text-black uppercase bg-black/5" 
               />
             </div>
             
-            <div className="space-y-1">
-              <Label className="text-[9px] font-black uppercase text-black ml-1">Color de Marca (Imagen/Ticket)</Label>
+            <div className="space-y-1.5">
+              <Label className="text-[9px] font-black uppercase text-black ml-1">Color de Marca (Ticket/Proforma)</Label>
               <div className="flex gap-2">
                 <Input 
                   type="color"
-                  value={config.brandColor}
-                  onChange={e => setConfig({...config, brandColor: e.target.value})}
-                  className="w-12 h-10 p-1 rounded-xl cursor-pointer"
+                  value={form.brandColor}
+                  onChange={e => setForm({...form, brandColor: e.target.value})}
+                  className="w-16 h-12 p-1 rounded-xl cursor-pointer border-black/10"
                 />
                 <Input 
-                  value={config.brandColor}
-                  onChange={e => setConfig({...config, brandColor: e.target.value})}
-                  className="flex-1 h-10 font-black border-black/10 rounded-xl text-black uppercase"
+                  value={form.brandColor}
+                  onChange={e => setForm({...form, brandColor: e.target.value})}
+                  className="flex-1 h-12 font-black border-black/10 rounded-xl text-black uppercase"
                 />
               </div>
             </div>
 
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <Label className="text-[9px] font-black uppercase text-black ml-1">Logo Principal</Label>
-              <div className="w-full h-40 rounded-2xl bg-black/5 border-2 border-dashed border-black/10 flex items-center justify-center overflow-hidden relative group">
-                {config.companyLogo ? (
+              <div className="w-full h-48 rounded-[2rem] bg-black/5 border-2 border-dashed border-black/10 flex items-center justify-center overflow-hidden relative group">
+                {form.companyLogo ? (
                   <>
-                    <img src={config.companyLogo} alt="Preview" className="w-full h-full object-contain p-4" />
+                    <img src={form.companyLogo} alt="Preview" className="w-full h-full object-contain p-6" />
                     <button 
-                      onClick={() => setConfig(p => ({ ...p, companyLogo: "" }))}
-                      className="absolute top-2 right-2 p-1 bg-destructive text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => setForm(p => ({ ...p, companyLogo: "" }))}
+                      className="absolute top-4 right-4 p-2 bg-destructive text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
                     >
-                      <X className="w-4 h-4" />
+                      <X className="w-5 h-5" />
                     </button>
                   </>
                 ) : (
-                  <div className="flex flex-col items-center gap-2 opacity-20">
-                    <Upload className="w-10 h-10" />
-                    <span className="text-[10px] font-black uppercase">Subir logo</span>
+                  <div className="flex flex-col items-center gap-3 opacity-20">
+                    <Upload className="w-12 h-12" />
+                    <span className="text-[10px] font-black uppercase tracking-widest">Subir logo industrial</span>
                   </div>
                 )}
                 <input type="file" hidden ref={fileInputRef} onChange={handleFileChange} accept="image/*" />
@@ -114,47 +151,52 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        <Card className="rounded-[2rem] border shadow-sm bg-white overflow-hidden">
-          <CardHeader className="bg-black/5 py-3 border-b">
+        <Card className="rounded-[2.5rem] border shadow-sm bg-white overflow-hidden">
+          <CardHeader className="bg-black/5 py-4 border-b">
             <CardTitle className="text-[10px] font-black text-black uppercase flex items-center gap-2">
               <Sparkles className="w-4 h-4" /> Preferencias Operativas
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-6 space-y-6">
-             <div className="space-y-3">
-               <Label className="text-[9px] font-black uppercase text-black ml-1">Vista Inicial Almacén</Label>
+          <CardContent className="p-8 space-y-8">
+             <div className="space-y-4">
+               <Label className="text-[9px] font-black uppercase text-black ml-1">Vista Inicial de Almacén</Label>
                <RadioGroup 
-                 value={config.inventoryViewMode} 
-                 onValueChange={v => setConfig({...config, inventoryViewMode: v})}
-                 className="grid grid-cols-2 gap-4"
+                 value={form.inventoryViewMode} 
+                 onValueChange={v => setForm({...form, inventoryViewMode: v})}
+                 className="grid grid-cols-1 gap-4"
                >
-                 <div className="flex items-center space-x-2 bg-black/5 p-4 rounded-2xl border-2 border-transparent cursor-pointer has-[:checked]:border-primary transition-all">
+                 <div className="flex items-center space-x-3 bg-black/5 p-6 rounded-[1.5rem] border-2 border-transparent cursor-pointer has-[:checked]:border-primary transition-all">
                    <RadioGroupItem value="collection" id="v-collection" />
-                   <Label htmlFor="v-collection" className="text-[10px] font-black uppercase cursor-pointer flex items-center gap-2">
-                     <LayoutGrid className="w-3 h-3" /> Colección
+                   <Label htmlFor="v-collection" className="text-[11px] font-black uppercase cursor-pointer flex items-center gap-3">
+                     <LayoutGrid className="w-4 h-4" /> Por Colección
                    </Label>
                  </div>
-                 <div className="flex items-center space-x-2 bg-black/5 p-4 rounded-2xl border-2 border-transparent cursor-pointer has-[:checked]:border-primary transition-all">
+                 <div className="flex items-center space-x-3 bg-black/5 p-6 rounded-[1.5rem] border-2 border-transparent cursor-pointer has-[:checked]:border-primary transition-all">
                    <RadioGroupItem value="category" id="v-category" />
-                   <Label htmlFor="v-category" className="text-[10px] font-black uppercase cursor-pointer flex items-center gap-2">
-                     <Layers className="w-3 h-3" /> Categoría
+                   <Label htmlFor="v-category" className="text-[11px] font-black uppercase cursor-pointer flex items-center gap-3">
+                     <Layers className="w-4 h-4" /> Por Categoría
                    </Label>
                  </div>
                </RadioGroup>
              </div>
              
-             <div className="p-4 bg-primary/5 rounded-2xl border border-primary/10">
-               <p className="text-[9px] font-black text-primary uppercase leading-relaxed text-center">
-                 Diva recordará tu elección para optimizar tu flujo de trabajo.
+             <div className="p-6 bg-primary/5 rounded-[1.5rem] border border-primary/10">
+               <p className="text-[10px] font-black text-primary uppercase leading-relaxed text-center tracking-widest">
+                 Diva sincronizará estos ajustes en todos tus dispositivos autorizados.
                </p>
              </div>
           </CardContent>
         </Card>
       </div>
 
-      <div className="flex justify-center pt-4 pb-20">
-        <Button onClick={handleSave} className="h-14 w-full max-w-md bg-black text-white font-black rounded-2xl shadow-xl active:scale-95 transition-all">
-          <Save className="w-5 h-5 mr-2" /> GUARDAR CONFIGURACIÓN DIVA
+      <div className="flex justify-center pt-8">
+        <Button 
+          onClick={handleSave} 
+          disabled={saving}
+          className="h-16 w-full max-w-lg bg-black text-white font-black rounded-2xl shadow-2xl active:scale-95 transition-all text-base uppercase tracking-widest"
+        >
+          {saving ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6 mr-3" />} 
+          CONFIRMAR IDENTIDAD DIVA
         </Button>
       </div>
     </div>

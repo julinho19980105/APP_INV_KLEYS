@@ -57,8 +57,19 @@
         "subtotal": { "type": "number" },
         "discount": { "type": "number" },
         "total": { "type": "number" },
-        "status": { "type": "string", "enum": ["active", "annulled"] },
+        "status": { "type": "string", "enum": ["active", "annulled", "shipped"] },
         "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "AppConfig": {
+      "title": "Configuración de Aplicación",
+      "description": "Configuración global de la identidad Diva",
+      "type": "object",
+      "properties": {
+        "companyName": { "type": "string" },
+        "companyLogo": { "type": "string" },
+        "brandColor": { "type": "string" },
+        "inventoryViewMode": { "type": "string" }
       }
     }
   },
@@ -81,6 +92,10 @@
     "/movements/{movementId}": {
       "schema": "Movement",
       "description": "Kardex de stock"
+    },
+    "/config/{configId}": {
+      "schema": "AppConfig",
+      "description": "Ajustes de identidad y sistema"
     }
   }
 }

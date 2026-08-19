@@ -24,7 +24,6 @@ import {
   Edit2,
   Image as ImageIcon,
   MessageSquare,
-  Filter,
   Bluetooth
 } from "lucide-react"
 import { 
@@ -33,7 +32,7 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu"
-import { useCollection, useFirestore } from "@/firebase"
+import { useCollection, useFirestore, useDoc } from "@/firebase"
 import { collection, query, orderBy, doc, updateDoc, increment, addDoc, serverTimestamp } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
@@ -43,6 +42,7 @@ export default function SalesPage() {
   const router = useRouter()
   const db = useFirestore()
   const { toast } = useToast()
+  
   const [searchQuery, setSearchQuery] = React.useState("")
   const [statusFilter, setStatusFilter] = React.useState<string>("active")
   const [confirmAnnulId, setConfirmAnnulId] = React.useState<string | null>(null)
@@ -50,15 +50,8 @@ export default function SalesPage() {
   const receiptRef = React.useRef<HTMLDivElement>(null)
   const [activeReceipt, setActiveReceipt] = React.useState<any>(null)
   
-  const [companySettings, setCompanySettings] = React.useState({
-    companyName: "StiloStack",
-    brandColor: "#FF3399"
-  })
-
-  React.useEffect(() => {
-    const saved = localStorage.getItem('diva_settings')
-    if (saved) setCompanySettings(JSON.parse(saved))
-  }, [])
+  const configDocRef = React.useMemo(() => db ? doc(db, "config", "global") : null, [db])
+  const { data: companySettings } = useDoc(configDocRef)
 
   const quotesRef = React.useMemo(() => db ? query(collection(db, "quotes"), orderBy("createdAt", "desc")) : null, [db])
   const { data: quotes = [] } = useCollection(quotesRef)
@@ -126,7 +119,7 @@ export default function SalesPage() {
     if (!bleDevice) {
       try {
         toast({ title: "BUSCANDO IMPRESORA..." })
-        const device = await navigator.bluetooth.requestDevice({
+        const device = await (navigator as any).bluetooth.requestDevice({
           acceptAllDevices: true,
           optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb']
         })
@@ -139,7 +132,7 @@ export default function SalesPage() {
     }
 
     toast({ title: "IMPRIMIENDO TICKET..." })
-    // Lógica de envío de datos ESC/POS real iría aquí
+    // Real ESC/POS logic would go here
     setTimeout(() => toast({ title: "TICKET EMITIDO" }), 1500)
   }
 
@@ -165,6 +158,9 @@ export default function SalesPage() {
       }
     }, 300)
   }
+
+  const brandColor = companySettings?.brandColor || "#FF3399";
+  const companyName = companySettings?.companyName || "StiloStack";
 
   return (
     <div className="space-y-6 pt-2 pb-20 max-w-4xl mx-auto px-2 md:px-0">
@@ -218,7 +214,7 @@ export default function SalesPage() {
                       <div className="flex justify-between items-center pr-8 md:pr-16">
                         <div className="flex items-center gap-2">
                           <span className="font-black text-base text-black">{s.id}</span>
-                          <Badge variant="outline" className="text-[7px] font-black h-4 px-2 uppercase border-black/10">
+                          <Badge variant="outline" className={cn("text-[7px] font-black h-4 px-2 uppercase", s.status === 'annulled' ? "border-destructive text-destructive" : "border-black/10")}>
                             {s.status}
                           </Badge>
                         </div>
@@ -272,18 +268,18 @@ export default function SalesPage() {
         ))}
       </div>
 
-      {/* Recibo oculto para JPG */}
+      {/* Hidden Receipt for JPG */}
       <div className="fixed -left-[3000px] top-0">
         {activeReceipt && (
-          <div ref={receiptRef} className="w-[1000px] p-16 bg-white flex flex-col gap-10" style={{ borderTop: `25px solid ${companySettings.brandColor}` }}>
+          <div ref={receiptRef} className="w-[1000px] p-16 bg-white flex flex-col gap-10" style={{ borderTop: `25px solid ${brandColor}` }}>
             <div className="flex justify-between items-start">
               <div className="space-y-3">
-                <h2 className="text-7xl font-headline font-black uppercase tracking-tighter">{companySettings.companyName}</h2>
+                <h2 className="text-7xl font-headline font-black uppercase tracking-tighter">{companyName}</h2>
                 <p className="text-xl font-black uppercase tracking-[0.4em] opacity-40">CARGA INDUSTRIAL - DIVA</p>
               </div>
               <div className="text-right">
                 <div className="text-3xl font-black uppercase opacity-40">Boleta Serie B</div>
-                <div className="text-6xl font-headline font-black" style={{ color: companySettings.brandColor }}>{activeReceipt.id}</div>
+                <div className="text-6xl font-headline font-black" style={{ color: brandColor }}>{activeReceipt.id}</div>
               </div>
             </div>
             <div className="h-px bg-black/10 w-full" />
@@ -324,7 +320,7 @@ export default function SalesPage() {
               <div className="text-2xl font-black uppercase opacity-50">¡GRACIAS POR SU PREFERENCIA!</div>
               <div className="text-right space-y-2">
                 <div className="text-3xl font-black uppercase opacity-40">Monto Total Neto</div>
-                <div className="text-8xl font-headline font-black tracking-tighter" style={{ color: companySettings.brandColor }}>
+                <div className="text-8xl font-headline font-black tracking-tighter" style={{ color: brandColor }}>
                   S/ {activeReceipt.total.toFixed(2)}
                 </div>
               </div>
