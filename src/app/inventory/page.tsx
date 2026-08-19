@@ -32,11 +32,10 @@ import { useCollection, useFirestore } from "@/firebase"
 import { collection, query, orderBy, doc, deleteDoc, getDocs, where, writeBatch } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 
-const ProductRow = ({ p, onEdit, onDelete, viewType }: { 
+const ProductRow = ({ p, onEdit, onDelete }: { 
   p: any, 
   onEdit: (id: string) => void,
-  onDelete: (prod: {id: string, code: string}) => void,
-  viewType: string
+  onDelete: (prod: {id: string, code: string}) => void
 }) => {
   const [confirming, setConfirming] = React.useState(false);
 
@@ -62,13 +61,11 @@ const ProductRow = ({ p, onEdit, onDelete, viewType }: {
         <div className="flex flex-col">
           <div className="flex items-center gap-2">
             <span className="font-mono text-[10px] font-black text-black/50">{p.code}</span>
-            <span className="font-black text-black text-xs uppercase truncate max-w-[150px]">{p.name}</span>
-            <span className="text-[8px] font-black bg-black/5 px-1.5 py-0.5 rounded text-black/60 uppercase">
-              {viewType === 'collection' ? p.category : p.collection}
-            </span>
+            <span className="font-black text-black text-xs uppercase truncate max-w-[200px]">{p.name}</span>
           </div>
           <div className="text-[9px] font-bold text-black/60 uppercase">
             F: {p.priceFardo} / M: {p.priceMayor} / <span className="text-primary font-black">U: {p.priceUnidad}</span>
+            <span className="ml-2 text-[8px] text-black/40">[{p.collection} | {p.category}]</span>
           </div>
         </div>
       </TableCell>
@@ -102,7 +99,7 @@ const ProductRow = ({ p, onEdit, onDelete, viewType }: {
   );
 };
 
-const MemoizedProductList = React.memo(({ groupedData, onEdit, onDelete, viewType }: any) => {
+const MemoizedProductList = React.memo(({ groupedData, onEdit, onDelete }: any) => {
   return (
     <Accordion type="multiple" className="space-y-2">
       {Object.entries(groupedData).map(([mainTitle, items]: [string, any]) => (
@@ -110,7 +107,7 @@ const MemoizedProductList = React.memo(({ groupedData, onEdit, onDelete, viewTyp
           <AccordionTrigger className="hover:no-underline py-4 px-2">
             <div className="text-sm font-black text-black uppercase tracking-tight">{mainTitle}</div>
           </AccordionTrigger>
-          <AccordionContent className="pb-4 pt-0 overflow-hidden">
+          <AccordionContent className="pb-4 pt-0">
             <div className="border rounded-xl border-black/5 overflow-hidden">
               <Table>
                 <TableBody>
@@ -119,8 +116,7 @@ const MemoizedProductList = React.memo(({ groupedData, onEdit, onDelete, viewTyp
                       key={p.id} 
                       p={p} 
                       onEdit={onEdit} 
-                      onDelete={onDelete} 
-                      viewType={viewType}
+                      onDelete={onDelete}
                     />
                   ))}
                 </TableBody>
@@ -167,7 +163,7 @@ export default function InventoryPage() {
       groups[main].push(p)
     })
 
-    // Sort items within each group by the secondary attribute
+    // Sort items within each group by the secondary attribute for flat visual order
     Object.keys(groups).forEach(key => {
       groups[key].sort((a, b) => {
         const subA = viewType === "collection" ? (a.category || "") : (a.collection || "")
@@ -185,7 +181,7 @@ export default function InventoryPage() {
     const pRef = doc(db, "products", prod.id)
     await deleteDoc(pRef)
     const mRef = collection(db, "movements")
-    const q = query(mRef, where("productCode", "==", prod.code), where("type", "in", ["in", "return"]))
+    const q = query(mRef, where("productCode", "==", prod.code))
     const snap = await getDocs(q)
     const batch = writeBatch(db)
     snap.forEach(d => batch.delete(d.ref))
@@ -207,12 +203,12 @@ export default function InventoryPage() {
 
       <Tabs defaultValue="all" className="w-full">
         <TabsList className="bg-black/5 p-1 rounded-2xl w-full justify-start overflow-hidden border">
-          <TabsTrigger value="all" className="rounded-xl px-8 data-[state=active]:bg-black data-[state=active]:text-white text-[10px] font-black uppercase">STOCK ACTUAL</TabsTrigger>
+          <TabsTrigger value="all" className="rounded-xl px-8 data-[state=active]:bg-black data-[state=active]:text-white text-[10px] font-black uppercase">STOCK ACTUAL ({viewType.toUpperCase()})</TabsTrigger>
           <TabsTrigger value="movements" className="rounded-xl px-8 data-[state=active]:bg-black data-[state=active]:text-white text-[10px] font-black uppercase">KARDEX</TabsTrigger>
         </TabsList>
         
         <TabsContent value="all" className="space-y-4 pt-2">
-          <MemoizedProductList groupedData={groupedData} onEdit={onEdit} onDelete={onDelete} viewType={viewType} />
+          <MemoizedProductList groupedData={groupedData} onEdit={onEdit} onDelete={onDelete} />
         </TabsContent>
 
         <TabsContent value="movements" className="pt-2">
