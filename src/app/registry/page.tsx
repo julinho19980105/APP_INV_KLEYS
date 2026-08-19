@@ -79,13 +79,13 @@ export default function RegistryPage() {
     reason: "Reposición de Mercadería"
   })
 
-  // Carga persistente de datos del formulario para no perder progreso al navegar
   React.useEffect(() => {
     if (!editId) {
       const saved = localStorage.getItem('diva_registry_form')
       if (saved) {
         try {
-          setForm(JSON.parse(saved));
+          const parsed = JSON.parse(saved);
+          setForm(prev => ({ ...prev, ...parsed }));
         } catch (e) {
           console.error("Error parsing saved form", e);
         }
@@ -157,9 +157,13 @@ export default function RegistryPage() {
         })
       );
 
+      // Usar form.code para el ID del documento, pero si estamos editando
+      // aseguramos que usamos el ID original (que debería ser el mismo código)
+      const targetId = editId || form.code;
+
       const productData = {
         name: form.name.toUpperCase(),
-        code: form.code,
+        code: targetId, // El código es la identidad única
         category: form.category,
         collection: form.collection,
         description: form.description,
@@ -171,19 +175,20 @@ export default function RegistryPage() {
         updatedAt: serverTimestamp()
       }
 
-      await setDoc(doc(db, "products", form.code), productData, { merge: true })
+      await setDoc(doc(db, "products", targetId), productData, { merge: true })
       
       if (!editId) {
         await addDoc(collection(db, "movements"), {
-          productCode: form.code,
+          productCode: targetId,
           type: "in",
           quantity: Number(form.stock),
           reason: "Stock Inicial / Registro Nuevo",
           timestamp: serverTimestamp()
         })
       }
+      
       localStorage.removeItem('diva_registry_form')
-      toast({ title: "Guardado", description: `Prenda ${form.code} lista.` })
+      toast({ title: "Guardado", description: `Prenda ${targetId} lista.` })
       router.push('/inventory')
     } catch (error) {
       toast({ variant: "destructive", title: "Error al guardar" })
@@ -241,7 +246,6 @@ export default function RegistryPage() {
     const mayor = Number(form.priceMayor || 0);
     const unidad = Number(form.priceUnidad || 0);
 
-    // Validación jerárquica Diva: Fardo < Mayor < Unidad
     const pricesValid = (fardo === 0 && mayor === 0 && unidad === 0) 
       ? true 
       : (fardo < mayor && mayor < unidad);
@@ -289,6 +293,19 @@ export default function RegistryPage() {
                   
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-0.5">
+                      <Label className="text-[9px] uppercase font-black text-black ml-1">Código Identidad *</Label>
+                      <Input 
+                        value={form.code} 
+                        readOnly={!!editId}
+                        disabled={!!editId}
+                        onChange={e => setForm({...form, code: e.target.value})} 
+                        className={cn(
+                          "h-10 text-black border-black/10 rounded-xl font-black text-sm uppercase",
+                          !!editId && "bg-black/5 opacity-50 cursor-not-allowed"
+                        )} 
+                      />
+                    </div>
+                    <div className="space-y-0.5">
                       <Label className="text-[9px] uppercase font-black text-black ml-1">Categoría *</Label>
                       <div className="flex gap-2">
                         <Select value={form.category} onValueChange={v => setForm({...form, category: v})}>
@@ -320,6 +337,9 @@ export default function RegistryPage() {
                         </Dialog>
                       </div>
                     </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4">
                     <div className="space-y-0.5">
                       <Label className="text-[9px] uppercase font-black text-black ml-1">Colección *</Label>
                       <div className="flex gap-2">
@@ -353,6 +373,7 @@ export default function RegistryPage() {
                       </div>
                     </div>
                   </div>
+
                   <div className="space-y-0.5">
                     <Label className="text-[9px] uppercase font-black text-black ml-1">Observaciones</Label>
                     <Textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="min-h-[80px] rounded-xl bg-black/5 p-4 text-xs font-black border-none text-black uppercase" />
@@ -396,11 +417,21 @@ export default function RegistryPage() {
               </Card>
 
               <div className="flex gap-2">
-                <Button variant="ghost" size="icon" className="h-12 w-12 rounded-2xl border-2 border-black text-black hover:bg-black/5" onClick={handleClear}><Eraser className="w-5 h-5" /></Button>
+                <Button variant="ghost" size="icon" className="h-12 w-12 rounded-2xl border-2 border-black text-black hover:bg-black/5" onClick={handleClear} title="Limpiar Borrador"><Eraser className="w-5 h-5" /></Button>
                 <Button className="flex-1 h-12 text-base rounded-2xl bg-primary text-white font-black shadow-lg" onClick={handleSave} disabled={!isFormValid || saving}>
                   {saving ? <Loader2 className="animate-spin" /> : <Save className="mr-2 w-4 h-4" />} {editId ? 'ACTUALIZAR' : 'GUARDAR'}
                 </Button>
-                {editId && <Button variant="outline" size="icon" className="h-12 w-12 rounded-2xl border-destructive text-destructive" onClick={() => router.push('/inventory')}><X className="w-6 h-6" /></Button>}
+                {editId && (
+                  <Button 
+                    variant="outline" 
+                    size="icon" 
+                    className="h-12 w-12 rounded-2xl border-destructive text-destructive hover:bg-destructive/10" 
+                    onClick={() => router.push('/inventory')}
+                    title="Descartar Edición"
+                  >
+                    <X className="w-6 h-6" />
+                  </Button>
+                )}
               </div>
             </div>
           </div>

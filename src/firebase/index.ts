@@ -13,14 +13,15 @@ let auth: Auth;
 let storage: FirebaseStorage;
 
 /**
- * Inicializa los servicios de Firebase de forma única (Singleton).
- * Se utiliza memoryLocalCache para evitar errores de aserción interna 
- * relacionados con el bloqueo de persistencia en entornos de desarrollo.
+ * Inicializa los servicios de Firebase utilizando un patrón Singleton.
+ * Configura caché en memoria para evitar errores de aserción interna y bloqueos de persistencia
+ * en entornos de desarrollo o múltiples pestañas del navegador.
  */
 export function initializeFirebase() {
   if (typeof window !== 'undefined') {
     if (!getApps().length) {
       app = initializeApp(firebaseConfig);
+      // Evita IndexedDB en desarrollo para prevenir FIRESTORE INTERNAL ASSERTION FAILED
       db = initializeFirestore(app, {
         localCache: memoryLocalCache()
       });
