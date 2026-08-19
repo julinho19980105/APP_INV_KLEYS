@@ -79,10 +79,7 @@ export default function QuotesPage() {
   const [selectedCustomer, setSelectedCustomer] = React.useState<{id: string, name: string} | null>(null)
   const [productQuery, setProductQuery] = React.useState("")
   
-  // Plantilla Fija Siempre Presente
   const [currentEntry, setCurrentEntry] = React.useState<QuoteItem>(EMPTY_ENTRY)
-  
-  // Lista de Productos Agregados
   const [items, setItems] = React.useState<QuoteItem[]>([])
   const [confirmDeleteId, setConfirmDeleteId] = React.useState<string | null>(null)
 
@@ -232,7 +229,7 @@ export default function QuotesPage() {
             productCode: item.productId,
             type: "out",
             quantity: qty,
-            reason: `VENTA ${quoteId}`,
+            reason: `VENTA ${quoteId} - ${finalCustomerName}`,
             timestamp: serverTimestamp()
           })
         }
@@ -268,7 +265,6 @@ export default function QuotesPage() {
         </div>
       </div>
 
-      {/* CABECERA 50/50 */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-1">
           <Label className="text-[9px] uppercase text-black font-black tracking-widest ml-1">CLIENTE</Label>
@@ -327,7 +323,6 @@ export default function QuotesPage() {
         </div>
       </div>
 
-      {/* PLANTILLA FIJA PERMANENTE */}
       <Card className="rounded-[2rem] border-2 border-primary/20 bg-white overflow-hidden shadow-xl">
         <div className="bg-primary/5 border-b py-3 px-8 flex justify-between items-center">
           <span className="text-[10px] font-black uppercase text-primary tracking-widest">Preparación de Prenda</span>
@@ -339,7 +334,6 @@ export default function QuotesPage() {
         </div>
         <CardContent className="p-8 space-y-6">
           <div className="space-y-6">
-            {/* LÍNEA 1: DATOS NUMÉRICOS */}
             <div className="flex items-center gap-8">
               <div className="w-16 h-16 rounded-2xl overflow-hidden border shrink-0 bg-muted shadow-md">
                 {currentEntry.img ? <img src={getThumbnailUrl(currentEntry.img)} className="w-full h-full object-cover" /> : <PackageSearch className="w-full h-full p-4 opacity-10" />}
@@ -397,7 +391,6 @@ export default function QuotesPage() {
               </div>
             </div>
 
-            {/* LÍNEA 2: DESCRIPCIÓN */}
             <div className="space-y-1">
               <Label className="text-[8px] font-black uppercase text-black/40 ml-1">Descripción / Notas Adicionales</Label>
               <Input 
@@ -408,7 +401,6 @@ export default function QuotesPage() {
               />
             </div>
 
-            {/* LÍNEA 3: ACCIÓN Y SUBTOTAL */}
             <div className="flex justify-between items-center pt-4 border-t border-black/5">
               <div className="flex items-center gap-4">
                 <span className="text-xs font-black uppercase text-black/40">SUBTOTAL PRENDA:</span>
@@ -428,7 +420,6 @@ export default function QuotesPage() {
         </CardContent>
       </Card>
 
-      {/* LISTA DE RESUMEN (CARRITO) */}
       <div className="space-y-3">
         <h2 className="text-[10px] font-black uppercase text-black/40 tracking-[0.2em] ml-2">Lista de Resumen</h2>
         <Card className="rounded-[2.5rem] border shadow-sm bg-white overflow-hidden">
@@ -497,7 +488,6 @@ export default function QuotesPage() {
         </Card>
       </div>
 
-      {/* PIE DE PÁGINA INDUSTRIAL */}
       <div className="space-y-6 pt-6">
         <div className="flex justify-between items-end border-b-4 border-black pb-6">
           <div className="space-y-1">

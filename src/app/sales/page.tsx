@@ -55,7 +55,6 @@ export default function SalesPage() {
     )
   }, [quotes, searchQuery])
 
-  // Lógica de agrupamiento por día
   const groupedSales = React.useMemo(() => {
     const groups: Record<string, { dateLabel: string, sales: any[], dayTotal: number }> = {}
     
@@ -91,7 +90,7 @@ export default function SalesPage() {
             productCode: item.productId,
             type: "return",
             quantity: qty,
-            reason: `ANULACIÓN BOLETA ${quote.id}`,
+            reason: `ANULACIÓN BOLETA ${quote.id} - RETORNO STOCK`,
             timestamp: serverTimestamp()
           })
         }
@@ -137,7 +136,6 @@ export default function SalesPage() {
                 )}>
                   <CardContent className="p-4 flex items-center justify-between">
                     <div className="flex-1 space-y-1">
-                      {/* LÍNEA 1 */}
                       <div className="flex justify-between items-center pr-12">
                         <div className="flex items-center gap-2">
                           <span className="font-black text-sm text-black">{s.id}</span>
@@ -148,7 +146,6 @@ export default function SalesPage() {
                         <span className="font-headline font-black text-base text-black">S/ {s.total?.toFixed(2)}</span>
                       </div>
                       
-                      {/* LÍNEA 2 */}
                       <div className="flex justify-between items-center pr-12">
                         <span className="text-[10px] font-black text-black/60 uppercase truncate max-w-[200px]">
                           {s.customerName}

@@ -27,7 +27,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
-import { Search, Edit2, X, Trash2, MoreVertical, Check, PackageSearch } from "lucide-react"
+import { Search, Edit2, X, Trash2, MoreVertical, Check, PackageSearch, Clock } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useCollection, useFirestore } from "@/firebase"
 import { collection, query, orderBy, doc, deleteDoc, getDocs, where, writeBatch } from "firebase/firestore"
@@ -228,7 +228,7 @@ export default function InventoryPage() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-black/5 hover:bg-black/5 border-none">
-                  <TableHead className="font-black uppercase text-[9px] text-black pl-8">Fecha</TableHead>
+                  <TableHead className="font-black uppercase text-[9px] text-black pl-8"><div className="flex items-center gap-2"><Clock className="w-3 h-3" /> Fecha y Hora</div></TableHead>
                   <TableHead className="font-black uppercase text-[9px] text-black text-center">DNI</TableHead>
                   <TableHead className="font-black uppercase text-[9px] text-black">Operación</TableHead>
                   <TableHead className="text-center font-black uppercase text-[9px] text-black">Cant</TableHead>
@@ -237,14 +237,22 @@ export default function InventoryPage() {
               </TableHeader>
               <TableBody>
                 {movements.map(m => (
-                  <TableRow key={m.id} className="hover:bg-black/5 transition-colors">
-                    <TableCell className="text-[9px] font-black text-black/60 pl-8">{m.timestamp?.toDate ? m.timestamp.toDate().toLocaleString() : ""}</TableCell>
-                    <TableCell className="text-center"><Badge variant="outline" className="font-black text-[9px] border-black/10">{m.productCode}</Badge></TableCell>
-                    <TableCell>
-                      {m.type === 'in' || m.type === 'return' ? <span className="text-green-600 font-black text-[10px] uppercase">Entrada</span> : <span className="text-destructive font-black text-[10px] uppercase">Salida</span>}
+                  <TableRow key={m.id} className="hover:bg-black/5 transition-colors border-b last:border-0">
+                    <TableCell className="text-[9px] font-black text-black/60 pl-8">
+                      {m.timestamp?.toDate ? m.timestamp.toDate().toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }).toUpperCase() : "---"}
                     </TableCell>
-                    <TableCell className="text-center font-black text-black text-sm">{m.quantity}</TableCell>
-                    <TableCell className="text-[10px] font-black uppercase text-black pr-8">{m.reason}</TableCell>
+                    <TableCell className="text-center">
+                      <Badge variant="outline" className="font-black text-[9px] border-black/10 bg-black/5">{m.productCode}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      {m.type === 'in' || m.type === 'return' ? (
+                        <span className="text-green-600 font-black text-[10px] uppercase bg-green-50 px-2 py-0.5 rounded-md border border-green-100">Entrada</span>
+                      ) : (
+                        <span className="text-destructive font-black text-[10px] uppercase bg-destructive/5 px-2 py-0.5 rounded-md border border-destructive/10">Salida</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-center font-black text-black text-xs">{m.quantity}</TableCell>
+                    <TableCell className="text-[10px] font-black uppercase text-black/70 pr-8">{m.reason}</TableCell>
                   </TableRow>
                 ))}
                 {movements.length === 0 && (
