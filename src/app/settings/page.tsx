@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from "react"
-import { Settings, Save, Sparkles, Building2, Upload, LayoutGrid, Layers, X } from "lucide-react"
+import { Settings, Save, Sparkles, Building2, Upload, LayoutGrid, Layers, X, Palette } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -16,19 +16,19 @@ export default function SettingsPage() {
   const [config, setConfig] = React.useState({
     companyName: "StiloStack",
     companyLogo: "",
+    brandColor: "#FF3399",
     inventoryViewMode: "collection"
   })
 
   React.useEffect(() => {
     const saved = localStorage.getItem('diva_settings')
-    if (saved) setConfig(JSON.parse(saved))
+    if (saved) setConfig(prev => ({ ...prev, ...JSON.parse(saved) }))
   }, [])
 
   const handleSave = () => {
     localStorage.setItem('diva_settings', JSON.stringify(config))
-    // Notificar a otros componentes (como el AppShell)
     window.dispatchEvent(new Event('storage'))
-    toast({ title: "Configuración Guardada", description: "Identidad actualizada correctamente." })
+    toast({ title: "Configuración Guardada", description: "Identidad industrial actualizada." })
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -72,37 +72,43 @@ export default function SettingsPage() {
             </div>
             
             <div className="space-y-1">
-              <Label className="text-[9px] font-black uppercase text-black ml-1">Logo Principal (Subir Archivo)</Label>
-              <div className="flex flex-col gap-4">
-                <div className="w-full h-40 rounded-2xl bg-black/5 border-2 border-dashed border-black/10 flex items-center justify-center overflow-hidden relative group">
-                  {config.companyLogo ? (
-                    <>
-                      <img src={config.companyLogo} alt="Preview" className="w-full h-full object-contain p-4" />
-                      <button 
-                        onClick={() => setConfig(p => ({ ...p, companyLogo: "" }))}
-                        className="absolute top-2 right-2 p-1 bg-destructive text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </>
-                  ) : (
-                    <div className="flex flex-col items-center gap-2 opacity-20">
-                      <Upload className="w-10 h-10" />
-                      <span className="text-[10px] font-black uppercase">Click para subir logo</span>
-                    </div>
-                  )}
-                  <input 
-                    type="file" 
-                    hidden 
-                    ref={fileInputRef} 
-                    onChange={handleFileChange} 
-                    accept="image/*" 
-                  />
-                  <button 
-                    className="absolute inset-0 w-full h-full" 
-                    onClick={() => fileInputRef.current?.click()}
-                  />
-                </div>
+              <Label className="text-[9px] font-black uppercase text-black ml-1">Color de Marca (Imagen/Ticket)</Label>
+              <div className="flex gap-2">
+                <Input 
+                  type="color"
+                  value={config.brandColor}
+                  onChange={e => setConfig({...config, brandColor: e.target.value})}
+                  className="w-12 h-10 p-1 rounded-xl cursor-pointer"
+                />
+                <Input 
+                  value={config.brandColor}
+                  onChange={e => setConfig({...config, brandColor: e.target.value})}
+                  className="flex-1 h-10 font-black border-black/10 rounded-xl text-black uppercase"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-[9px] font-black uppercase text-black ml-1">Logo Principal</Label>
+              <div className="w-full h-40 rounded-2xl bg-black/5 border-2 border-dashed border-black/10 flex items-center justify-center overflow-hidden relative group">
+                {config.companyLogo ? (
+                  <>
+                    <img src={config.companyLogo} alt="Preview" className="w-full h-full object-contain p-4" />
+                    <button 
+                      onClick={() => setConfig(p => ({ ...p, companyLogo: "" }))}
+                      className="absolute top-2 right-2 p-1 bg-destructive text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </>
+                ) : (
+                  <div className="flex flex-col items-center gap-2 opacity-20">
+                    <Upload className="w-10 h-10" />
+                    <span className="text-[10px] font-black uppercase">Subir logo</span>
+                  </div>
+                )}
+                <input type="file" hidden ref={fileInputRef} onChange={handleFileChange} accept="image/*" />
+                <button className="absolute inset-0 w-full h-full" onClick={() => fileInputRef.current?.click()} />
               </div>
             </div>
           </CardContent>
@@ -116,7 +122,7 @@ export default function SettingsPage() {
           </CardHeader>
           <CardContent className="p-6 space-y-6">
              <div className="space-y-3">
-               <Label className="text-[9px] font-black uppercase text-black ml-1">Vista Predeterminada Inventario</Label>
+               <Label className="text-[9px] font-black uppercase text-black ml-1">Vista Inicial Almacén</Label>
                <RadioGroup 
                  value={config.inventoryViewMode} 
                  onValueChange={v => setConfig({...config, inventoryViewMode: v})}
@@ -139,7 +145,7 @@ export default function SettingsPage() {
              
              <div className="p-4 bg-primary/5 rounded-2xl border border-primary/10">
                <p className="text-[9px] font-black text-primary uppercase leading-relaxed text-center">
-                 El modo elegido será el que cargue primero al abrir la pestaña de Stock Actual.
+                 Diva recordará tu elección para optimizar tu flujo de trabajo.
                </p>
              </div>
           </CardContent>

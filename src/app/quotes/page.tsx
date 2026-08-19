@@ -115,7 +115,6 @@ export default function QuotesPage() {
       const data = docSnap.data()
       setQuoteId(data.id)
       setCustomerQuery(data.customerName)
-      // Intentar encontrar el objeto cliente si existe el ID
       if (data.customerId && data.customerId !== "GENERIC") {
         setSelectedCustomer({ id: data.customerId, name: data.customerName.split(' [')[0] })
         setCustomerQuery("")
@@ -126,7 +125,6 @@ export default function QuotesPage() {
         quantity: i.quantity.toString(),
         price: i.price.toString(),
         discount: i.discount.toString(),
-        // Para items editados, el stock es el actual + lo que ya se quitó
         stock: (dbProducts.find(p => p.code === i.productId)?.stock || 0)
       }))
       setItems(loadedItems)
@@ -219,12 +217,12 @@ export default function QuotesPage() {
 
   const addCurrentToList = () => {
     if (!currentEntry.name || !currentEntry.price || !currentEntry.quantity) {
-      toast({ variant: "destructive", title: "FALTAN DATOS", description: "Complete nombre, precio y cantidad." })
+      toast({ variant: "destructive", title: "FALTAN DATOS" })
       return
     }
     const qty = Number(currentEntry.quantity)
     if (currentEntry.isRegistered && qty > currentEntry.stock) {
-      toast({ variant: "destructive", title: "STOCK INSUFICIENTE", description: `Máximo disponible: ${currentEntry.stock}` })
+      toast({ variant: "destructive", title: "STOCK INSUFICIENTE", description: `Disponibles: ${currentEntry.stock}` })
       return
     }
     
@@ -238,7 +236,7 @@ export default function QuotesPage() {
     }
     
     setCurrentEntry(EMPTY_ENTRY)
-    toast({ title: "AGREGADO A LA LISTA" })
+    toast({ title: "AÑADIDO" })
   }
 
   const handleRegisterSale = async () => {
@@ -247,7 +245,6 @@ export default function QuotesPage() {
     setSaving(true)
     
     try {
-      // 1. Si es edición, revertir stock de items originales
       if (editId && originalItems.length > 0) {
         for (const item of originalItems) {
           if (item.isRegistered && item.productId !== "MANUAL") {
@@ -264,7 +261,6 @@ export default function QuotesPage() {
         }
       }
 
-      // 2. Guardar/Actualizar la venta
       await setDoc(doc(db, "quotes", quoteId), {
         id: quoteId,
         customerName: finalCustomerName,
@@ -275,7 +271,6 @@ export default function QuotesPage() {
         createdAt: serverTimestamp()
       })
 
-      // 3. Aplicar nuevas salidas de stock
       for (const item of items) {
         if (item.isRegistered && item.productId !== "MANUAL") {
           const qty = Number(item.quantity || 0)
@@ -290,10 +285,10 @@ export default function QuotesPage() {
         }
       }
 
-      toast({ title: editId ? "VENTA ACTUALIZADA" : "VENTA REGISTRADA", description: `BOLETA ${quoteId} GUARDADA.` })
+      toast({ title: "VENTA PROCESADA" })
       router.push('/sales')
     } catch (e) {
-      toast({ variant: "destructive", title: "ERROR CRÍTICO" })
+      toast({ variant: "destructive", title: "ERROR" })
     } finally {
       setSaving(false)
     }
@@ -315,20 +310,18 @@ export default function QuotesPage() {
     <div className="max-w-6xl mx-auto space-y-6 pb-24 pt-2">
       <div className="flex justify-between items-end border-b-2 border-black pb-4">
         <div>
-          <h1 className="text-4xl font-headline font-black text-black uppercase tracking-tight">
-            {editId ? 'EDITAR VENTA' : 'COTIZACIÓN'}
-          </h1>
-          <Badge variant="outline" className="text-[9px] font-black border-black/20 uppercase tracking-[0.2em] px-3 mt-1">Serie {quoteId}</Badge>
+          <h1 className="text-4xl font-headline font-black text-black uppercase tracking-tight">COTIZACIÓN</h1>
+          <Badge variant="outline" className="text-[9px] font-black border-black/20 uppercase tracking-[0.2em] px-3 mt-1">SERIE {quoteId}</Badge>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-1">
-          <Label className="text-[9px] uppercase text-black font-black tracking-widest ml-1">CLIENTE</Label>
+          <Label className="text-[9px] uppercase text-black font-black ml-1">CLIENTE</Label>
           <div className="relative">
             <Input 
               placeholder="NOMBRE O ID..." 
-              className="h-11 text-xs font-black text-black uppercase rounded-xl border-black/10 bg-white"
+              className="h-11 text-xs font-black uppercase rounded-xl border-black/10 bg-white"
               value={selectedCustomer ? `${selectedCustomer.name} [${selectedCustomer.id}]` : customerQuery}
               onChange={e => { if (selectedCustomer) setSelectedCustomer(null); setCustomerQuery(e.target.value); }}
             />
@@ -348,7 +341,7 @@ export default function QuotesPage() {
         </div>
 
         <div className="space-y-1">
-          <Label className="text-[9px] uppercase font-black text-black tracking-widest ml-1">BUSCAR PRENDA (DNI)</Label>
+          <Label className="text-[9px] uppercase font-black text-black ml-1">BUSCAR PRENDA</Label>
           <div className="relative">
             <Search className="absolute left-3 top-3.5 h-4 w-4 text-black/40" />
             <Input 
@@ -361,12 +354,12 @@ export default function QuotesPage() {
               <div className="absolute z-50 w-full mt-2 bg-white border rounded-2xl shadow-2xl overflow-hidden right-0">
                 {productSuggestions.map(p => (
                   <button key={p.code} className="w-full text-left px-4 py-3 hover:bg-black/5 flex items-center gap-3 border-b last:border-0" onClick={() => selectProductForEntry(p)}>
-                    <div className="w-10 h-10 rounded-lg overflow-hidden border bg-muted shrink-0 shadow-sm">
+                    <div className="w-10 h-10 rounded-lg overflow-hidden border bg-muted shrink-0">
                       {p.images?.[0] ? <img src={getThumbnailUrl(p.images[0])} alt="" className="w-full h-full object-cover" /> : <PackageSearch className="w-full h-full p-2 opacity-20" />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="font-black text-[10px] text-black uppercase truncate">{p.name}</div>
-                      <div className="text-[7px] font-black text-black/40 uppercase">{p.code} | {p.category} | {p.collection}</div>
+                      <div className="text-[7px] font-black text-black/40 uppercase">{p.code} | {p.category}</div>
                     </div>
                     <Plus className="w-4 h-4 text-primary" />
                   </button>
@@ -382,189 +375,167 @@ export default function QuotesPage() {
 
       <Card className="rounded-[2rem] border-2 border-primary/20 bg-white overflow-hidden shadow-xl">
         <div className="bg-primary/5 border-b py-3 px-8 flex justify-between items-center">
-          <span className="text-[10px] font-black uppercase text-primary tracking-widest">Preparación de Prenda</span>
+          <span className="text-[10px] font-black uppercase text-primary tracking-widest">PREPARACIÓN DE PRENDA</span>
           {currentEntry.name && (
             <Badge variant="outline" className={cn("font-black text-[10px] px-3", currentEntry.isRegistered ? "bg-green-50 text-green-600 border-green-200" : "bg-orange-50 text-orange-600 border-orange-200")}>
-              {currentEntry.isRegistered ? `STOCK: ${currentEntry.stock}` : 'MANUAL'}
+              {currentEntry.isRegistered ? `STOCK: ${currentEntry.stock}` : 'REGISTRO MANUAL'}
             </Badge>
           )}
         </div>
         <CardContent className="p-8 space-y-6">
-          <div className="space-y-6">
-            <div className="flex items-center gap-8">
-              <div className="w-16 h-16 rounded-2xl overflow-hidden border shrink-0 bg-muted shadow-md">
-                {currentEntry.img ? <img src={getThumbnailUrl(currentEntry.img)} className="w-full h-full object-cover" /> : <PackageSearch className="w-full h-full p-4 opacity-10" />}
-              </div>
-              <div className="flex-1 grid grid-cols-4 gap-6">
-                <div className="space-y-1">
-                  <div className="font-black text-sm text-black uppercase truncate">{currentEntry.name || '---'}</div>
-                  <div className="text-[9px] font-black uppercase text-black/40">{currentEntry.productId || 'SIN SELECCIÓN'}</div>
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[8px] font-black uppercase text-black/40 ml-1">P. Unitario</Label>
-                  <div className="flex gap-2">
-                    <Input 
-                      type="number" 
-                      className="h-10 text-xs font-black border-black/10 rounded-xl bg-white" 
-                      value={currentEntry.price} 
-                      onChange={e => setCurrentEntry({...currentEntry, price: e.target.value})} 
-                    />
-                    {currentEntry.isRegistered && currentEntry.productId && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="outline" size="icon" className="h-10 w-10 shrink-0 border-black/10 rounded-xl"><ChevronDown className="w-4 h-4" /></Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent className="rounded-xl font-black text-[10px] uppercase p-2">
-                          {dbProducts.find(p => p.code === currentEntry.productId) && (
-                            <>
-                              <DropdownMenuItem onClick={() => setCurrentEntry({...currentEntry, price: dbProducts.find(p => p.code === currentEntry.productId).priceFardo.toString()})}>Fardo: {dbProducts.find(p => p.code === currentEntry.productId).priceFardo}</DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => setCurrentEntry({...currentEntry, price: dbProducts.find(p => p.code === currentEntry.productId).priceMayor.toString()})}>Mayor: {dbProducts.find(p => p.code === currentEntry.productId).priceMayor}</DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => setCurrentEntry({...currentEntry, price: dbProducts.find(p => p.code === currentEntry.productId).priceUnidad.toString()})}>Unidad: {dbProducts.find(p => p.code === currentEntry.productId).priceUnidad}</DropdownMenuItem>
-                            </>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[8px] font-black uppercase text-black/40 ml-1">Cantidad</Label>
+          <div className="flex items-center gap-8">
+            <div className="w-16 h-16 rounded-2xl overflow-hidden border shrink-0 bg-muted shadow-md">
+              {currentEntry.img ? <img src={getThumbnailUrl(currentEntry.img)} className="w-full h-full object-cover" /> : <PackageSearch className="w-full h-full p-4 opacity-10" />}
+            </div>
+            <div className="flex-1 grid grid-cols-3 gap-6">
+              <div className="space-y-1">
+                <Label className="text-[8px] font-black uppercase text-black/40 ml-1">PRECIO UNITARIO</Label>
+                <div className="flex gap-2">
                   <Input 
                     type="number" 
-                    className="h-10 text-xs font-black border-primary/30 bg-primary/5 text-primary rounded-xl" 
-                    value={currentEntry.quantity} 
-                    onChange={e => setCurrentEntry({...currentEntry, quantity: e.target.value})} 
+                    className="h-10 text-xs font-black border-black/10 rounded-xl bg-white" 
+                    value={currentEntry.price} 
+                    onChange={e => setCurrentEntry({...currentEntry, price: e.target.value})} 
                   />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[8px] font-black uppercase text-black/40 ml-1">Descuento Subtotal</Label>
-                  <Input 
-                    type="number" 
-                    className="h-10 text-xs font-black border-orange-200 bg-orange-50 text-orange-600 rounded-xl" 
-                    value={currentEntry.discount} 
-                    onChange={e => setCurrentEntry({...currentEntry, discount: e.target.value})} 
-                  />
+                  {currentEntry.isRegistered && currentEntry.productId && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="icon" className="h-10 w-10 shrink-0 border-black/10 rounded-xl"><ChevronDown className="w-4 h-4" /></Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent className="rounded-xl font-black text-[10px] uppercase p-2">
+                        {dbProducts.find(p => p.code === currentEntry.productId) && (
+                          <>
+                            <DropdownMenuItem onClick={() => setCurrentEntry({...currentEntry, price: dbProducts.find(p => p.code === currentEntry.productId).priceFardo.toString()})}>Fardo: {dbProducts.find(p => p.code === currentEntry.productId).priceFardo}</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setCurrentEntry({...currentEntry, price: dbProducts.find(p => p.code === currentEntry.productId).priceMayor.toString()})}>Mayor: {dbProducts.find(p => p.code === currentEntry.productId).priceMayor}</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setCurrentEntry({...currentEntry, price: dbProducts.find(p => p.code === currentEntry.productId).priceUnidad.toString()})}>Unidad: {dbProducts.find(p => p.code === currentEntry.productId).priceUnidad}</DropdownMenuItem>
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
                 </div>
               </div>
-            </div>
-
-            <div className="space-y-1">
-              <Label className="text-[8px] font-black uppercase text-black/40 ml-1">Descripción / Notas Adicionales</Label>
-              <Input 
-                className="h-10 text-[10px] font-black uppercase bg-black/5 border-none rounded-xl px-5"
-                value={currentEntry.description}
-                onChange={e => setCurrentEntry({...currentEntry, description: e.target.value})}
-              />
-            </div>
-
-            <div className="flex justify-between items-center pt-4 border-t border-black/5">
-              <div className="flex items-center gap-4">
-                <span className="text-xs font-black uppercase text-black/40">SUBTOTAL PRENDA:</span>
-                <span className="font-headline font-black text-2xl text-black">
-                  S/ {((Number(currentEntry.price || 0) * Number(currentEntry.quantity || 0)) - Number(currentEntry.discount || 0)).toFixed(2)}
-                </span>
+              <div className="space-y-1">
+                <Label className="text-[8px] font-black uppercase text-black/40 ml-1">CANTIDAD</Label>
+                <Input 
+                  type="number" 
+                  className="h-10 text-xs font-black border-primary/30 bg-primary/5 text-primary rounded-xl" 
+                  value={currentEntry.quantity} 
+                  onChange={e => setCurrentEntry({...currentEntry, quantity: e.target.value})} 
+                />
               </div>
-              <Button 
-                className="h-12 px-10 bg-black text-white rounded-2xl font-black text-xs uppercase shadow-lg active:scale-95 transition-all" 
-                onClick={addCurrentToList}
-                disabled={!currentEntry.name}
-              >
-                <Plus className="w-4 h-4 mr-2" /> AGREGAR A LA LISTA
-              </Button>
+              <div className="space-y-1">
+                <Label className="text-[8px] font-black uppercase text-black/40 ml-1">DSCTO SUBTOTAL</Label>
+                <Input 
+                  type="number" 
+                  className="h-10 text-xs font-black border-orange-200 bg-orange-50 text-orange-600 rounded-xl" 
+                  value={currentEntry.discount} 
+                  onChange={e => setCurrentEntry({...currentEntry, discount: e.target.value})} 
+                />
+              </div>
             </div>
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-[8px] font-black uppercase text-black/40 ml-1">DESCRIPCIÓN / NOTAS</Label>
+            <Input 
+              className="h-10 text-[10px] font-black uppercase bg-black/5 border-none rounded-xl px-5"
+              value={currentEntry.description}
+              onChange={e => setCurrentEntry({...currentEntry, description: e.target.value})}
+            />
+          </div>
+
+          <div className="flex justify-between items-center pt-4 border-t border-black/5">
+            <div className="flex items-center gap-4">
+              <span className="text-xs font-black uppercase text-black/40">SUBTOTAL LÍNEA:</span>
+              <span className="font-headline font-black text-2xl text-black">
+                S/ {((Number(currentEntry.price || 0) * Number(currentEntry.quantity || 0)) - Number(currentEntry.discount || 0)).toFixed(2)}
+              </span>
+            </div>
+            <Button 
+              className="h-12 px-10 bg-black text-white rounded-2xl font-black text-xs uppercase shadow-lg active:scale-95 transition-all" 
+              onClick={addCurrentToList}
+              disabled={!currentEntry.name}
+            >
+              <Plus className="w-4 h-4 mr-2" /> AGREGAR A LA LISTA
+            </Button>
           </div>
         </CardContent>
       </Card>
 
-      <div className="space-y-3">
-        <h2 className="text-[10px] font-black uppercase text-black/40 tracking-[0.2em] ml-2">Lista de Resumen</h2>
-        <Card className="rounded-[2.5rem] border shadow-sm bg-white overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="bg-black/5 border-b">
-                  <th className="p-4 text-[9px] font-black uppercase text-black pl-8">#</th>
-                  <th className="p-4 text-[9px] font-black uppercase text-black">Prenda</th>
-                  <th className="p-4 text-[9px] font-black uppercase text-black">Código</th>
-                  <th className="p-4 text-[9px] font-black uppercase text-black text-center">Cant</th>
-                  <th className="p-4 text-[9px] font-black uppercase text-black">Precio</th>
-                  <th className="p-4 text-[9px] font-black uppercase text-black">Dscto</th>
-                  <th className="p-4 text-[9px] font-black uppercase text-black">Subtotal</th>
-                  <th className="p-4 text-right pr-8"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-black/5">
-                {items.map((item, idx) => (
-                  <tr key={item.id} className="hover:bg-black/[0.01] transition-colors group">
-                    <td className="p-4 pl-8 text-[10px] font-black text-black/30">{idx + 1}</td>
-                    <td className="p-4">
-                      <div className="font-black text-[11px] text-black uppercase">{item.name}</div>
-                      <div className="text-[8px] font-black uppercase text-black/40 truncate max-w-[200px]">{item.description || "SIN NOTAS"}</div>
-                    </td>
-                    <td className="p-4">
-                      <Badge variant="outline" className={cn("text-[8px] font-black border-black/10", !item.isRegistered && "bg-orange-50 text-orange-600 border-orange-200")}>
-                        {item.isRegistered ? item.productId : "MANUAL"}
-                      </Badge>
-                    </td>
-                    <td className="p-4 text-center font-black text-xs">{item.quantity}</td>
-                    <td className="p-4 font-black text-[10px]">S/ {Number(item.price).toFixed(2)}</td>
-                    <td className="p-4 font-black text-[10px] text-orange-600">S/ {Number(item.discount).toFixed(2)}</td>
-                    <td className="p-4 font-black text-xs">S/ {((Number(item.price) * Number(item.quantity)) - Number(item.discount)).toFixed(2)}</td>
-                    <td className="p-4 text-right pr-8">
-                      <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-black/5" onClick={() => { setCurrentEntry(item); setItems(items.filter(i => i.id !== item.id)); }}>
-                          <Edit2 className="w-3.5 h-3.5" />
+      <Card className="rounded-[2.5rem] border shadow-sm bg-white overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="bg-black/5 border-b">
+                <th className="p-4 text-[9px] font-black uppercase text-black pl-8">Prenda</th>
+                <th className="p-4 text-[9px] font-black uppercase text-black">Código</th>
+                <th className="p-4 text-[9px] font-black uppercase text-black text-center">Cant</th>
+                <th className="p-4 text-[9px] font-black uppercase text-black">Precio</th>
+                <th className="p-4 text-[9px] font-black uppercase text-black">Dscto</th>
+                <th className="p-4 text-[9px] font-black uppercase text-black">Subtotal</th>
+                <th className="p-4 text-right pr-8">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-black/5">
+              {items.map((item) => (
+                <tr key={item.id} className="hover:bg-black/[0.01] transition-colors group">
+                  <td className="p-4 pl-8">
+                    <div className="font-black text-[11px] text-black uppercase">{item.name}</div>
+                    <div className="text-[8px] font-black uppercase text-black/40 truncate max-w-[200px]">{item.description || "Sin notas"}</div>
+                  </td>
+                  <td className="p-4">
+                    <Badge variant="outline" className={cn("text-[8px] font-black border-black/10", !item.isRegistered && "bg-orange-50 text-orange-600 border-orange-200")}>
+                      {item.isRegistered ? item.productId : "MANUAL"}
+                    </Badge>
+                  </td>
+                  <td className="p-4 text-center font-black text-xs">{item.quantity}</td>
+                  <td className="p-4 font-black text-[10px]">S/ {Number(item.price).toFixed(2)}</td>
+                  <td className="p-4 font-black text-[10px] text-orange-600">S/ {Number(item.discount).toFixed(2)}</td>
+                  <td className="p-4 font-black text-xs">S/ {((Number(item.price) * Number(item.quantity)) - Number(item.discount)).toFixed(2)}</td>
+                  <td className="p-4 text-right pr-8">
+                    <div className="flex justify-end gap-2">
+                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-black/5" onClick={() => { setCurrentEntry(item); setItems(items.filter(i => i.id !== item.id)); }}>
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </Button>
+                      {confirmDeleteId === item.id ? (
+                        <div className="flex gap-1">
+                          <button onClick={() => { setItems(items.filter(i => i.id !== item.id)); setConfirmDeleteId(null); }} className="h-8 px-3 bg-destructive text-white rounded-lg text-[8px] font-black uppercase">SÍ</button>
+                          <button onClick={() => setConfirmDeleteId(null)} className="h-8 px-3 bg-black/5 text-black rounded-lg text-[8px] font-black uppercase">NO</button>
+                        </div>
+                      ) : (
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-black/20 hover:text-destructive" onClick={() => setConfirmDeleteId(item.id)}>
+                          <Trash2 className="w-3.5 h-3.5" />
                         </Button>
-                        
-                        {confirmDeleteId === item.id ? (
-                          <div className="flex gap-1 animate-in zoom-in duration-200">
-                            <button onClick={() => { setItems(items.filter(i => i.id !== item.id)); setConfirmDeleteId(null); }} className="h-8 px-3 bg-destructive text-white rounded-lg text-[8px] font-black uppercase">SÍ</button>
-                            <button onClick={() => setConfirmDeleteId(null)} className="h-8 px-3 bg-black/5 text-black rounded-lg text-[8px] font-black uppercase">NO</button>
-                          </div>
-                        ) : (
-                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-black/20 hover:text-destructive" onClick={() => setConfirmDeleteId(item.id)}>
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {items.length === 0 && (
-                  <tr>
-                    <td colSpan={8} className="py-20 text-center opacity-10">
-                      <ShoppingCart className="w-10 h-10 mx-auto mb-2" />
-                      <span className="text-[9px] font-black uppercase tracking-widest">Lista vacía</span>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      </div>
-
-      <div className="space-y-6 pt-6">
-        <div className="flex justify-between items-end border-b-4 border-black pb-6">
-          <div className="space-y-1">
-            <div className="text-[10px] font-black uppercase text-black/40 tracking-widest">PRENDAS TOTALES</div>
-            <div className="font-headline font-black text-4xl text-black">{totalQuantity} <span className="text-sm">UND</span></div>
-          </div>
-          <div className="text-right space-y-1">
-            <div className="text-[10px] font-black uppercase text-black/40 tracking-widest">MONTO TOTAL NETO</div>
-            <div className="font-headline font-black text-6xl text-black tracking-tighter">S/ {finalTotal.toFixed(2)}</div>
-          </div>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
+      </Card>
 
-        <Button 
-          className="w-full h-16 bg-black text-white hover:bg-black/90 font-black text-lg rounded-[1.5rem] shadow-2xl active:scale-[0.98] transition-all flex items-center justify-center gap-4" 
-          onClick={handleRegisterSale}
-          disabled={saving || items.length === 0 || (!selectedCustomer && !customerQuery)}
-        >
-          {saving ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6" />}
-          {editId ? 'ACTUALIZAR VENTA' : 'GUARDAR VENTA'}
-        </Button>
+      <div className="flex justify-between items-end border-b-4 border-black pb-6 pt-6">
+        <div className="space-y-1">
+          <div className="text-[10px] font-black uppercase text-black/40 tracking-widest">CANTIDAD TOTAL</div>
+          <div className="font-headline font-black text-4xl text-black">{totalQuantity} <span className="text-sm">UND</span></div>
+        </div>
+        <div className="text-right space-y-1">
+          <div className="text-[10px] font-black uppercase text-black/40 tracking-widest">MONTO TOTAL NETO</div>
+          <div className="font-headline font-black text-6xl text-black tracking-tighter" style={{ fontSize: '1.3em' }}>S/ {finalTotal.toFixed(2)}</div>
+        </div>
       </div>
+
+      <Button 
+        className="w-full h-16 bg-black text-white hover:bg-black/90 font-black text-lg rounded-[1.5rem] shadow-2xl active:scale-[0.98] transition-all flex items-center justify-center gap-4" 
+        onClick={handleRegisterSale}
+        disabled={saving || items.length === 0 || (!selectedCustomer && !customerQuery)}
+      >
+        {saving ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6" />}
+        GUARDAR VENTA
+      </Button>
     </div>
   )
 }
