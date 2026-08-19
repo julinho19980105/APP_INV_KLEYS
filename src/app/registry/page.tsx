@@ -79,15 +79,22 @@ export default function RegistryPage() {
     reason: "Reposición de Mercadería"
   })
 
+  // Carga persistente de datos del formulario para no perder progreso al navegar
   React.useEffect(() => {
     if (!editId) {
       const saved = localStorage.getItem('diva_registry_form')
-      if (saved) setForm(JSON.parse(saved))
+      if (saved) {
+        try {
+          setForm(JSON.parse(saved));
+        } catch (e) {
+          console.error("Error parsing saved form", e);
+        }
+      }
     }
   }, [editId])
 
   React.useEffect(() => {
-    if (!editId) {
+    if (!editId && form.name !== "") {
       localStorage.setItem('diva_registry_form', JSON.stringify(form))
     }
   }, [form, editId])
@@ -179,7 +186,7 @@ export default function RegistryPage() {
       toast({ title: "Guardado", description: `Prenda ${form.code} lista.` })
       router.push('/inventory')
     } catch (error) {
-      toast({ variant: "destructive", title: "Error" })
+      toast({ variant: "destructive", title: "Error al guardar" })
     } finally {
       setSaving(false);
     }
@@ -203,7 +210,7 @@ export default function RegistryPage() {
       toast({ title: "Stock Añadido" })
       router.push('/inventory')
     } catch (e) {
-      toast({ variant: "destructive", title: "Error" })
+      toast({ variant: "destructive", title: "Error en ingreso" })
     } finally {
       setSaving(false)
     }
@@ -215,7 +222,7 @@ export default function RegistryPage() {
     addDoc(collection(db, colName), { name: newItemName.trim() })
       .then(() => {
         setNewItemName("")
-        toast({ title: "Añadido" })
+        toast({ title: "Elemento añadido" })
       })
   }
 
@@ -225,7 +232,7 @@ export default function RegistryPage() {
     updateDoc(doc(db, colName, editingItem.id), { name: editingItem.name.trim() })
       .then(() => {
         setEditingItem(null)
-        toast({ title: "Renombrado" })
+        toast({ title: "Elemento actualizado" })
       })
   }
 
@@ -234,7 +241,8 @@ export default function RegistryPage() {
     const mayor = Number(form.priceMayor || 0);
     const unidad = Number(form.priceUnidad || 0);
 
-    const pricesValid = fardo === 0 && mayor === 0 && unidad === 0 
+    // Validación jerárquica Diva: Fardo < Mayor < Unidad
+    const pricesValid = (fardo === 0 && mayor === 0 && unidad === 0) 
       ? true 
       : (fardo < mayor && mayor < unidad);
     

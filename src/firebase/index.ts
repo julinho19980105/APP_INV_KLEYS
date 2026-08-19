@@ -1,17 +1,38 @@
 
 'use client';
 
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
-import { getStorage } from 'firebase/storage';
+import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
+import { getFirestore, Firestore, initializeFirestore, memoryLocalCache } from 'firebase/firestore';
+import { getAuth, Auth } from 'firebase/auth';
+import { getStorage, FirebaseStorage } from 'firebase/storage';
 import { firebaseConfig } from './config';
 
+let app: FirebaseApp;
+let db: Firestore;
+let auth: Auth;
+let storage: FirebaseStorage;
+
+/**
+ * Inicializa los servicios de Firebase de forma única (Singleton).
+ * Se utiliza memoryLocalCache para evitar errores de aserción interna 
+ * relacionados con el bloqueo de persistencia en entornos de desarrollo.
+ */
 export function initializeFirebase() {
-  const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
-  const db = getFirestore(app);
-  const auth = getAuth(app);
-  const storage = getStorage(app);
+  if (typeof window !== 'undefined') {
+    if (!getApps().length) {
+      app = initializeApp(firebaseConfig);
+      db = initializeFirestore(app, {
+        localCache: memoryLocalCache()
+      });
+      auth = getAuth(app);
+      storage = getStorage(app);
+    } else {
+      app = getApp();
+      db = getFirestore(app);
+      auth = getAuth(app);
+      storage = getStorage(app);
+    }
+  }
   return { app, db, auth, storage };
 }
 
