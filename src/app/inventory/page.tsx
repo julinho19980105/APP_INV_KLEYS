@@ -61,7 +61,7 @@ export default function InventoryPage() {
   const [kardexFilter, setKardexFilter] = React.useState("all")
   const [viewType, setViewType] = React.useState<"collection" | "category">("collection")
   
-  // Estado para optimizar eliminación y evitar lag
+  // Estado para la confirmación de eliminación
   const [productToDelete, setProductToDelete] = React.useState<{id: string, code: string} | null>(null)
 
   React.useEffect(() => {
@@ -108,12 +108,13 @@ export default function InventoryPage() {
     return mainGroups
   }, [filteredProducts, viewType])
 
-  const confirmDelete = () => {
+  const confirmDelete = React.useCallback(() => {
     if (!db || !productToDelete) return
     
     const productId = productToDelete.id
     const productRef = doc(db, "products", productId)
     
+    // Eliminación no bloqueante
     deleteDoc(productRef).catch(async () => {
       errorEmitter.emit('permission-error', new FirestorePermissionError({
         path: productRef.path,
@@ -121,8 +122,9 @@ export default function InventoryPage() {
       }));
     });
 
+    // Limpiar entradas del Kardex relacionadas
     const movementsRef = collection(db, "movements")
-    const qIn = query(movementsRef, where("productCode", "==", productId), where("type", "in", ["in", "return"]))
+    const qIn = query(movementsRef, where("productCode", "==", productToDelete.code), where("type", "in", ["in", "return"]))
     getDocs(qIn).then(snapIn => {
       const batch = writeBatch(db)
       snapIn.forEach(doc => batch.delete(doc.ref))
@@ -131,7 +133,7 @@ export default function InventoryPage() {
 
     toast({ title: "Baja Procesada", description: "Se eliminó el producto y sus entradas." })
     setProductToDelete(null)
-  }
+  }, [db, productToDelete, toast])
 
   const getThumbnailUrl = (url: string) => {
     if (!url || !url.includes('id=')) return url;
@@ -139,6 +141,121 @@ export default function InventoryPage() {
     if (!idMatch) return url;
     return `https://drive.google.com/thumbnail?id=${idMatch[1]}&sz=w300`;
   };
+
+  // Renderizado memoizado del contenido principal para evitar lag al abrir diálogos
+  const inventoryListContent = React.useMemo(() => {
+    if (loadingProducts) {
+      return <div className="p-20 text-center text-black font-black animate-pulse uppercase tracking-widest bg-white rounded-[2rem] border border-dashed">Sincronizando...</div>
+    }
+
+    if (Object.keys(groupedData).length === 0) {
+      return (
+        <div className="text-center py-20 text-black font-black bg-white rounded-[2rem] border border-dashed border-black/10 uppercase tracking-widest">
+          No hay productos para mostrar.
+        </div>
+      )
+    }
+
+    return (
+      <Accordion type="multiple" className="space-y-2">
+        {Object.entries(groupedData).map(([mainTitle, subGroups]) => (
+          <AccordionItem key={mainTitle} value={mainTitle} className="border rounded-2xl bg-white shadow-sm overflow-hidden border-none px-4">
+            <AccordionTrigger className="hover:no-underline py-4 px-2 group">
+              <div className="text-sm font-black text-black uppercase tracking-tight">{mainTitle}</div>
+            </AccordionTrigger>
+            <AccordionContent className="pb-4 pt-0 border-t border-black/5">
+              <Accordion type="multiple" className="space-y-2 mt-2 ml-2">
+                {Object.entries(subGroups).map(([subTitle, items]) => (
+                  <AccordionItem key={subTitle} value={subTitle} className="border rounded-xl border-black/5">
+                    <AccordionTrigger className="py-2 px-4 hover:no-underline bg-black/5">
+                      <span className="text-xs font-black text-black uppercase">{subTitle}</span>
+                    </AccordionTrigger>
+                    <AccordionContent className="p-0">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-white hover:bg-white border-b-2">
+                            <TableHead className="w-[50px] font-black uppercase text-[9px] text-black text-center">FOTO</TableHead>
+                            <TableHead className="font-black uppercase text-[9px] text-black">PRENDA / TARIFAS</TableHead>
+                            <TableHead className="text-center font-black uppercase text-[9px] text-black">STOCK</TableHead>
+                            <TableHead className="text-right font-black uppercase text-[9px] text-black w-[40px]"></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {items.map((p) => (
+                            <TableRow key={p.id} className="group transition-colors hover:bg-black/5">
+                              <TableCell className="text-center p-2">
+                                <button 
+                                  onClick={() => p.images?.[0] && setZoomedImage(p.images[0])}
+                                  className="w-10 h-10 rounded-lg border border-black/10 overflow-hidden bg-muted relative shadow-sm hover:scale-105 transition-transform"
+                                >
+                                  {p.images && p.images[0] ? (
+                                     <img 
+                                      src={getThumbnailUrl(p.images[0])} 
+                                      alt="" 
+                                      className="w-full h-full object-cover"
+                                      referrerPolicy="no-referrer"
+                                     />
+                                  ) : (
+                                    <div className="text-[8px] font-black opacity-20 text-black">N/A</div>
+                                  )}
+                                </button>
+                              </TableCell>
+                              <TableCell className="p-2">
+                                <div className="flex flex-col">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-mono text-[10px] font-black text-black/50">{p.code}</span>
+                                    <span className="font-black text-black text-xs uppercase truncate max-w-[150px]">{p.name}</span>
+                                  </div>
+                                  <div className="text-[9px] font-bold text-black/60 uppercase">
+                                    F: {p.priceFardo} / M: {p.priceMayor} / <span className="text-primary font-black">U: {p.priceUnidad}</span>
+                                  </div>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-center p-2">
+                                <span className={cn(
+                                  "font-black text-xs px-2.5 py-0.5 rounded-full border",
+                                  p.stock <= 0 ? "bg-destructive/10 text-destructive border-destructive/20" : p.stock < 10 ? "bg-orange-50 text-orange-500 border-orange-200" : "bg-green-50 text-green-600 border-green-200"
+                                )}>
+                                  {p.stock}
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-right p-2">
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-black/10">
+                                      <MoreVertical className="w-4 h-4 text-black" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className="rounded-xl">
+                                    <DropdownMenuItem 
+                                      className="text-[10px] font-black uppercase cursor-pointer text-black"
+                                      onClick={() => router.push(`/registry?edit=${p.id}`)}
+                                    >
+                                      <Edit2 className="w-3 h-3 mr-2" /> Editar
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem 
+                                      className="text-[10px] font-black uppercase cursor-pointer text-destructive focus:text-destructive"
+                                      onClick={() => setProductToDelete({id: p.id, code: p.code})}
+                                    >
+                                      <Trash2 className="w-3 h-3 mr-2" /> Eliminar
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            </AccordionContent>
+          </AccordionItem>
+        ))}
+      </Accordion>
+    )
+  }, [groupedData, loadingProducts, router, viewType])
 
   return (
     <div className="space-y-4 pt-2">
@@ -162,111 +279,7 @@ export default function InventoryPage() {
         </TabsList>
         
         <TabsContent value="all" className="space-y-4 pt-2">
-          {loadingProducts ? (
-            <div className="p-20 text-center text-black font-black animate-pulse uppercase tracking-widest bg-white rounded-[2rem] border border-dashed">Sincronizando...</div>
-          ) : Object.keys(groupedData).length > 0 ? (
-            <Accordion type="multiple" className="space-y-2">
-              {Object.entries(groupedData).map(([mainTitle, subGroups]) => (
-                <AccordionItem key={mainTitle} value={mainTitle} className="border rounded-2xl bg-white shadow-sm overflow-hidden border-none px-4">
-                  <AccordionTrigger className="hover:no-underline py-4 px-2 group">
-                    <div className="text-sm font-black text-black uppercase tracking-tight">{mainTitle}</div>
-                  </AccordionTrigger>
-                  <AccordionContent className="pb-4 pt-0 border-t border-black/5">
-                    <Accordion type="multiple" className="space-y-2 mt-2 ml-2">
-                      {Object.entries(subGroups).map(([subTitle, items]) => (
-                        <AccordionItem key={subTitle} value={subTitle} className="border rounded-xl border-black/5">
-                          <AccordionTrigger className="py-2 px-4 hover:no-underline bg-black/5">
-                            <span className="text-xs font-black text-black uppercase">{subTitle}</span>
-                          </AccordionTrigger>
-                          <AccordionContent className="p-0">
-                            <Table>
-                              <TableHeader>
-                                <TableRow className="bg-white hover:bg-white border-b-2">
-                                  <TableHead className="w-[50px] font-black uppercase text-[9px] text-black text-center">FOTO</TableHead>
-                                  <TableHead className="font-black uppercase text-[9px] text-black">PRENDA / TARIFAS</TableHead>
-                                  <TableHead className="text-center font-black uppercase text-[9px] text-black">STOCK</TableHead>
-                                  <TableHead className="text-right font-black uppercase text-[9px] text-black w-[40px]"></TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {items.map((p) => (
-                                  <TableRow key={p.id} className="group transition-colors hover:bg-black/5">
-                                    <TableCell className="text-center p-2">
-                                      <button 
-                                        onClick={() => p.images?.[0] && setZoomedImage(p.images[0])}
-                                        className="w-10 h-10 rounded-lg border border-black/10 overflow-hidden bg-muted relative shadow-sm hover:scale-105 transition-transform"
-                                      >
-                                        {p.images && p.images[0] ? (
-                                           <img 
-                                            src={getThumbnailUrl(p.images[0])} 
-                                            alt="" 
-                                            className="w-full h-full object-cover"
-                                            referrerPolicy="no-referrer"
-                                           />
-                                        ) : (
-                                          <div className="text-[8px] font-black opacity-20">N/A</div>
-                                        )}
-                                      </button>
-                                    </TableCell>
-                                    <TableCell className="p-2">
-                                      <div className="flex flex-col">
-                                        <div className="flex items-center gap-2">
-                                          <span className="font-mono text-[10px] font-black text-black/50">{p.code}</span>
-                                          <span className="font-black text-black text-xs uppercase truncate max-w-[150px]">{p.name}</span>
-                                        </div>
-                                        <div className="text-[9px] font-bold text-black/60 uppercase">
-                                          F: {p.priceFardo} / M: {p.priceMayor} / <span className="text-primary font-black">U: {p.priceUnidad}</span>
-                                        </div>
-                                      </div>
-                                    </TableCell>
-                                    <TableCell className="text-center p-2">
-                                      <span className={cn(
-                                        "font-black text-xs px-2.5 py-0.5 rounded-full border",
-                                        p.stock <= 0 ? "bg-destructive/10 text-destructive border-destructive/20" : p.stock < 10 ? "bg-orange-50 text-orange-500 border-orange-200" : "bg-green-50 text-green-600 border-green-200"
-                                      )}>
-                                        {p.stock}
-                                      </span>
-                                    </TableCell>
-                                    <TableCell className="text-right p-2">
-                                      <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-black/10">
-                                            <MoreVertical className="w-4 h-4 text-black" />
-                                          </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end" className="rounded-xl">
-                                          <DropdownMenuItem 
-                                            className="text-[10px] font-black uppercase cursor-pointer"
-                                            onClick={() => router.push(`/registry?edit=${p.id}`)}
-                                          >
-                                            <Edit2 className="w-3 h-3 mr-2" /> Editar
-                                          </DropdownMenuItem>
-                                          <DropdownMenuItem 
-                                            className="text-[10px] font-black uppercase cursor-pointer text-destructive focus:text-destructive"
-                                            onClick={() => setProductToDelete({id: p.id, code: p.code})}
-                                          >
-                                            <Trash2 className="w-3 h-3 mr-2" /> Eliminar
-                                          </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                      </DropdownMenu>
-                                    </TableCell>
-                                  </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
-                          </AccordionContent>
-                        </AccordionItem>
-                      ))}
-                    </Accordion>
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
-          ) : (
-            <div className="text-center py-20 text-black font-black bg-white rounded-[2rem] border border-dashed border-black/10 uppercase tracking-widest">
-              No hay productos para mostrar.
-            </div>
-          )}
+          {inventoryListContent}
         </TabsContent>
 
         <TabsContent value="recent" className="pt-2">
@@ -360,7 +373,7 @@ export default function InventoryPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Unico AlertDialog fuera del bucle para evitar lag */}
+      {/* AlertDialog Único y Global para evitar lag masivo en el DOM */}
       <AlertDialog open={!!productToDelete} onOpenChange={(o) => !o && setProductToDelete(null)}>
         <AlertDialogContent className="rounded-[2rem]">
           <AlertDialogHeader>
@@ -370,7 +383,7 @@ export default function InventoryPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-xl font-bold uppercase">Cancelar</AlertDialogCancel>
+            <AlertDialogCancel className="rounded-xl font-bold uppercase text-black">Cancelar</AlertDialogCancel>
             <AlertDialogAction className="rounded-xl font-bold bg-destructive text-white hover:bg-destructive/90 uppercase" onClick={confirmDelete}>Confirmar</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
