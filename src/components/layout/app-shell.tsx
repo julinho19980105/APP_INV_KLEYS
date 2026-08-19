@@ -9,8 +9,7 @@ import {
   Users, 
   Truck, 
   Settings,
-  Sparkles,
-  Menu
+  Sparkles
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -85,7 +84,7 @@ function AppSidebar({ pathname }: { pathname: string }) {
               <Sparkles className="w-5 h-5 text-white fill-current" />
             )}
           </div>
-          <span className="font-headline font-black text-2xl tracking-tighter text-black group-data-[collapsible=icon]:hidden uppercase">
+          <span className="font-headline font-black text-2xl tracking-tighter text-black group-data-[collapsible=icon]:hidden uppercase truncate">
             {settings.companyName}
           </span>
         </div>

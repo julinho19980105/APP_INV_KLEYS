@@ -61,7 +61,7 @@ const ProductRow = ({ p, onEdit, onDelete }: {
         <div className="flex flex-col">
           <div className="flex items-center gap-2">
             <span className="font-mono text-[10px] font-black text-black/50">{p.code}</span>
-            <span className="font-black text-black text-xs uppercase truncate max-w-[200px]">{p.name}</span>
+            <span className="font-black text-black text-xs uppercase truncate max-w-[300px]">{p.name}</span>
           </div>
           <div className="text-[9px] font-bold text-black/60 uppercase">
             F: {p.priceFardo} / M: {p.priceMayor} / <span className="text-primary font-black">U: {p.priceUnidad}</span>
@@ -150,10 +150,13 @@ export default function InventoryPage() {
   const { data: products = [] } = useCollection(productsRef)
   const { data: movements = [] } = useCollection(movementsRef)
 
-  const filteredProducts = products.filter(p => 
-    p.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    p.code?.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const filteredProducts = React.useMemo(() => {
+    const q = searchQuery.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    return products.filter(p => 
+      p.name?.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(q) || 
+      p.code?.toLowerCase().includes(q)
+    )
+  }, [products, searchQuery])
 
   const groupedData = React.useMemo(() => {
     const groups: Record<string, any[]> = {}
@@ -163,7 +166,6 @@ export default function InventoryPage() {
       groups[main].push(p)
     })
 
-    // Sort items within each group by the secondary attribute for flat visual order
     Object.keys(groups).forEach(key => {
       groups[key].sort((a, b) => {
         const subA = viewType === "collection" ? (a.category || "") : (a.collection || "")
@@ -186,7 +188,7 @@ export default function InventoryPage() {
     const batch = writeBatch(db)
     snap.forEach(d => batch.delete(d.ref))
     await batch.commit()
-    toast({ title: "Baja procesada" })
+    toast({ title: "BAJA PROCESADA" })
   }, [db, toast])
 
   return (
