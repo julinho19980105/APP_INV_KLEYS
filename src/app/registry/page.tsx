@@ -234,7 +234,6 @@ export default function RegistryPage() {
     const mayor = Number(form.priceMayor || 0);
     const unidad = Number(form.priceUnidad || 0);
 
-    // Jerarquía Diva: Fardo < Mayor < Unidad
     const pricesValid = fardo === 0 && mayor === 0 && unidad === 0 
       ? true 
       : (fardo < mayor && mayor < unidad);
