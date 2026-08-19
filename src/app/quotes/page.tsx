@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from "react"
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -18,7 +18,8 @@ import {
   UserPlus, 
   PackageSearch,
   Check,
-  X
+  X,
+  Edit2
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
@@ -63,6 +64,7 @@ export default function QuotesPage() {
   const [items, setItems] = React.useState<QuoteItem[]>([])
   const [globalDiscount, setGlobalDiscount] = React.useState("")
   const [confirmDeleteId, setConfirmDeleteId] = React.useState<string | null>(null)
+  const [editingItemId, setEditingItemId] = React.useState<string | null>(null)
 
   const productsRef = React.useMemo(() => db ? query(collection(db, "products"), orderBy("code")) : null, [db])
   const customersRef = React.useMemo(() => db ? query(collection(db, "customers"), orderBy("id")) : null, [db])
@@ -92,7 +94,7 @@ export default function QuotesPage() {
     if (customerQuery.length < 2) return []
     const q = customerQuery.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     return dbCustomers.filter(c => 
-      c.name.toLowerCase().normalize("NFD").replace(/[\u0300(/g, "").includes(q) ||
+      c.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(q) ||
       c.id.toLowerCase().includes(q)
     )
   }, [customerQuery, dbCustomers])
