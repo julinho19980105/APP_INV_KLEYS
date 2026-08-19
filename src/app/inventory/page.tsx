@@ -52,7 +52,7 @@ import { useToast } from "@/hooks/use-toast"
 import { errorEmitter } from "@/firebase/error-emitter"
 import { FirestorePermissionError } from "@/firebase/errors"
 
-// Componente memoizado para evitar el lag al abrir diálogos
+// Componente memoizado para evitar re-renderizados pesados y lag
 const MemoizedProductList = React.memo(({ 
   groupedData, 
   loading, 
@@ -79,7 +79,8 @@ const MemoizedProductList = React.memo(({
   }
 
   const getThumbnailUrl = (url: string) => {
-    if (!url || !url.includes('id=')) return url;
+    if (!url || typeof url !== 'string' || !url.startsWith('http')) return url;
+    if (!url.includes('id=')) return url;
     const idMatch = url.match(/id=([^&]+)/);
     if (!idMatch) return url;
     return `https://drive.google.com/thumbnail?id=${idMatch[1]}&sz=w300`;
@@ -236,6 +237,11 @@ export default function InventoryPage() {
     return mainGroups
   }, [filteredProducts, viewType])
 
+  // Funciones estables para evitar re-renderizados del componente memoizado
+  const onZoom = React.useCallback((img: string) => setZoomedImage(img), [])
+  const onEdit = React.useCallback((id: string) => router.push(`/registry?edit=${id}`), [router])
+  const onDelete = React.useCallback((prod: {id: string, code: string}) => setProductToDelete(prod), [])
+
   const confirmDelete = React.useCallback(() => {
     if (!db || !productToDelete) return
     const productId = productToDelete.id
@@ -282,9 +288,9 @@ export default function InventoryPage() {
           <MemoizedProductList 
             groupedData={groupedData}
             loading={loadingProducts}
-            onZoom={setZoomedImage}
-            onEdit={(id) => router.push(`/registry?edit=${id}`)}
-            onDelete={setProductToDelete}
+            onZoom={onZoom}
+            onEdit={onEdit}
+            onDelete={onDelete}
           />
         </TabsContent>
 
@@ -379,7 +385,6 @@ export default function InventoryPage() {
         </TabsContent>
       </Tabs>
 
-      {/* El diálogo de confirmación ya no causa lag porque su estado está aislado de la lista pesada */}
       <AlertDialog open={!!productToDelete} onOpenChange={(o) => !o && setProductToDelete(null)}>
         <AlertDialogContent className="rounded-[2rem]">
           <AlertDialogHeader>
