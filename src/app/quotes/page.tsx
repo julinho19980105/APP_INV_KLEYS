@@ -2,7 +2,8 @@
 "use client"
 
 import * as React from "react"
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { useRouter } from "next/navigation"
+import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -13,12 +14,9 @@ import {
   Search, 
   ShoppingCart, 
   Save, 
-  Printer, 
   Loader2, 
   UserPlus, 
   PackageSearch,
-  Check,
-  X,
   Edit2,
   ChevronDown
 } from "lucide-react"
@@ -58,7 +56,21 @@ interface QuoteItem {
   isRegistered: boolean
 }
 
+const EMPTY_ENTRY: QuoteItem = {
+  id: "",
+  productId: "",
+  name: "",
+  description: "",
+  quantity: "",
+  price: "",
+  stock: 0,
+  img: "",
+  discount: "",
+  isRegistered: false
+}
+
 export default function QuotesPage() {
+  const router = useRouter()
   const { toast } = useToast()
   const db = useFirestore()
   const [saving, setSaving] = React.useState(false)
@@ -67,8 +79,8 @@ export default function QuotesPage() {
   const [selectedCustomer, setSelectedCustomer] = React.useState<{id: string, name: string} | null>(null)
   const [productQuery, setProductQuery] = React.useState("")
   
-  // Plantilla Fija
-  const [currentEntry, setCurrentEntry] = React.useState<QuoteItem | null>(null)
+  // Plantilla Fija Siempre Presente
+  const [currentEntry, setCurrentEntry] = React.useState<QuoteItem>(EMPTY_ENTRY)
   
   // Lista de Productos Agregados
   const [items, setItems] = React.useState<QuoteItem[]>([])
@@ -147,11 +159,11 @@ export default function QuotesPage() {
       productId: prod.code,
       name: prod.name,
       description: "",
-      quantity: "1",
-      price: prod.priceMayor?.toString() || "0",
+      quantity: "",
+      price: prod.priceMayor?.toString() || "",
       stock: prod.stock || 0,
       img: prod.images?.[0] || "",
-      discount: "0",
+      discount: "",
       isRegistered: true
     })
     setProductQuery("")
@@ -163,35 +175,37 @@ export default function QuotesPage() {
       productId: "MANUAL",
       name: productQuery.toUpperCase().trim() || "PRODUCTO MANUAL",
       description: "",
-      quantity: "1",
-      price: "0",
-      stock: 9999,
+      quantity: "",
+      price: "",
+      stock: 99999,
       img: "",
-      discount: "0",
+      discount: "",
       isRegistered: false
     })
     setProductQuery("")
   }
 
   const addCurrentToList = () => {
-    if (!currentEntry) return
+    if (!currentEntry.name || !currentEntry.price || !currentEntry.quantity) {
+      toast({ variant: "destructive", title: "FALTAN DATOS", description: "Complete nombre, precio y cantidad." })
+      return
+    }
     const qty = Number(currentEntry.quantity)
     if (currentEntry.isRegistered && qty > currentEntry.stock) {
       toast({ variant: "destructive", title: "STOCK INSUFICIENTE", description: `Máximo disponible: ${currentEntry.stock}` })
       return
     }
     
-    // Si ya existe en la lista y es el mismo producto registrado, lo reemplazamos o sumamos
     const existingIndex = items.findIndex(i => i.productId === currentEntry.productId && i.isRegistered && currentEntry.isRegistered)
     if (existingIndex > -1) {
       const newItems = [...items]
-      newItems[existingIndex] = currentEntry
+      newItems[existingIndex] = { ...currentEntry }
       setItems(newItems)
     } else {
-      setItems([...items, currentEntry])
+      setItems([...items, { ...currentEntry }])
     }
     
-    setCurrentEntry(null)
+    setCurrentEntry(EMPTY_ENTRY)
     toast({ title: "AGREGADO A LA LISTA" })
   }
 
@@ -225,7 +239,7 @@ export default function QuotesPage() {
       }
 
       toast({ title: "VENTA REGISTRADA", description: `BOLETA ${quoteId} GUARDADA.` })
-      setItems([]); setSelectedCustomer(null); setCustomerQuery(""); fetchNextQuoteId()
+      router.push('/sales')
     } catch (e) {
       toast({ variant: "destructive", title: "ERROR CRÍTICO" })
     } finally {
@@ -246,18 +260,17 @@ export default function QuotesPage() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6 pb-24 pt-2">
-      <div className="flex justify-between items-end">
+    <div className="max-w-6xl mx-auto space-y-6 pb-24 pt-2">
+      <div className="flex justify-between items-end border-b-2 border-black pb-4">
         <div>
           <h1 className="text-4xl font-headline font-black text-black uppercase tracking-tight">COTIZACIÓN</h1>
           <Badge variant="outline" className="text-[9px] font-black border-black/20 uppercase tracking-[0.2em] px-3 mt-1">Serie {quoteId}</Badge>
         </div>
-        <Button variant="outline" className="rounded-xl border-black text-black font-black h-10" onClick={() => window.print()}><Printer className="w-4 h-4 mr-2" /> TICKET</Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* BUSCADOR DE CLIENTE */}
-        <div className="md:col-span-2 space-y-1">
+      {/* CABECERA 50/50 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="space-y-1">
           <Label className="text-[9px] uppercase text-black font-black tracking-widest ml-1">CLIENTE</Label>
           <div className="relative">
             <Input 
@@ -281,7 +294,6 @@ export default function QuotesPage() {
           </div>
         </div>
 
-        {/* BUSCADOR DE PRENDAS */}
         <div className="space-y-1">
           <Label className="text-[9px] uppercase font-black text-black tracking-widest ml-1">BUSCAR PRENDA (DNI)</Label>
           <div className="relative">
@@ -315,88 +327,104 @@ export default function QuotesPage() {
         </div>
       </div>
 
-      {/* PLANTILLA FIJA DE ENTRADA */}
-      <Card className="rounded-[2rem] border-2 border-primary/20 bg-white overflow-hidden shadow-xl animate-in fade-in slide-in-from-top-4">
+      {/* PLANTILLA FIJA PERMANENTE */}
+      <Card className="rounded-[2rem] border-2 border-primary/20 bg-white overflow-hidden shadow-xl">
         <div className="bg-primary/5 border-b py-3 px-8 flex justify-between items-center">
           <span className="text-[10px] font-black uppercase text-primary tracking-widest">Preparación de Prenda</span>
-          {currentEntry?.isRegistered && (
-            <Badge variant="outline" className="bg-green-50 text-green-600 border-green-200 font-black text-[10px] px-3">STOCK: {currentEntry.stock}</Badge>
+          {currentEntry.name && (
+            <Badge variant="outline" className={cn("font-black text-[10px] px-3", currentEntry.isRegistered ? "bg-green-50 text-green-600 border-green-200" : "bg-orange-50 text-orange-600 border-orange-200")}>
+              {currentEntry.isRegistered ? `STOCK: ${currentEntry.stock}` : 'MANUAL'}
+            </Badge>
           )}
         </div>
         <CardContent className="p-8 space-y-6">
-          {currentEntry ? (
-            <div className="space-y-6">
-              {/* LÍNEA 1: DATOS NUMÉRICOS */}
-              <div className="flex items-center gap-8">
-                <div className="w-16 h-16 rounded-2xl overflow-hidden border shrink-0 bg-muted shadow-md">
-                  {currentEntry.img ? <img src={getThumbnailUrl(currentEntry.img)} className="w-full h-full object-cover" /> : <PackageSearch className="w-full h-full p-4 opacity-10" />}
-                </div>
-                <div className="flex-1 grid grid-cols-4 gap-6">
-                  <div className="space-y-1">
-                    <div className="font-black text-sm text-black uppercase truncate">{currentEntry.name}</div>
-                    <div className="text-[9px] font-black uppercase text-black/40">{currentEntry.isRegistered ? currentEntry.productId : "REGISTRO MANUAL"}</div>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-[8px] font-black uppercase text-black/40 ml-1">P. Unitario</Label>
-                    <div className="flex gap-2">
-                      <Input type="number" className="h-10 text-xs font-black border-black/10 rounded-xl bg-white" value={currentEntry.price} onChange={e => setCurrentEntry({...currentEntry, price: e.target.value})} />
-                      {currentEntry.isRegistered && (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="icon" className="h-10 w-10 shrink-0 border-black/10 rounded-xl"><ChevronDown className="w-4 h-4" /></Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent className="rounded-xl font-black text-[10px] uppercase p-2">
-                            {dbProducts.find(p => p.code === currentEntry.productId) && (
-                              <>
-                                <DropdownMenuItem onClick={() => setCurrentEntry({...currentEntry, price: dbProducts.find(p => p.code === currentEntry.productId).priceFardo.toString()})}>Fardo: {dbProducts.find(p => p.code === currentEntry.productId).priceFardo}</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => setCurrentEntry({...currentEntry, price: dbProducts.find(p => p.code === currentEntry.productId).priceMayor.toString()})}>Mayor: {dbProducts.find(p => p.code === currentEntry.productId).priceMayor}</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => setCurrentEntry({...currentEntry, price: dbProducts.find(p => p.code === currentEntry.productId).priceUnidad.toString()})}>Unidad: {dbProducts.find(p => p.code === currentEntry.productId).priceUnidad}</DropdownMenuItem>
-                              </>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      )}
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-[8px] font-black uppercase text-black/40 ml-1">Cantidad</Label>
-                    <Input type="number" className="h-10 text-xs font-black border-primary/30 bg-primary/5 text-primary rounded-xl" value={currentEntry.quantity} onChange={e => setCurrentEntry({...currentEntry, quantity: e.target.value})} />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-[8px] font-black uppercase text-black/40 ml-1">Descuento Subtotal</Label>
-                    <Input type="number" className="h-10 text-xs font-black border-orange-200 bg-orange-50 text-orange-600 rounded-xl" value={currentEntry.discount} onChange={e => setCurrentEntry({...currentEntry, discount: e.target.value})} />
-                  </div>
-                </div>
+          <div className="space-y-6">
+            {/* LÍNEA 1: DATOS NUMÉRICOS */}
+            <div className="flex items-center gap-8">
+              <div className="w-16 h-16 rounded-2xl overflow-hidden border shrink-0 bg-muted shadow-md">
+                {currentEntry.img ? <img src={getThumbnailUrl(currentEntry.img)} className="w-full h-full object-cover" /> : <PackageSearch className="w-full h-full p-4 opacity-10" />}
               </div>
-
-              {/* LÍNEA 2: DESCRIPCIÓN */}
-              <div className="space-y-1">
-                <Label className="text-[8px] font-black uppercase text-black/40 ml-1">Descripción / Notas Adicionales</Label>
-                <Input 
-                  placeholder="ESCRIBE AQUÍ CARACTERÍSTICAS DE LA PRENDA..." 
-                  className="h-10 text-[10px] font-black uppercase bg-black/5 border-none rounded-xl px-5"
-                  value={currentEntry.description}
-                  onChange={e => setCurrentEntry({...currentEntry, description: e.target.value})}
-                />
-              </div>
-
-              {/* LÍNEA 3: ACCIÓN Y SUBTOTAL */}
-              <div className="flex justify-between items-center pt-4 border-t border-black/5">
-                <div className="flex items-center gap-4">
-                  <span className="text-xs font-black uppercase text-black/40">SUBTOTAL PRENDA:</span>
-                  <span className="font-headline font-black text-2xl text-black">S/ {((Number(currentEntry.price || 0) * Number(currentEntry.quantity || 0)) - Number(currentEntry.discount || 0)).toFixed(2)}</span>
+              <div className="flex-1 grid grid-cols-4 gap-6">
+                <div className="space-y-1">
+                  <div className="font-black text-sm text-black uppercase truncate">{currentEntry.name || '---'}</div>
+                  <div className="text-[9px] font-black uppercase text-black/40">{currentEntry.productId || 'SIN SELECCIÓN'}</div>
                 </div>
-                <Button className="h-12 px-10 bg-black text-white rounded-2xl font-black text-xs uppercase shadow-lg active:scale-95 transition-all" onClick={addCurrentToList}>
-                  <Plus className="w-4 h-4 mr-2" /> AGREGAR A LA LISTA
-                </Button>
+                <div className="space-y-1">
+                  <Label className="text-[8px] font-black uppercase text-black/40 ml-1">P. Unitario</Label>
+                  <div className="flex gap-2">
+                    <Input 
+                      type="number" 
+                      className="h-10 text-xs font-black border-black/10 rounded-xl bg-white" 
+                      value={currentEntry.price} 
+                      onChange={e => setCurrentEntry({...currentEntry, price: e.target.value})} 
+                    />
+                    {currentEntry.isRegistered && currentEntry.productId && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="icon" className="h-10 w-10 shrink-0 border-black/10 rounded-xl"><ChevronDown className="w-4 h-4" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent className="rounded-xl font-black text-[10px] uppercase p-2">
+                          {dbProducts.find(p => p.code === currentEntry.productId) && (
+                            <>
+                              <DropdownMenuItem onClick={() => setCurrentEntry({...currentEntry, price: dbProducts.find(p => p.code === currentEntry.productId).priceFardo.toString()})}>Fardo: {dbProducts.find(p => p.code === currentEntry.productId).priceFardo}</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setCurrentEntry({...currentEntry, price: dbProducts.find(p => p.code === currentEntry.productId).priceMayor.toString()})}>Mayor: {dbProducts.find(p => p.code === currentEntry.productId).priceMayor}</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setCurrentEntry({...currentEntry, price: dbProducts.find(p => p.code === currentEntry.productId).priceUnidad.toString()})}>Unidad: {dbProducts.find(p => p.code === currentEntry.productId).priceUnidad}</DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[8px] font-black uppercase text-black/40 ml-1">Cantidad</Label>
+                  <Input 
+                    type="number" 
+                    className="h-10 text-xs font-black border-primary/30 bg-primary/5 text-primary rounded-xl" 
+                    value={currentEntry.quantity} 
+                    onChange={e => setCurrentEntry({...currentEntry, quantity: e.target.value})} 
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[8px] font-black uppercase text-black/40 ml-1">Descuento Subtotal</Label>
+                  <Input 
+                    type="number" 
+                    className="h-10 text-xs font-black border-orange-200 bg-orange-50 text-orange-600 rounded-xl" 
+                    value={currentEntry.discount} 
+                    onChange={e => setCurrentEntry({...currentEntry, discount: e.target.value})} 
+                  />
+                </div>
               </div>
             </div>
-          ) : (
-            <div className="py-12 flex flex-col items-center gap-4 opacity-20">
-              <PackageSearch className="w-16 h-16" />
-              <div className="text-[10px] font-black uppercase tracking-[0.3em]">Busca una prenda para empezar la carga</div>
+
+            {/* LÍNEA 2: DESCRIPCIÓN */}
+            <div className="space-y-1">
+              <Label className="text-[8px] font-black uppercase text-black/40 ml-1">Descripción / Notas Adicionales</Label>
+              <Input 
+                placeholder="ESCRIBE AQUÍ CARACTERÍSTICAS DE LA PRENDA..." 
+                className="h-10 text-[10px] font-black uppercase bg-black/5 border-none rounded-xl px-5"
+                value={currentEntry.description}
+                onChange={e => setCurrentEntry({...currentEntry, description: e.target.value})}
+              />
             </div>
-          )}
+
+            {/* LÍNEA 3: ACCIÓN Y SUBTOTAL */}
+            <div className="flex justify-between items-center pt-4 border-t border-black/5">
+              <div className="flex items-center gap-4">
+                <span className="text-xs font-black uppercase text-black/40">SUBTOTAL PRENDA:</span>
+                <span className="font-headline font-black text-2xl text-black">
+                  S/ {((Number(currentEntry.price || 0) * Number(currentEntry.quantity || 0)) - Number(currentEntry.discount || 0)).toFixed(2)}
+                </span>
+              </div>
+              <Button 
+                className="h-12 px-10 bg-black text-white rounded-2xl font-black text-xs uppercase shadow-lg active:scale-95 transition-all" 
+                onClick={addCurrentToList}
+                disabled={!currentEntry.name}
+              >
+                <Plus className="w-4 h-4 mr-2" /> AGREGAR A LA LISTA
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -488,7 +516,7 @@ export default function QuotesPage() {
           disabled={saving || items.length === 0 || (!selectedCustomer && !customerQuery)}
         >
           {saving ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6" />}
-          CONFIRMAR VENTA DIVA
+          GUARDAR VENTA
         </Button>
       </div>
     </div>
