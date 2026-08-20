@@ -20,7 +20,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Search, Edit2, Trash2, MoreVertical, Calendar, LayoutGrid, Layers } from "lucide-react"
+import { Search, Edit2, Trash2, MoreVertical, Calendar, LayoutGrid, Layers, Image as ImageIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useCollection, useFirestore, useDoc } from "@/firebase"
 import { collection, query, orderBy, doc, deleteDoc, serverTimestamp, getDocs } from "firebase/firestore"
@@ -76,29 +76,27 @@ export default function InventoryPage() {
     if (!db) return
     try {
       await deleteDoc(doc(db, "products", id))
-      
       const updatedProducts = await getDocs(query(collection(db, "products")))
       const allProds = updatedProducts.docs.map(d => ({ id: d.id, ...d.data() }))
       await syncCatalogToDrive(allProds)
-      
-      toast({ title: "BAJA PROCESADA", description: "Catálogo sincronizado." })
-    } catch (e) { toast({ variant: "destructive", title: "ERROR AL ELIMINAR" }) }
+      toast({ title: "BAJA PROCESADA" })
+    } catch (e) { toast({ variant: "destructive", title: "ERROR" }) }
   }
 
   return (
     <div className="space-y-6 pt-2 pb-20 max-w-full px-2 md:px-4">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b-2 border-black pb-4">
         <div>
-          <h1 className="text-3xl font-headline font-black text-black uppercase tracking-tight">Almacén Diva</h1>
+          <h1 className="text-3xl font-headline font-black text-black uppercase tracking-tight">Stock Maestro</h1>
           <p className="text-[9px] font-black text-primary uppercase tracking-[0.2em] ml-1 mt-0.5">
-            Vista por {viewType === 'collection' ? 'Colección' : 'Categoría'} · Industrial
+            Vista por {viewType === 'collection' ? 'Colección' : 'Categoría'} · Diva Industrial
           </p>
         </div>
         <div className="relative w-full md:w-80">
-          <Search className="absolute left-3 top-3 h-4 w-4" style={{ color: brandColor }} />
+          <Search className="absolute left-3 top-3.5 h-4 w-4" style={{ color: brandColor }} />
           <Input 
             placeholder="BUSCAR PRENDA..." 
-            className="pl-10 h-10 rounded-xl border-black/10 font-black text-[10px] uppercase shadow-sm bg-white"
+            className="pl-10 h-11 rounded-xl border-black/10 font-black text-xs uppercase shadow-sm bg-white"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
           />
@@ -107,63 +105,70 @@ export default function InventoryPage() {
 
       <Tabs defaultValue="all" className="w-full">
         <TabsList className="bg-black/5 p-1 rounded-2xl w-full md:w-auto justify-start border mb-4">
-          <TabsTrigger value="all" className="rounded-xl px-8 data-[state=active]:bg-black data-[state=active]:text-white text-[9px] font-black uppercase">Stock Maestro</TabsTrigger>
-          <TabsTrigger value="movements" className="rounded-xl px-8 data-[state=active]:bg-black data-[state=active]:text-white text-[9px] font-black uppercase">Kardex Diario</TabsTrigger>
+          <TabsTrigger value="all" className="rounded-xl px-12 data-[state=active]:bg-black data-[state=active]:text-white text-[10px] font-black uppercase tracking-widest">Almacén</TabsTrigger>
+          <TabsTrigger value="movements" className="rounded-xl px-12 data-[state=active]:bg-black data-[state=active]:text-white text-[10px] font-black uppercase tracking-widest">Kardex</TabsTrigger>
         </TabsList>
         
-        <TabsContent value="all" className="space-y-8">
+        <TabsContent value="all" className="space-y-10">
           {groupedProducts.map(([groupName, items]) => (
-            <div key={groupName} className="space-y-3">
-              <div className="flex items-center gap-2 px-4 py-1.5 bg-black/5 border rounded-xl w-fit">
-                {viewType === 'collection' ? <LayoutGrid className="w-3.5 h-3.5" style={{ color: brandColor }} /> : <Layers className="w-3.5 h-3.5" style={{ color: brandColor }} />}
-                <span className="text-[10px] font-black uppercase tracking-widest">{groupName}</span>
+            <div key={groupName} className="space-y-4">
+              <div className="flex items-center gap-3 px-6 py-2 bg-black text-white rounded-2xl w-fit shadow-lg">
+                {viewType === 'collection' ? <LayoutGrid className="w-4 h-4" style={{ color: brandColor }} /> : <Layers className="w-4 h-4" style={{ color: brandColor }} />}
+                <span className="text-[11px] font-black uppercase tracking-[0.2em]">{groupName}</span>
               </div>
               
-              <div className="border rounded-2xl bg-white shadow-sm overflow-x-auto scrollbar-hide">
-                <Table className="min-w-[600px]">
+              <div className="border-2 border-black/5 rounded-[2rem] bg-white shadow-xl overflow-x-auto scrollbar-hide">
+                <Table className="min-w-[700px]">
                   <TableHeader>
-                    <TableRow className="bg-black/5 hover:bg-black/5 border-none h-10">
-                      <TableHead className="font-black uppercase text-[8px] text-black pl-6">Prenda / DNI</TableHead>
-                      <TableHead className="font-black uppercase text-[8px] text-black">Precios (F / M / U)</TableHead>
-                      <TableHead className="font-black uppercase text-[8px] text-black text-center">Stock</TableHead>
-                      <TableHead className="w-12 pr-6"></TableHead>
+                    <TableRow className="bg-black/5 hover:bg-black/5 border-none h-12">
+                      <TableHead className="font-black uppercase text-[10px] text-black pl-8">Prenda / DNI</TableHead>
+                      <TableHead className="font-black uppercase text-[10px] text-black">Precios (F / M / U)</TableHead>
+                      <TableHead className="font-black uppercase text-[10px] text-black text-center">Stock</TableHead>
+                      <TableHead className="w-16 pr-8"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {items.map(p => (
-                      <TableRow key={p.id} className="hover:bg-black/5 transition-colors border-b last:border-0 h-12">
-                        <TableCell className="pl-6 py-2">
-                          <div className="flex flex-col">
-                            <span className="font-black text-[11px] text-black uppercase leading-tight truncate max-w-[180px]">{p.name}</span>
-                            <span className="font-normal text-[8px] text-black/40 uppercase leading-tight">{p.code}</span>
+                      <TableRow key={p.id} className="hover:bg-black/[0.02] transition-colors border-b last:border-0 h-16">
+                        <TableCell className="pl-8 py-3">
+                          <div className="flex items-center gap-4">
+                            <div className="flex gap-0.5 shrink-0">
+                              {(p.images || []).map((_: any, idx: number) => (
+                                <ImageIcon key={idx} className="w-4 h-4" style={{ color: brandColor }} />
+                              ))}
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="font-black text-[13px] text-black uppercase leading-none">{p.name}</span>
+                              <span className="font-black text-[9px] text-black/40 uppercase tracking-widest mt-1">{p.code}</span>
+                            </div>
                           </div>
                         </TableCell>
-                        <TableCell className="py-2">
-                          <div className="flex flex-col text-[9px] uppercase">
-                            <span className="font-normal text-black/60 leading-tight">F: {p.priceFardo} · M: {p.priceMayor}</span>
-                            <span className="font-black text-black leading-tight">U: S/ {p.priceUnidad}</span>
+                        <TableCell className="py-3">
+                          <div className="flex flex-col text-[10px] uppercase">
+                            <span className="font-normal text-black/60">F: {p.priceFardo} · M: {p.priceMayor}</span>
+                            <span className="font-black text-black">UNIT: S/ {p.priceUnidad}</span>
                           </div>
                         </TableCell>
-                        <TableCell className="text-center py-2">
+                        <TableCell className="text-center py-3">
                           <div className={cn(
-                            "font-black text-[10px] px-2 py-0.5 rounded-lg inline-flex flex-col items-center justify-center min-w-[50px]",
-                            p.stock <= 0 ? "bg-red-50 text-red-600" : "bg-green-50 text-green-700"
+                            "font-black text-[11px] px-4 py-1.5 rounded-xl inline-flex flex-col items-center justify-center min-w-[70px] shadow-sm",
+                            p.stock <= 0 ? "bg-red-50 text-red-600 border border-red-100" : "bg-green-50 text-green-700 border border-green-100"
                           )}>
                             <span>{p.stock}</span>
-                            <span className="text-[7px] font-normal uppercase">UND</span>
+                            <span className="text-[7px] font-normal uppercase opacity-60">UND</span>
                           </div>
                         </TableCell>
-                        <TableCell className="text-right pr-6 py-2">
+                        <TableCell className="text-right pr-8 py-3">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl"><MoreVertical className="w-3.5 h-3.5" style={{ color: brandColor }} /></Button>
+                              <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl hover:bg-black/5 transition-all"><MoreVertical className="w-5 h-5 text-black" /></Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="rounded-2xl p-2 shadow-2xl border-black/10">
-                              <DropdownMenuItem className="text-[9px] font-black uppercase gap-2 cursor-pointer p-3 rounded-xl" onClick={() => router.push(`/registry?edit=${p.id}`)}>
-                                <Edit2 className="w-3 h-3" style={{ color: brandColor }} /> Editar
+                            <DropdownMenuContent align="end" className="rounded-2xl p-2 shadow-2xl border-black/10 w-44">
+                              <DropdownMenuItem className="text-[11px] font-black uppercase gap-3 cursor-pointer p-4 rounded-xl" onClick={() => router.push(`/registry?edit=${p.id}`)}>
+                                <Edit2 className="w-4 h-4" style={{ color: brandColor }} /> Editar Prenda
                               </DropdownMenuItem>
-                              <DropdownMenuItem className="text-[9px] font-black uppercase gap-2 cursor-pointer p-3 rounded-xl text-destructive" onClick={() => onDelete(p.id)}>
-                                <Trash2 className="w-3 h-3" /> Eliminar
+                              <DropdownMenuItem className="text-[11px] font-black uppercase gap-3 cursor-pointer p-4 rounded-xl text-destructive" onClick={() => onDelete(p.id)}>
+                                <Trash2 className="w-4 h-4" /> Dar de Baja
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -177,35 +182,35 @@ export default function InventoryPage() {
           ))}
         </TabsContent>
 
-        <TabsContent value="movements" className="space-y-6">
+        <TabsContent value="movements" className="space-y-8">
           {groupedMovements.map(group => (
-            <div key={group.label} className="space-y-2">
-              <div className="flex items-center gap-2 px-4 py-1.5 bg-black text-white rounded-xl w-fit shadow-md">
-                <Calendar className="w-3.5 h-3.5" style={{ color: brandColor }} />
-                <span className="text-[9px] font-black uppercase tracking-widest">{group.label}</span>
+            <div key={group.label} className="space-y-4">
+              <div className="flex items-center gap-3 px-6 py-2 bg-black text-white rounded-2xl w-fit shadow-lg">
+                <Calendar className="w-4 h-4" style={{ color: brandColor }} />
+                <span className="text-[10px] font-black uppercase tracking-widest">{group.label}</span>
               </div>
-              <div className="border rounded-2xl bg-white shadow-sm overflow-hidden">
+              <div className="border-2 border-black/5 rounded-[2rem] bg-white shadow-xl overflow-hidden">
                 <Table>
                   <TableBody>
                     {group.items.map(m => (
-                      <TableRow key={m.id} className="hover:bg-black/5 transition-colors border-b last:border-0 h-14">
-                        <TableCell className="px-6 py-2">
+                      <TableRow key={m.id} className="hover:bg-black/[0.01] transition-colors border-b last:border-0 h-16">
+                        <TableCell className="px-8 py-3">
                           <div className="flex justify-between items-center">
-                            <div className="flex flex-col">
-                              <div className="flex items-center gap-2">
+                            <div className="flex flex-col gap-1">
+                              <div className="flex items-center gap-3">
                                 <span className={cn(
-                                  "text-[7px] font-black uppercase px-1.5 rounded",
-                                  m.type === 'in' || m.type === 'return' ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                                  "text-[8px] font-black uppercase px-2 py-0.5 rounded-lg border",
+                                  m.type === 'in' || m.type === 'return' ? "bg-green-50 text-green-700 border-green-100" : "bg-red-50 text-red-700 border-red-100"
                                 )}>
                                   {m.type === 'in' ? 'Entrada' : m.type === 'out' ? 'Salida' : 'Retorno'}
                                 </span>
-                                <span className="font-black text-[10px] text-black uppercase">{m.quantity} UND.</span>
+                                <span className="font-black text-[12px] text-black uppercase">{m.quantity} UNIDADES</span>
                               </div>
-                              <span className="text-[8px] font-normal text-black/40 uppercase leading-tight truncate max-w-[200px]">
-                                {m.reason} · {m.productCode}
+                              <span className="text-[10px] font-normal text-black/50 uppercase leading-none">
+                                {m.reason} · <span className="font-black text-black/70">{m.productCode}</span>
                               </span>
                             </div>
-                            <span className="text-[8px] font-black text-black/20 tabular-nums">
+                            <span className="text-[9px] font-black text-black/20 tabular-nums bg-black/5 px-2 py-1 rounded-lg">
                               {m.timestamp?.toDate ? m.timestamp.toDate().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : "--:--"}
                             </span>
                           </div>

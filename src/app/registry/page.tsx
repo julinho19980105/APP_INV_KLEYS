@@ -16,10 +16,10 @@ import {
   SelectTrigger, 
   SelectValue 
 } from "@/components/ui/select"
-import { ImagePlus, X, Save, Loader2, Search } from "lucide-react"
+import { ImagePlus, X, Save, Loader2, Search, Package } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useFirestore, useDoc, useCollection } from "@/firebase"
-import { doc, setDoc, collection, query, orderBy, serverTimestamp, updateDoc, addDoc, increment, getDocs } from "firebase/firestore"
+import { doc, setDoc, collection, query, orderBy, serverTimestamp, updateDoc, addDoc, increment, getDocs, limit } from "firebase/firestore"
 import { uploadImageToDrive, syncCatalogToDrive } from "@/services/sheets-service"
 import { cn } from "@/lib/utils"
 
@@ -35,6 +35,7 @@ export default function RegistryPage() {
   const brandColor = config?.brandColor || "#FF3399"
   
   const [saving, setSaving] = React.useState(false)
+  const [nextId, setNextId] = React.useState("P-001")
   const fileInputRef = React.useRef<HTMLInputElement>(null)
   
   const docRef = React.useMemo(() => (db && editId) ? doc(db, "products", editId) : null, [db, editId])
@@ -48,16 +49,30 @@ export default function RegistryPage() {
   const { data: collectionsData = [] } = useCollection(collectionsQuery)
   const { data: allProducts = [] } = useCollection(productsQuery)
 
-  const [form, setForm] = React.useState({ name: "", code: "", category: "", collection: "", description: "", stock: "", priceFardo: "", priceMayor: "", priceUnidad: "" })
+  const [form, setForm] = React.useState({ name: "", category: "", collection: "", description: "", stock: "", priceFardo: "", priceMayor: "", priceUnidad: "" })
   const [localImagePreviews, setLocalImagePreviews] = React.useState<string[]>([])
   const [stockSearchQuery, setStockSearchQuery] = React.useState("")
   const [stockEntry, setStockEntry] = React.useState({ productCode: "", quantity: "", reason: "Reposición Industrial" })
+
+  // Calcular siguiente ID P-001
+  React.useEffect(() => {
+    if (!db || editId) return
+    const fetchNextId = async () => {
+      const q = query(collection(db, "products"), orderBy("code", "desc"), limit(1))
+      const snap = await getDocs(q)
+      if (!snap.empty) {
+        const lastCode = snap.docs[0].id
+        const lastNum = parseInt(lastCode.split('-')[1]) || 0
+        setNextId(`P-${(lastNum + 1).toString().padStart(3, '0')}`)
+      }
+    }
+    fetchNextId()
+  }, [db, editId])
 
   React.useEffect(() => {
     if (editingProduct) {
       setForm({
         name: editingProduct.name || "",
-        code: editingProduct.code || "",
         category: editingProduct.category || "",
         collection: editingProduct.collection || "",
         description: editingProduct.description || "",
@@ -67,13 +82,14 @@ export default function RegistryPage() {
         priceUnidad: editingProduct.priceUnidad?.toString() || "",
       })
       setLocalImagePreviews(editingProduct.images || [])
+      setNextId(editingProduct.code)
     }
   }, [editingProduct])
 
   const handleSave = async () => {
     if (!db || !form.name) return
     setSaving(true)
-    const productCode = form.code.trim().toUpperCase()
+    const productCode = nextId.toUpperCase()
     try {
       const productData = {
         name: form.name.toUpperCase(),
@@ -90,12 +106,11 @@ export default function RegistryPage() {
       }
       await setDoc(doc(db, "products", productCode), productData, { merge: true })
       
-      // Sincronizar catálogo con Drive
       const updatedProducts = await getDocs(query(collection(db, "products")))
       const allProds = updatedProducts.docs.map(d => ({ id: d.id, ...d.data() }))
       await syncCatalogToDrive(allProds)
       
-      toast({ title: "Guardado Correctamente", description: "Catálogo sincronizado con Drive." })
+      toast({ title: "Guardado Correctamente" })
       router.push('/inventory')
     } catch (e) { toast({ variant: "destructive", title: "Error al Guardar" }) }
     finally { setSaving(false) }
@@ -113,7 +128,7 @@ export default function RegistryPage() {
       const allProds = updatedProducts.docs.map(d => ({ id: d.id, ...d.data() }))
       await syncCatalogToDrive(allProds)
       
-      toast({ title: "Stock Actualizado", description: "Sincronizado con Drive." })
+      toast({ title: "Stock Actualizado" })
       setStockEntry({ productCode: "", quantity: "", reason: "Reposición Industrial" })
       setStockSearchQuery("")
     } catch (e) { toast({ variant: "destructive", title: "Error" }) }
@@ -138,26 +153,34 @@ export default function RegistryPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-4">
               <Card className="border shadow-sm bg-white rounded-2xl overflow-hidden">
-                <div className="bg-black/5 border-b py-2 px-6 flex justify-between items-center">
-                  <span className="text-[10px] text-black font-black uppercase">Ficha Técnica</span>
-                  <div className="bg-black text-white px-4 py-0.5 rounded-lg font-black text-lg">{form.code || "..."}</div>
+                <div className="bg-black/5 border-b py-3 px-6 flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <Package className="w-5 h-5" style={{ color: brandColor }} />
+                    <span className="text-[10px] text-black font-black uppercase tracking-widest">Ficha de Registro</span>
+                  </div>
+                  <div className="bg-black text-white px-6 py-1 rounded-xl font-black text-xl shadow-lg">{nextId}</div>
                 </div>
-                <CardContent className="space-y-4 pt-4 px-6">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-0.5"><Label className="text-[9px] uppercase font-black ml-1">Código de Modelo *</Label><Input value={form.code} onChange={e => setForm({...form, code: e.target.value.toUpperCase()})} className="h-10 text-black border-black/10 rounded-xl font-black text-sm uppercase" disabled={!!editId} /></div>
-                    <div className="space-y-0.5"><Label className="text-[9px] uppercase font-black ml-1">Nombre Comercial *</Label><Input value={form.name} onChange={e => setForm({...form, name: e.target.value.toUpperCase()})} className="h-10 text-black border-black/10 rounded-xl font-black text-sm uppercase" /></div>
+                <CardContent className="space-y-6 pt-6 px-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-1">
+                      <Label className="text-[9px] uppercase font-black ml-1 text-black/60">Nombre Comercial *</Label>
+                      <Input value={form.name} onChange={e => setForm({...form, name: e.target.value.toUpperCase()})} className="h-12 text-black border-black/10 rounded-xl font-black text-sm uppercase" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1"><Label className="text-[9px] uppercase font-black ml-1 text-black/60">Categoría *</Label><Select value={form.category} onValueChange={v => setForm({...form, category: v})}><SelectTrigger className="h-12 rounded-xl font-black text-[10px]"><SelectValue placeholder="Elegir..." /></SelectTrigger><SelectContent>{categories.map(c => <SelectItem key={c.id} value={c.name} className="text-[10px] font-black">{c.name}</SelectItem>)}</SelectContent></Select></div>
+                      <div className="space-y-1"><Label className="text-[9px] uppercase font-black ml-1 text-black/60">Colección *</Label><Select value={form.collection} onValueChange={v => setForm({...form, collection: v})}><SelectTrigger className="h-12 rounded-xl font-black text-[10px]"><SelectValue placeholder="Elegir..." /></SelectTrigger><SelectContent>{collectionsData.map(c => <SelectItem key={c.id} value={c.name} className="text-[10px] font-black">{c.name}</SelectItem>)}</SelectContent></Select></div>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-0.5"><Label className="text-[9px] uppercase font-black ml-1">Categoría *</Label><Select value={form.category} onValueChange={v => setForm({...form, category: v})}><SelectTrigger className="h-10 rounded-xl font-black text-[10px]"><SelectValue placeholder="Elegir..." /></SelectTrigger><SelectContent>{categories.map(c => <SelectItem key={c.id} value={c.name} className="text-[10px] font-black">{c.name}</SelectItem>)}</SelectContent></Select></div>
-                    <div className="space-y-0.5"><Label className="text-[9px] uppercase font-black ml-1">Colección *</Label><Select value={form.collection} onValueChange={v => setForm({...form, collection: v})}><SelectTrigger className="h-10 rounded-xl font-black text-[10px]"><SelectValue placeholder="Elegir..." /></SelectTrigger><SelectContent>{collectionsData.map(c => <SelectItem key={c.id} value={c.name} className="text-[10px] font-black">{c.name}</SelectItem>)}</SelectContent></Select></div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="space-y-1"><Label className="text-[9px] uppercase font-black ml-1 text-black/60">Stock Inicial</Label><Input type="number" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} className="h-12 rounded-xl font-black text-sm" /></div>
+                    <div className="space-y-1"><Label className="text-[9px] uppercase font-black ml-1 text-black/60">P. Fardo</Label><Input type="number" value={form.priceFardo} onChange={e => setForm({...form, priceFardo: e.target.value})} className="h-12 rounded-xl font-black text-sm" /></div>
+                    <div className="space-y-1"><Label className="text-[9px] uppercase font-black ml-1 text-black/60">P. Mayor</Label><Input type="number" value={form.priceMayor} onChange={e => setForm({...form, priceMayor: e.target.value})} className="h-12 rounded-xl font-black text-sm" /></div>
+                    <div className="space-y-1"><Label className="text-[9px] uppercase font-black ml-1 text-black/60">P. Unidad</Label><Input type="number" value={form.priceUnidad} onChange={e => setForm({...form, priceUnidad: e.target.value})} className="h-12 rounded-xl font-black text-sm" /></div>
                   </div>
-                  <div className="grid grid-cols-4 gap-4">
-                    <div className="space-y-0.5"><Label className="text-[9px] uppercase font-black ml-1">Stock Inicial</Label><Input type="number" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} className="h-10 rounded-xl font-black text-xs" /></div>
-                    <div className="space-y-0.5"><Label className="text-[9px] uppercase font-black ml-1">P. Fardo</Label><Input type="number" value={form.priceFardo} onChange={e => setForm({...form, priceFardo: e.target.value})} className="h-10 rounded-xl font-black text-xs" /></div>
-                    <div className="space-y-0.5"><Label className="text-[9px] uppercase font-black ml-1">P. Mayor</Label><Input type="number" value={form.priceMayor} onChange={e => setForm({...form, priceMayor: e.target.value})} className="h-10 rounded-xl font-black text-xs" /></div>
-                    <div className="space-y-0.5"><Label className="text-[9px] uppercase font-black ml-1">P. Unidad</Label><Input type="number" value={form.priceUnidad} onChange={e => setForm({...form, priceUnidad: e.target.value})} className="h-10 rounded-xl font-black text-xs" /></div>
+                  <div className="space-y-1">
+                    <Label className="text-[9px] uppercase font-black ml-1 text-black/60">Observaciones (Escritura Normal)</Label>
+                    <Textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="min-h-[100px] rounded-2xl bg-black/5 p-4 text-xs font-normal border-none text-black" placeholder="Detalles de tela, tallas, colores..." />
                   </div>
-                  <div className="space-y-0.5"><Label className="text-[9px] uppercase font-black ml-1">Observaciones</Label><Textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="min-h-[80px] rounded-xl bg-black/5 p-4 text-xs font-normal border-none text-black" placeholder="Descripción libre..." /></div>
                 </CardContent>
               </Card>
             </div>
@@ -170,16 +193,16 @@ export default function RegistryPage() {
                       <button onClick={() => setLocalImagePreviews(localImagePreviews.filter((_, i) => i !== idx))} className="absolute top-1 right-1 p-1 bg-destructive rounded-full text-white"><X className="w-3 h-3" /></button>
                     </div>
                   ))}
-                  <button onClick={() => fileInputRef.current?.click()} className="aspect-square rounded-xl border-2 border-dashed border-black/10 flex flex-col items-center justify-center gap-1 bg-black/5">
-                    <ImagePlus className="w-5 h-5" style={{ color: brandColor }} />
-                    <span className="text-[8px] font-black uppercase opacity-40">Subir</span>
+                  <button onClick={() => fileInputRef.current?.click()} className="aspect-square rounded-xl border-2 border-dashed border-black/10 flex flex-col items-center justify-center gap-1 bg-black/5 hover:bg-black/10 transition-colors">
+                    <ImagePlus className="w-6 h-6" style={{ color: brandColor }} />
+                    <span className="text-[8px] font-black uppercase opacity-40">Subir Imagen</span>
                   </button>
                   <input type="file" hidden ref={fileInputRef} onChange={async e => {
                     const f = e.target.files?.[0];
                     if (f) {
                       const r = new FileReader();
                       r.onloadend = async () => {
-                        const url = await uploadImageToDrive(r.result as string, `${form.code || 'PROD'}_${Date.now()}.jpg`);
+                        const url = await uploadImageToDrive(r.result as string, `${nextId}_${Date.now()}.jpg`);
                         setLocalImagePreviews(p => [...p, url]);
                       };
                       r.readAsDataURL(f);
@@ -187,40 +210,42 @@ export default function RegistryPage() {
                   }} />
                 </CardContent>
               </Card>
-              <Button className="w-full h-14 rounded-2xl bg-black text-white font-black" onClick={handleSave} disabled={saving}>{saving ? <Loader2 className="animate-spin" /> : <Save className="mr-2 w-4 h-4" />} GUARDAR</Button>
+              <Button className="w-full h-16 rounded-2xl bg-black text-white font-black text-base shadow-xl active:scale-95 transition-all" onClick={handleSave} disabled={saving}>
+                {saving ? <Loader2 className="animate-spin" /> : <Save className="mr-3 w-5 h-5" />} {editId ? "ACTUALIZAR" : "GUARDAR PRENDA"}
+              </Button>
             </div>
           </div>
         </TabsContent>
 
         <TabsContent value="stock" className="pt-2">
-          <Card className="border shadow-sm bg-white rounded-[2rem] max-w-xl mx-auto overflow-hidden">
-            <CardContent className="p-6 space-y-4">
+          <Card className="border shadow-sm bg-white rounded-[2.5rem] max-w-xl mx-auto overflow-hidden">
+            <CardContent className="p-8 space-y-6">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: brandColor }} />
-                <Input placeholder="BUSCAR POR NOMBRE O CÓDIGO..." value={stockSearchQuery} onChange={e => setStockSearchQuery(e.target.value)} className="pl-10 h-10 text-[11px] font-black uppercase rounded-xl" />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: brandColor }} />
+                <Input placeholder="ESCRIBE PARA BUSCAR PRENDA..." value={stockSearchQuery} onChange={e => setStockSearchQuery(e.target.value)} className="pl-12 h-14 text-[12px] font-black uppercase rounded-2xl border-black/10" />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {filteredProductsForStock.map(p => (
-                  <div key={p.id} className="p-3 rounded-xl border flex justify-between items-center cursor-pointer hover:bg-black/5" onClick={() => setStockEntry({...stockEntry, productCode: p.code})}>
+                  <div key={p.id} className="p-4 rounded-2xl border flex justify-between items-center cursor-pointer hover:bg-black/5 transition-colors" onClick={() => setStockEntry({...stockEntry, productCode: p.code})}>
                     <div className="flex flex-col">
-                      <span className="font-black text-xs text-black uppercase">{p.name}</span>
-                      <span className="text-[8px] font-normal text-black/40 uppercase">{p.code}</span>
+                      <span className="font-black text-sm text-black uppercase">{p.name}</span>
+                      <span className="text-[9px] font-black text-black/40 uppercase tracking-widest">{p.code}</span>
                     </div>
-                    <span className="text-[10px] font-black" style={{ color: brandColor }}>STOCK: {p.stock}</span>
+                    <div className="bg-black text-white px-4 py-1 rounded-xl text-[10px] font-black">STOCK: {p.stock}</div>
                   </div>
                 ))}
               </div>
               {stockEntry.productCode && (
-                <div className="pt-4 border-t space-y-4">
-                  <div className="bg-black/5 p-4 rounded-xl flex justify-between items-center">
-                    <span className="font-black text-xs uppercase text-black">{stockEntry.productCode}</span>
-                    <span className="text-[10px] font-black text-black/40">PREPARADO PARA INGRESO</span>
+                <div className="pt-6 border-t-2 border-black/5 space-y-6">
+                  <div className="bg-black text-white p-5 rounded-2xl flex justify-between items-center shadow-lg">
+                    <span className="font-black text-base uppercase tracking-widest">{stockEntry.productCode}</span>
+                    <span className="text-[10px] font-black opacity-60 uppercase">Ingreso de Mercancía</span>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1"><Label className="text-[9px] font-black uppercase ml-1">Cantidad</Label><Input type="number" value={stockEntry.quantity} onChange={e => setStockEntry({...stockEntry, quantity: e.target.value})} className="h-10 rounded-xl font-black" /></div>
-                    <div className="space-y-1"><Label className="text-[9px] font-black uppercase ml-1">Motivo</Label><Input value={stockEntry.reason} onChange={e => setStockEntry({...stockEntry, reason: e.target.value})} className="h-10 rounded-xl font-black text-[10px] uppercase" /></div>
+                    <div className="space-y-1"><Label className="text-[9px] font-black uppercase text-black/60 ml-2">Cantidad</Label><Input type="number" value={stockEntry.quantity} onChange={e => setStockEntry({...stockEntry, quantity: e.target.value})} className="h-12 rounded-xl font-black text-center text-lg" /></div>
+                    <div className="space-y-1"><Label className="text-[9px] font-black uppercase text-black/60 ml-2">Motivo</Label><Input value={stockEntry.reason} onChange={e => setStockEntry({...stockEntry, reason: e.target.value})} className="h-12 rounded-xl font-black text-[10px] uppercase px-4" /></div>
                   </div>
-                  <Button className="w-full h-12 bg-black text-white font-black rounded-xl" onClick={handleStockUpdate} disabled={saving}>{saving ? <Loader2 className="animate-spin" /> : "PROCESAR INGRESO"}</Button>
+                  <Button className="w-full h-16 bg-black text-white font-black rounded-2xl shadow-xl" onClick={handleStockUpdate} disabled={saving}>{saving ? <Loader2 className="animate-spin" /> : "CONFIRMAR INGRESO"}</Button>
                 </div>
               )}
             </CardContent>
