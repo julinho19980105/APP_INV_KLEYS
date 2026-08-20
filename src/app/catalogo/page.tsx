@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -6,8 +7,7 @@ import {
   LayoutGrid, 
   Layers, 
   FileDown,
-  Loader2,
-  RefreshCcw
+  Loader2
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -33,7 +33,6 @@ export default function CatalogoPage() {
     setLoading(true)
     try {
       const data = await getCatalogFromDrive()
-      // Aseguramos que data sea siempre un array
       setProducts(Array.isArray(data) ? data : [])
     } catch (e) {
       setProducts([])
@@ -61,13 +60,14 @@ export default function CatalogoPage() {
 
   const getCount = (type: 'category' | 'collection', name: string) => {
     if (!Array.isArray(products)) return 0
+    // El JSON de Drive ya viene filtrado por stock > 0
     return products.filter(p => p[type] === name).length
   }
 
   const handleDownloadPDF = async (type: 'category' | 'collection', filterName: string) => {
     if (!Array.isArray(products)) return
 
-    toast({ title: "Generando Catálogo PDF...", description: "Cargando datos desde Drive..." })
+    toast({ title: "Generando Catálogo...", description: "Procesando datos desde Drive..." })
     
     const filteredProducts = products.filter(p => p[type] === filterName)
     
@@ -115,9 +115,9 @@ export default function CatalogoPage() {
           </div>
           <div class="prices">
             <div class="price-title" style="color: ${brandColor}">TARIFARIO INDUSTRIAL</div>
-            <div class="price-row" style="border-left-color: ${brandColor}"><span>FARDO</span><span class="price-value">S/ ${p.priceFardo || 0}</span></div>
-            <div class="price-row" style="border-left-color: ${brandColor}aa"><span>MAYOR</span><span class="price-value">S/ ${p.priceMayor || 0}</span></div>
-            <div class="price-row" style="border-left-color: ${brandColor}55"><span>UNIDAD</span><span class="price-value">S/ ${p.priceUnidad || 0}</span></div>
+            <div class="price-row" style="border-left-color: ${brandColor}"><span>MAYOR</span><span class="price-value">S/ ${p.priceMayor || 0}</span></div>
+            <div class="price-row" style="border-left-color: ${brandColor}aa"><span>SERIE</span><span class="price-value">S/ ${p.priceFardo || 0}</span></div>
+            <div class="price-row" style="border-left-color: ${brandColor}55"><span>CUARTO</span><span class="price-value">S/ ${p.priceUnidad || 0}</span></div>
           </div>
         </div>
       </div>
@@ -270,13 +270,7 @@ export default function CatalogoPage() {
                   if (img.complete) resolve();
                   else {
                     img.onload = () => resolve();
-                    img.onerror = () => {
-                      const err = document.createElement('div');
-                      err.style.cssText = 'color:red; font-size:7pt; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.8);';
-                      err.innerText = 'ERROR CARGA';
-                      img.parentNode.appendChild(err);
-                      resolve();
-                    };
+                    img.onerror = () => resolve();
                   }
                 });
               });
@@ -299,11 +293,8 @@ export default function CatalogoPage() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 border-b-2 border-black pb-4">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 bg-black rounded-2xl flex items-center justify-center border border-black/10"><BookOpen className="w-6 h-6 text-white" /></div>
-          <div><h1 className="text-3xl font-headline font-black text-black uppercase tracking-tight">PDF Catálogo</h1><p className="text-[10px] font-black text-primary uppercase tracking-[0.3em] ml-1 mt-1">Sincronizado desde Drive</p></div>
+          <div><h1 className="text-3xl font-headline font-black text-black uppercase tracking-tight">Catálogo PDF</h1><p className="text-[10px] font-black text-primary uppercase tracking-[0.3em] ml-1 mt-1">Industrializado desde Drive</p></div>
         </div>
-        <Button onClick={loadCatalog} variant="outline" className="h-10 rounded-xl font-black text-[10px] uppercase gap-2">
-          <RefreshCcw className="w-4 h-4" style={{ color: brandColor }} /> Actualizar Datos
-        </Button>
       </div>
 
       <Tabs defaultValue="categories" className="w-full">

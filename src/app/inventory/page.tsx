@@ -23,14 +23,27 @@ import {
 import { 
   Dialog,
   DialogContent,
-  DialogClose,
   DialogHeader,
   DialogTitle
 } from "@/components/ui/dialog"
-import { Search, Edit2, Trash2, MoreVertical, Calendar, LayoutGrid, Layers, ImageIcon, X } from "lucide-react"
+import { 
+  Search, 
+  Edit2, 
+  Trash2, 
+  MoreVertical, 
+  Calendar, 
+  LayoutGrid, 
+  Layers, 
+  ImageIcon, 
+  X,
+  CloudSync,
+  CheckCircle2,
+  AlertCircle,
+  Loader2
+} from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useCollection, useFirestore, useDoc } from "@/firebase"
-import { collection, query, orderBy, doc, deleteDoc, getDocs } from "firebase/firestore"
+import { collection, query, orderBy, doc, deleteDoc, getDocs, serverTimestamp, updateDoc } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { syncCatalogToDrive } from "@/services/sheets-service"
 
@@ -61,16 +74,27 @@ export default function InventoryPage() {
   const { toast } = useToast()
   const [searchQuery, setSearchQuery] = React.useState("")
   const [zoomImage, setZoomImage] = React.useState<string | null>(null)
+  const [syncing, setSyncing] = React.useState(false)
 
   const configDocRef = React.useMemo(() => db ? doc(db, "config", "global") : null, [db])
   const { data: config } = useDoc(configDocRef)
   const brandColor = config?.brandColor || "#FF3399"
   const viewType = config?.inventoryViewMode || "collection"
+  const lastDriveSync = config?.lastDriveSync?.toDate?.() || new Date(0)
   
   const productsRef = React.useMemo(() => db ? query(collection(db, "products"), orderBy("code", "asc")) : null, [db])
   const movementsRef = React.useMemo(() => db ? query(collection(db, "movements"), orderBy("timestamp", "desc")) : null, [db])
   const { data: products = [] } = useCollection(productsRef)
   const { data: movements = [] } = useCollection(movementsRef)
+
+  // Detect sync status
+  const needsSync = React.useMemo(() => {
+    if (products.length === 0) return false
+    return products.some(p => {
+      const updatedAt = p.updatedAt?.toDate?.() || new Date(0)
+      return updatedAt > lastDriveSync
+    })
+  }, [products, lastDriveSync])
 
   const filteredProducts = React.useMemo(() => {
     const q = searchQuery.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
@@ -101,13 +125,27 @@ export default function InventoryPage() {
     return Object.values(groups)
   }, [movements])
 
+  const handleManualSync = async () => {
+    if (!db || syncing) return
+    setSyncing(true)
+    try {
+      toast({ title: "Sincronizando...", description: "Actualizando catálogo en Drive..." })
+      await syncCatalogToDrive(products)
+      await updateDoc(doc(db, "config", "global"), {
+        lastDriveSync: serverTimestamp()
+      })
+      toast({ title: "Nube Actualizada", description: "El catálogo en Drive está al día." })
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error de Sincronización" })
+    } finally {
+      setSyncing(false)
+    }
+  }
+
   const onDelete = async (id: string) => {
     if (!db) return
     try {
       await deleteDoc(doc(db, "products", id))
-      const updatedProducts = await getDocs(query(collection(db, "products")))
-      const allProds = updatedProducts.docs.map(d => ({ id: d.id, ...d.data() }))
-      await syncCatalogToDrive(allProds)
       toast({ title: "BAJA PROCESADA" })
     } catch (e) { toast({ variant: "destructive", title: "ERROR" }) }
   }
@@ -115,11 +153,33 @@ export default function InventoryPage() {
   return (
     <div className="space-y-6 pt-2 pb-20 max-w-full px-2 md:px-4">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b-2 border-black pb-4">
-        <div>
-          <h1 className="text-3xl font-headline font-black text-black uppercase tracking-tight">Stock Maestro</h1>
-          <p className="text-[9px] font-black text-primary uppercase tracking-[0.2em] ml-1 mt-0.5">
-            Vista por {viewType === 'collection' ? 'Colección' : 'Categoría'} · Diva Industrial
-          </p>
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-headline font-black text-black uppercase tracking-tight">Stock Maestro</h1>
+            <p className="text-[9px] font-black text-primary uppercase tracking-[0.2em] ml-1 mt-0.5">
+              Vista por {viewType === 'collection' ? 'Colección' : 'Categoría'} · Diva Industrial
+            </p>
+          </div>
+          <Button 
+            onClick={handleManualSync}
+            disabled={!needsSync || syncing}
+            variant="outline"
+            className={cn(
+              "h-12 px-4 rounded-xl font-black text-[9px] uppercase gap-2 transition-all border-2",
+              needsSync 
+                ? "border-red-500 bg-red-50 text-red-600 hover:bg-red-100 hover:border-red-600 animate-pulse" 
+                : "border-green-500 bg-green-50 text-green-600 opacity-60 cursor-default"
+            )}
+          >
+            {syncing ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : needsSync ? (
+              <AlertCircle className="w-4 h-4" />
+            ) : (
+              <CheckCircle2 className="w-4 h-4" />
+            )}
+            {needsSync ? "Sincronizar Nube" : "Catálogo al Día"}
+          </Button>
         </div>
         <div className="relative w-full md:w-80">
           <Search className="absolute left-3 top-3.5 h-4 w-4" style={{ color: brandColor }} />
