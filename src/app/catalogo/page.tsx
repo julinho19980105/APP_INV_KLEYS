@@ -39,7 +39,7 @@ export default function CatalogoPage() {
   }
 
   const handleDownloadPDF = async (type: 'category' | 'collection', filterName: string) => {
-    toast({ title: "Generando Catálogo PDF...", description: "Preparando páginas A4 industriales..." })
+    toast({ title: "Generando Catálogo PDF...", description: "Validando carga de imágenes industriales..." })
     
     const filteredProducts = allProducts.filter(p => p[type] === filterName)
     
@@ -59,14 +59,15 @@ export default function CatalogoPage() {
     const pagesHtml = sortedProducts.map(p => `
       <div class="page">
         <div class="header">
-          <div class="collection">COLECCIÓN: ${p.collection || 'GENERAL'}</div>
-          <div class="category">CATEGORÍA: ${p.category || 'GENERAL'}</div>
+          <div class="collection">COL: ${p.collection || 'GENERAL'}</div>
+          <div class="company-name-print">${companyName}</div>
+          <div class="category">CAT: ${p.category || 'GENERAL'}</div>
         </div>
         
         <div class="photos ${p.images?.length >= 3 ? 'three' : p.images?.length === 2 ? 'two' : 'one'}">
           ${(p.images || []).slice(0, 3).map(img => `
             <div class="photo-frame">
-              <img src="${img}" alt="Producto" onerror="this.style.display='none'">
+              <img src="${img}" alt="Producto" crossorigin="anonymous">
             </div>
           `).join('')}
           ${(!p.images || p.images.length === 0) ? `
@@ -82,8 +83,8 @@ export default function CatalogoPage() {
               <div class="product-name">${p.name}</div>
               <div class="product-code">${p.code}</div>
             </div>
-            <div class="detail-line"><span class="detail-label">ESTADO:</span> DISPONIBLE</div>
-            <div class="extra-text">${p.description || 'Sin descripción adicional disponible.'}</div>
+            <div class="detail-line"><span class="detail-label">ESTADO:</span> DISPONIBLE EN ALMACÉN</div>
+            <div class="extra-text">${p.description || ''}</div>
           </div>
           <div class="prices">
             <div class="price-title">PRECIOS INDUSTRIALES</div>
@@ -114,18 +115,30 @@ export default function CatalogoPage() {
               position: relative;
             }
             .header { 
-              height: 15mm; 
+              height: 20mm; 
               display: flex; 
               align-items: center; 
               justify-content: space-between; 
-              border-bottom: 2px solid ${brandColor}33; 
+              border-bottom: 3px solid ${brandColor}33; 
               margin-bottom: 5mm;
+              padding: 0 5mm;
             }
             .collection, .category { 
               font-size: 8pt; 
-              font-weight: 800; 
+              font-weight: 900; 
               text-transform: uppercase; 
-              color: #444;
+              color: #000;
+              width: 25%;
+            }
+            .category { text-align: right; }
+            .company-name-print {
+              font-size: 16pt;
+              font-weight: 900;
+              color: ${brandColor};
+              text-align: center;
+              flex: 1;
+              text-transform: uppercase;
+              letter-spacing: 2px;
             }
             
             .photos { 
@@ -137,8 +150,8 @@ export default function CatalogoPage() {
             .photo-frame { 
               flex: 1; 
               position: relative; 
-              border: 1px solid #eee; 
-              border-radius: 4mm; 
+              border: 1.5px dashed ${brandColor}22; 
+              border-radius: 5mm; 
               display: flex; 
               align-items: center; 
               justify-content: center; 
@@ -146,11 +159,11 @@ export default function CatalogoPage() {
               background: #fafafa;
             }
             .photo-frame img { 
-              max-width: 100%; 
-              max-height: 100%; 
+              max-width: 95%; 
+              max-height: 95%; 
               object-fit: contain; 
             }
-            .no-image { opacity: 0.2; font-weight: 900; font-size: 24pt; text-align: center; }
+            .no-image { opacity: 0.1; font-weight: 900; font-size: 24pt; text-align: center; }
 
             .photos.two .photo-frame { width: 50%; }
             .photos.three { display: grid; grid-template-columns: 1.3fr 0.7fr; grid-template-rows: 1fr 1fr; }
@@ -200,6 +213,7 @@ export default function CatalogoPage() {
               font-size: 8pt; 
               color: #777; 
               line-height: 1.4;
+              min-height: 15mm;
             }
             .prices { 
               padding: 6mm; 
@@ -240,11 +254,55 @@ export default function CatalogoPage() {
         <body>
           ${pagesHtml}
           <script>
-            window.onload = () => {
-              setTimeout(() => {
+            window.addEventListener('load', () => {
+              const images = Array.from(document.querySelectorAll('img'));
+              let loadedCount = 0;
+              let failedCount = 0;
+              const failedUrls = [];
+
+              console.log('--- DIAGNÓSTICO DE CARGA DIVA ---');
+              console.log('Imágenes encontradas:', images.length);
+
+              if (images.length === 0) {
                 window.print();
-              }, 1000);
-            };
+                return;
+              }
+
+              const loadPromises = images.map(img => {
+                return new Promise((resolve) => {
+                  if (img.complete && img.naturalWidth !== 0) {
+                    loadedCount++;
+                    resolve();
+                  } else {
+                    img.onload = () => {
+                      loadedCount++;
+                      resolve();
+                    };
+                    img.onerror = () => {
+                      failedCount++;
+                      failedUrls.push(img.src);
+                      console.error('FALLO CARGA:', img.src);
+                      
+                      const errorDiv = document.createElement('div');
+                      errorDiv.style.cssText = 'color:red; font-size:7pt; font-weight:900; padding:10px; text-align:center; position:absolute; inset:0; display:flex; align-items:center; background:rgba(255,255,255,0.9);';
+                      errorDiv.innerText = 'ERROR DE CARGA: ' + img.src;
+                      img.parentNode.appendChild(errorDiv);
+                      resolve();
+                    };
+                  }
+                });
+              });
+
+              Promise.all(loadPromises).then(() => {
+                console.log('RESUMEN: ' + loadedCount + ' cargadas, ' + failedCount + ' fallidas.');
+                if (failedUrls.length > 0) console.log('URLs FALLIDAS:', failedUrls);
+                
+                // Pequeño retardo para que el motor de renderizado asiente el layout
+                setTimeout(() => {
+                  window.print();
+                }, 800);
+              });
+            });
           </script>
         </body>
       </html>
