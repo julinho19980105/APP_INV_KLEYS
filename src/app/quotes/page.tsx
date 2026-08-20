@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -32,7 +33,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
@@ -63,7 +63,6 @@ interface QuoteItem {
   img: string
   discount: string
   isRegistered: boolean
-  // Campos de calculadora para re-edición
   calcUnidades?: string
   calcSeries?: string
   calcLibres?: string
@@ -105,7 +104,6 @@ export default function QuotesPage() {
   const [originalItems, setOriginalItems] = React.useState<QuoteItem[]>([])
   const [confirmDeleteId, setConfirmDeleteId] = React.useState<string | null>(null)
 
-  // Estados para la calculadora
   const [isCalcOpen, setIsCalcOpen] = React.useState(false)
   const [calcData, setCalcData] = React.useState({ unidades: "", series: "", libres: "" })
 
@@ -332,7 +330,6 @@ export default function QuotesPage() {
     }
   }
 
-  // Lógica de Calculadora
   const handleOpenCalc = () => {
     setCalcData({
       unidades: currentEntry.calcUnidades || "",
@@ -473,82 +470,83 @@ export default function QuotesPage() {
             <div className="w-20 h-20 rounded-2xl overflow-hidden border shrink-0 bg-muted shadow-md mx-auto md:mx-0">
               {currentEntry.img ? <img src={getThumbnailUrl(currentEntry.img)} className="w-full h-full object-cover" alt="" /> : <PackageSearch className="w-full h-full p-5 opacity-10" />}
             </div>
-            <div className="flex-1 w-full grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-              <div className="space-y-1">
-                <Label className="text-[8px] font-black uppercase text-black/40 ml-1">PRECIO UNITARIO</Label>
-                <div className="flex gap-2">
-                  <Input 
-                    type="number" 
-                    className="h-10 text-xs font-black border-black/10 rounded-xl bg-white" 
-                    value={currentEntry.price} 
-                    onChange={e => setCurrentEntry({...currentEntry, price: e.target.value})} 
-                  />
-                  {currentEntry.isRegistered && currentEntry.productId && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="icon" className="h-10 w-10 shrink-0 border-black/10 rounded-xl"><ChevronDown className="w-4 h-4" /></Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent className="rounded-xl font-black text-[10px] uppercase p-2">
-                        {dbProducts.find(p => p.code === currentEntry.productId) && (
-                          <>
-                            <DropdownMenuItem onClick={() => setCurrentEntry({...currentEntry, price: dbProducts.find(p => p.code === currentEntry.productId).priceFardo.toString()})}>Fardo: {dbProducts.find(p => p.code === currentEntry.productId).priceFardo}</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setCurrentEntry({...currentEntry, price: dbProducts.find(p => p.code === currentEntry.productId).priceMayor.toString()})}>Mayor: {dbProducts.find(p => p.code === currentEntry.productId).priceMayor}</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setCurrentEntry({...currentEntry, price: dbProducts.find(p => p.code === currentEntry.productId).priceUnidad.toString()})}>Unidad: {dbProducts.find(p => p.code === currentEntry.productId).priceUnidad}</DropdownMenuItem>
-                          </>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )}
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4 md:col-span-2">
+            <div className="flex-1 w-full space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-1">
-                  <Label className="text-[8px] font-black uppercase text-black/40 ml-1">CANTIDAD</Label>
+                  <Label className="text-[8px] font-black uppercase text-black/40 ml-1">PRECIO</Label>
                   <div className="flex gap-2">
                     <Input 
                       type="number" 
-                      className="h-10 text-xs font-black border-primary/30 bg-primary/5 text-primary rounded-xl" 
-                      value={currentEntry.quantity} 
-                      onChange={e => setCurrentEntry({...currentEntry, quantity: e.target.value})} 
+                      className="h-10 text-xs font-black border-black/10 rounded-xl bg-white" 
+                      value={currentEntry.price} 
+                      onChange={e => setCurrentEntry({...currentEntry, price: e.target.value})} 
                     />
-                    <Button 
-                      variant="outline" 
-                      size="icon" 
-                      className="h-10 w-10 shrink-0 border-primary/20 bg-primary/5 text-primary rounded-xl"
-                      onClick={handleOpenCalc}
-                      disabled={!currentEntry.name}
-                    >
-                      <Calculator className="w-4 h-4" />
-                    </Button>
+                    {currentEntry.isRegistered && currentEntry.productId && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="icon" className="h-10 w-10 shrink-0 border-black/10 rounded-xl"><ChevronDown className="w-4 h-4" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent className="rounded-xl font-black text-[10px] uppercase p-2">
+                          {dbProducts.find(p => p.code === currentEntry.productId) && (
+                            <>
+                              <DropdownMenuItem onClick={() => setCurrentEntry({...currentEntry, price: dbProducts.find(p => p.code === currentEntry.productId).priceFardo.toString()})}>Fardo: {dbProducts.find(p => p.code === currentEntry.productId).priceFardo}</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setCurrentEntry({...currentEntry, price: dbProducts.find(p => p.code === currentEntry.productId).priceMayor.toString()})}>Mayor: {dbProducts.find(p => p.code === currentEntry.productId).priceMayor}</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setCurrentEntry({...currentEntry, price: dbProducts.find(p => p.code === currentEntry.productId).priceUnidad.toString()})}>Unidad: {dbProducts.find(p => p.code === currentEntry.productId).priceUnidad}</DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                   </div>
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-[8px] font-black uppercase text-black/40 ml-1">DSCTO</Label>
-                  <Input 
-                    type="number" 
-                    className="h-10 text-xs font-black border-orange-200 bg-orange-50 text-orange-600 rounded-xl" 
-                    value={currentEntry.discount} 
-                    onChange={e => setCurrentEntry({...currentEntry, discount: e.target.value})} 
-                  />
+
+                <div className="grid grid-cols-2 gap-2 md:col-span-2">
+                  <div className="space-y-1">
+                    <Label className="text-[8px] font-black uppercase text-black/40 ml-1">CANTIDAD</Label>
+                    <div className="flex gap-1">
+                      <Input 
+                        type="number" 
+                        className="h-10 text-xs font-black border-primary/30 bg-primary/5 text-primary rounded-xl" 
+                        value={currentEntry.quantity} 
+                        onChange={e => setCurrentEntry({...currentEntry, quantity: e.target.value})} 
+                      />
+                      <Button 
+                        variant="outline" 
+                        size="icon" 
+                        className="h-10 w-10 shrink-0 border-primary/20 bg-primary/5 text-primary rounded-xl"
+                        onClick={handleOpenCalc}
+                        disabled={!currentEntry.name}
+                      >
+                        <Calculator className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[8px] font-black uppercase text-black/40 ml-1">DSCTO</Label>
+                    <Input 
+                      type="number" 
+                      className="h-10 text-xs font-black border-orange-200 bg-orange-50 text-orange-600 rounded-xl" 
+                      value={currentEntry.discount} 
+                      onChange={e => setCurrentEntry({...currentEntry, discount: e.target.value})} 
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
 
-          <div className="space-y-1">
-            <Label className="text-[8px] font-black uppercase text-black/40 ml-1">DESCRIPCIÓN / NOTAS</Label>
-            <Input 
-              className="h-10 text-[10px] font-black uppercase bg-black/5 border-none rounded-xl px-5"
-              value={currentEntry.description}
-              onChange={e => {
-                const val = e.target.value
-                // Intentamos separar la nota manual de lo automático si existe el punto final
-                const splitIndex = val.indexOf('. ')
-                const manual = splitIndex > -1 ? val.substring(splitIndex + 2) : val
-                setCurrentEntry({...currentEntry, description: val, manualNote: manual})
-              }}
-              placeholder=""
-            />
+              <div className="space-y-1">
+                <Label className="text-[8px] font-black uppercase text-black/40 ml-1">DESCRIPCIÓN / NOTAS</Label>
+                <Input 
+                  className="h-10 text-[10px] font-black uppercase bg-black/5 border-none rounded-xl px-5"
+                  value={currentEntry.description}
+                  onChange={e => {
+                    const val = e.target.value
+                    const splitIndex = val.indexOf('. ')
+                    const manual = splitIndex > -1 ? val.substring(splitIndex + 2) : val
+                    setCurrentEntry({...currentEntry, description: val, manualNote: manual})
+                  }}
+                />
+              </div>
+            </div>
           </div>
 
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 pt-4 border-t border-black/5">
@@ -571,7 +569,7 @@ export default function QuotesPage() {
 
       <Card className="rounded-[2rem] border shadow-sm bg-white overflow-hidden">
         <div className="bg-black/5 border-b py-3 px-6">
-          <span className="text-[10px] font-black uppercase text-black tracking-widest uppercase">LISTA DE PRODUCTOS</span>
+          <span className="text-[10px] font-black uppercase text-black tracking-widest">LISTA DE PRODUCTOS</span>
         </div>
         <div className="divide-y divide-black/5">
           {items.map((item) => (
@@ -647,7 +645,6 @@ export default function QuotesPage() {
         GUARDAR VENTA
       </Button>
 
-      {/* Modal de Calculadora Industrial */}
       <Dialog open={isCalcOpen} onOpenChange={setIsCalcOpen}>
         <DialogContent className="rounded-[2.5rem] border-none shadow-2xl max-w-xs">
           <DialogHeader>

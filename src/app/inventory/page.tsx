@@ -42,62 +42,71 @@ const ProductRow = ({ p, onEdit, onDelete }: {
 
   const getThumbnailUrl = (url: string) => {
     if (!url || typeof url !== 'string' || !url.startsWith('http')) return url;
-    if (!url.includes('id=')) return url;
     const idMatch = url.match(/id=([^&]+)/);
     return idMatch ? `https://drive.google.com/thumbnail?id=${idMatch[1]}&sz=300` : url;
   };
 
   return (
     <TableRow key={p.id} className="group hover:bg-black/5 border-b border-black/5 last:border-0">
-      <TableCell className="text-center p-3 w-[60px]">
-        <div className="w-12 h-12 rounded-xl border border-black/10 overflow-hidden bg-muted relative shadow-sm">
-          {p.images && p.images[0] ? (
-             <img src={getThumbnailUrl(p.images[0])} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-          ) : (
-            <PackageSearch className="w-full h-full p-3 opacity-10" />
-          )}
-        </div>
-      </TableCell>
-      <TableCell className="p-3">
-        <div className="flex flex-col">
-          <div className="flex items-center gap-2">
-            <span className="font-black text-[10px] bg-black text-white px-2 rounded-lg">{p.code}</span>
-            <span className="font-black text-black text-xs uppercase truncate max-w-[400px]">{p.name}</span>
+      <TableCell className="p-4">
+        <div className="flex gap-4">
+          <div className="w-16 h-16 rounded-2xl border border-black/10 overflow-hidden bg-muted shrink-0 relative shadow-sm">
+            {p.images && p.images[0] ? (
+               <img src={getThumbnailUrl(p.images[0])} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+            ) : (
+              <PackageSearch className="w-full h-full p-4 opacity-10" />
+            )}
           </div>
-          <div className="text-[10px] font-black text-black/60 uppercase mt-1">
-            F: {p.priceFardo} / M: {p.priceMayor} / <span className="text-primary font-black">U: {p.priceUnidad}</span>
-            <span className="ml-3 text-[8px] border border-black/10 px-2 rounded-full font-black text-black/40">[{p.collection} | {p.category}]</span>
+          
+          <div className="flex-1 space-y-1 min-w-0">
+            {/* LÍNEA 1: CÓDIGO Y NOMBRE */}
+            <div className="flex items-center gap-2">
+              <span className="font-black text-[9px] bg-black text-white px-2 py-0.5 rounded-lg shrink-0">{p.code}</span>
+              <span className="font-black text-black text-sm uppercase truncate">{p.name}</span>
+            </div>
+
+            {/* LÍNEA 2: PRECIOS */}
+            <div className="text-[10px] font-black text-black/60 uppercase">
+              FARDO: <span className="text-black">S/{p.priceFardo}</span> · 
+              MAYOR: <span className="text-black ml-1">S/{p.priceMayor}</span> · 
+              <span className="text-primary ml-1">UNID: S/{p.priceUnidad}</span>
+            </div>
+
+            {/* LÍNEA 3: STOCK Y UBICACIÓN */}
+            <div className="flex items-center gap-3">
+              <div className={cn(
+                "font-black text-[10px] px-2 py-0.5 rounded-md border",
+                p.stock <= 0 ? "bg-destructive/10 text-destructive border-destructive/20" : 
+                p.stock < 10 ? "bg-orange-50 text-orange-600 border-orange-200" : 
+                "bg-green-50 text-green-600 border-green-200"
+              )}>
+                STOCK: {p.stock} UND
+              </div>
+              <span className="text-[8px] font-black text-black/30 uppercase tracking-widest truncate">
+                {p.collection} | {p.category}
+              </span>
+            </div>
+          </div>
+
+          <div className="shrink-0 flex items-center">
+            {confirming ? (
+              <div className="flex items-center gap-1">
+                <Button size="icon" variant="ghost" className="h-8 w-8 bg-destructive text-white rounded-xl" onClick={() => { onDelete({id: p.id, code: p.code}); setConfirming(false); }}><Check className="w-4 h-4" /></Button>
+                <Button size="icon" variant="ghost" className="h-8 w-8 bg-black/5 rounded-xl" onClick={() => setConfirming(false)}><X className="w-4 h-4" /></Button>
+              </div>
+            ) : (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-10 w-10 hover:bg-black/10 rounded-xl"><MoreVertical className="w-5 h-5 text-black" /></Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="rounded-2xl border-black/10 p-2 shadow-2xl">
+                  <DropdownMenuItem className="text-[10px] font-black uppercase cursor-pointer p-3 rounded-xl gap-2" onClick={() => onEdit(p.id)}><Edit2 className="w-3.5 h-3.5" /> Editar Prenda</DropdownMenuItem>
+                  <DropdownMenuItem className="text-[10px] font-black uppercase cursor-pointer p-3 rounded-xl gap-2 text-destructive hover:bg-destructive/10" onClick={() => setConfirming(true)}><Trash2 className="w-3.5 h-3.5" /> Dar de Baja</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
         </div>
-      </TableCell>
-      <TableCell className="text-center p-3">
-        <div className="flex flex-col items-center">
-           <span className={cn(
-            "font-black text-xs px-3 py-1 rounded-full border shadow-sm",
-            p.stock <= 0 ? "bg-destructive text-white border-destructive" : p.stock < 10 ? "bg-orange-50 text-orange-600 border-orange-200" : "bg-green-50 text-green-600 border-green-200"
-          )}>
-            {p.stock}
-          </span>
-          <span className="text-[7px] font-black uppercase text-black/30 mt-1">UND</span>
-        </div>
-      </TableCell>
-      <TableCell className="text-right p-3 w-[100px]">
-        {confirming ? (
-          <div className="flex items-center justify-end gap-1">
-            <Button size="icon" variant="ghost" className="h-8 w-8 bg-destructive text-white rounded-xl" onClick={() => { onDelete({id: p.id, code: p.code}); setConfirming(false); }}><Check className="w-4 h-4" /></Button>
-            <Button size="icon" variant="ghost" className="h-8 w-8 bg-black/5 rounded-xl" onClick={() => setConfirming(false)}><X className="w-4 h-4" /></Button>
-          </div>
-        ) : (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-10 w-10 hover:bg-black/10 rounded-xl"><MoreVertical className="w-5 h-5 text-black" /></Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="rounded-2xl border-black/10 p-2 shadow-2xl">
-              <DropdownMenuItem className="text-[10px] font-black uppercase cursor-pointer p-3 rounded-xl gap-2" onClick={() => onEdit(p.id)}><Edit2 className="w-3.5 h-3.5" /> Editar Prenda</DropdownMenuItem>
-              <DropdownMenuItem className="text-[10px] font-black uppercase cursor-pointer p-3 rounded-xl gap-2 text-destructive hover:bg-destructive/10" onClick={() => setConfirming(true)}><Trash2 className="w-3.5 h-3.5" /> Dar de Baja</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
       </TableCell>
     </TableRow>
   );
@@ -224,35 +233,35 @@ export default function InventoryPage() {
         </TabsContent>
 
         <TabsContent value="movements">
-          <div className="border rounded-[2.5rem] overflow-hidden bg-white shadow-sm">
+          <div className="border rounded-[2.5rem] overflow-hidden bg-white shadow-sm overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="bg-black/5 hover:bg-black/5 border-none">
-                  <TableHead className="font-black uppercase text-[9px] text-black pl-8"><div className="flex items-center gap-2"><Clock className="w-3 h-3" /> Fecha y Hora</div></TableHead>
+                  <TableHead className="font-black uppercase text-[9px] text-black pl-8 whitespace-nowrap"><div className="flex items-center gap-2"><Clock className="w-3 h-3" /> Fecha</div></TableHead>
                   <TableHead className="font-black uppercase text-[9px] text-black text-center">DNI</TableHead>
                   <TableHead className="font-black uppercase text-[9px] text-black">Operación</TableHead>
                   <TableHead className="text-center font-black uppercase text-[9px] text-black">Cant</TableHead>
-                  <TableHead className="font-black uppercase text-[9px] text-black pr-8">Motivo / Referencia</TableHead>
+                  <TableHead className="font-black uppercase text-[9px] text-black pr-8">Motivo</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {movements.map(m => (
                   <TableRow key={m.id} className="hover:bg-black/5 transition-colors border-b last:border-0">
-                    <TableCell className="text-[9px] font-black text-black/60 pl-8">
-                      {m.timestamp?.toDate ? m.timestamp.toDate().toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }).toUpperCase() : "---"}
+                    <TableCell className="text-[9px] font-black text-black/60 pl-8 whitespace-nowrap">
+                      {m.timestamp?.toDate ? m.timestamp.toDate().toLocaleString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).toUpperCase() : "---"}
                     </TableCell>
                     <TableCell className="text-center">
-                      <Badge variant="outline" className="font-black text-[9px] border-black/10 bg-black/5">{m.productCode}</Badge>
+                      <Badge variant="outline" className="font-black text-[8px] border-black/10 bg-black/5">{m.productCode}</Badge>
                     </TableCell>
                     <TableCell>
                       {m.type === 'in' || m.type === 'return' ? (
-                        <span className="text-green-600 font-black text-[10px] uppercase bg-green-50 px-2 py-0.5 rounded-md border border-green-100">Entrada</span>
+                        <span className="text-green-600 font-black text-[9px] uppercase bg-green-50 px-2 py-0.5 rounded-md border border-green-100">Entrada</span>
                       ) : (
-                        <span className="text-destructive font-black text-[10px] uppercase bg-destructive/5 px-2 py-0.5 rounded-md border border-destructive/10">Salida</span>
+                        <span className="text-destructive font-black text-[9px] uppercase bg-destructive/5 px-2 py-0.5 rounded-md border border-destructive/10">Salida</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-center font-black text-black text-xs">{m.quantity}</TableCell>
-                    <TableCell className="text-[10px] font-black uppercase text-black/70 pr-8">{m.reason}</TableCell>
+                    <TableCell className="text-center font-black text-black text-[10px]">{m.quantity}</TableCell>
+                    <TableCell className="text-[9px] font-black uppercase text-black/70 pr-8 truncate max-w-[150px]">{m.reason}</TableCell>
                   </TableRow>
                 ))}
                 {movements.length === 0 && (

@@ -172,7 +172,6 @@ export default function RegistryPage() {
       await setDoc(doc(db, "products", productCode), productData, { merge: true })
       
       if (editId) {
-        // Actualizar el "Stock Inicial" en Kardex si se cambia el stock base al editar
         const mRef = collection(db, "movements")
         const q = query(mRef, where("productCode", "==", productCode), where("reason", "==", "Stock Inicial"))
         const snap = await getDocs(q)
@@ -214,7 +213,7 @@ export default function RegistryPage() {
         productCode: stockEntry.productCode,
         type: "in",
         quantity: Number(stockEntry.quantity),
-        reason: "Reposición Stock",
+        reason: stockEntry.reason || "Reposición Stock",
         timestamp: serverTimestamp()
       })
       toast({ title: "Ingreso confirmado" })
@@ -254,18 +253,21 @@ export default function RegistryPage() {
 
   const getThumbnailUrl = (url: string) => {
     if (!url || typeof url !== 'string' || !url.startsWith('http')) return url;
-    if (!url.includes('id=')) return url;
     const idMatch = url.match(/id=([^&]+)/);
     return idMatch ? `https://drive.google.com/thumbnail?id=${idMatch[1]}&sz=400` : url;
   };
 
-  const filteredProductsForStock = allProducts.filter(p => 
-    p.code.toLowerCase().includes(stockSearchQuery.toLowerCase()) ||
-    p.name.toLowerCase().includes(stockSearchQuery.toLowerCase())
-  );
+  const filteredProductsForStock = React.useMemo(() => {
+    if (stockSearchQuery.length < 2) return [];
+    const q = stockSearchQuery.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    return allProducts.filter(p => 
+      p.code.toLowerCase().includes(q) ||
+      p.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(q)
+    );
+  }, [allProducts, stockSearchQuery]);
 
   return (
-    <div className="max-w-6xl mx-auto space-y-4 pt-2">
+    <div className="max-w-6xl mx-auto space-y-4 pt-2 pb-24 px-2 md:px-0">
       <Tabs defaultValue="new" className="w-full">
         <TabsList className="bg-muted/50 p-1 rounded-2xl w-full justify-start overflow-hidden border">
           <TabsTrigger value="new" className="rounded-xl px-12 data-[state=active]:bg-primary data-[state=active]:text-white transition-all text-xs font-black uppercase font-headline">NUEVA PRENDA</TabsTrigger>
@@ -359,7 +361,12 @@ export default function RegistryPage() {
 
                   <div className="space-y-0.5">
                     <Label className="text-[9px] uppercase font-black text-black ml-1">Observaciones</Label>
-                    <Textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="min-h-[80px] rounded-xl bg-black/5 p-4 text-xs font-black border-none text-black uppercase" />
+                    <Textarea 
+                      value={form.description} 
+                      onChange={e => setForm({...form, description: e.target.value})} 
+                      className="min-h-[80px] rounded-xl bg-black/5 p-4 text-xs font-medium border-none text-black" 
+                      placeholder="..."
+                    />
                   </div>
                 </CardContent>
               </Card>
@@ -378,7 +385,7 @@ export default function RegistryPage() {
             <div className="space-y-4">
               <Card className="border shadow-sm bg-white rounded-2xl overflow-hidden">
                 <div className="bg-black/5 py-2 px-6 flex justify-between items-center border-b">
-                  <span className="text-[9px] font-black text-black uppercase">Catálogo Drive</span>
+                  <span className="text-[9px] font-black text-black uppercase">Galería de Imágenes</span>
                   <span className="text-[8px] bg-black text-white px-2 rounded-full font-black">{localImagePreviews.length}/4</span>
                 </div>
                 <CardContent className="pt-3 grid grid-cols-2 gap-2 px-6 pb-3">
@@ -388,7 +395,7 @@ export default function RegistryPage() {
                         <button onClick={() => setLocalImagePreviews(localImagePreviews.filter((_, i) => i !== idx))} className="absolute top-1 right-1 p-1 bg-destructive rounded-full text-white opacity-0 group-hover:opacity-100"><X className="w-3 h-3" /></button>
                       </div>
                     ))}
-                    {localImagePreviews.length < 4 && <button onClick={() => fileInputRef.current?.click()} className="aspect-square rounded-xl border-2 border-dashed border-black/10 flex flex-col items-center justify-center gap-1 text-black bg-black/5 hover:bg-black/10"><ImagePlus className="w-5 h-5 opacity-40" /><span className="text-[8px] font-black uppercase opacity-40">Galería</span><input type="file" hidden ref={fileInputRef} onChange={e => {
+                    {localImagePreviews.length < 4 && <button onClick={() => fileInputRef.current?.click()} className="aspect-square rounded-xl border-2 border-dashed border-black/10 flex flex-col items-center justify-center gap-1 text-black bg-black/5 hover:bg-black/10"><ImagePlus className="w-5 h-5 opacity-40" /><span className="text-[8px] font-black uppercase opacity-40">Añadir Foto</span><input type="file" hidden ref={fileInputRef} onChange={e => {
                       const file = e.target.files?.[0]; if (file) { const r = new FileReader(); r.onloadend = () => setLocalImagePreviews(p => [...p, r.result as string].slice(0, 4)); r.readAsDataURL(file); }
                     }} accept="image/*" /></button>}
                 </CardContent>
@@ -397,7 +404,7 @@ export default function RegistryPage() {
               <div className="flex gap-2">
                 <Button variant="ghost" size="icon" className="h-12 w-12 rounded-2xl border-2 border-black text-black hover:bg-black/5" onClick={handleClear} title="Borrar datos"><Eraser className="w-5 h-5" /></Button>
                 <Button className="flex-1 h-12 text-base rounded-2xl bg-primary text-white font-black shadow-lg" onClick={handleSave} disabled={!isFormValid || saving}>
-                  {saving ? <Loader2 className="animate-spin" /> : <Save className="mr-2 w-4 h-4" />} {editId ? 'ACTUALIZAR DNI' : 'GUARDAR PRENDA'}
+                  {saving ? <Loader2 className="animate-spin" /> : <Save className="mr-2 w-4 h-4" />} {editId ? 'ACTUALIZAR' : 'GUARDAR PRENDA'}
                 </Button>
                 {editId && <Button variant="outline" size="icon" className="h-12 w-12 rounded-2xl border-destructive text-destructive hover:bg-destructive/10" onClick={() => router.push('/inventory')} title="Descartar"><X className="w-6 h-6" /></Button>}
               </div>
@@ -407,54 +414,68 @@ export default function RegistryPage() {
 
         <TabsContent value="stock" className="pt-2">
           <Card className="border shadow-sm bg-white rounded-[2rem] overflow-hidden max-w-xl mx-auto">
-            <div className="bg-black/5 py-4 px-8 border-b"><span className="text-xs text-black font-black uppercase">Reposición Industrial</span></div>
+            <div className="bg-black/5 py-4 px-8 border-b"><span className="text-xs text-black font-black uppercase">Reposición Industrial Diva</span></div>
             <CardContent className="p-6 space-y-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-black/40" />
                 <Input 
-                  placeholder="BUSCAR DNI O NOMBRE..." 
+                  placeholder="ESCRIBA DNI O NOMBRE PARA BUSCAR..." 
                   value={stockSearchQuery}
                   onChange={e => setStockSearchQuery(e.target.value)}
                   className="pl-10 h-10 text-[11px] font-black uppercase rounded-xl border-black/10"
                 />
               </div>
 
-              <div className="space-y-1.5 max-h-64 overflow-y-auto pr-2 border rounded-xl p-2 bg-muted/5 custom-scrollbar">
-                {filteredProductsForStock.map(p => (
-                  <div 
-                    key={p.id} 
-                    className={cn(
-                      "flex items-center justify-between p-3 rounded-xl border-2 transition-all cursor-pointer",
-                      stockEntry.productCode === p.code ? "border-primary bg-primary/5" : "border-transparent hover:bg-black/5"
-                    )} 
-                    onClick={() => setStockEntry({...stockEntry, productCode: p.code})}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg overflow-hidden border border-black/10 bg-white">
-                        {p.images?.[0] ? <img src={getThumbnailUrl(p.images[0])} className="w-full h-full object-cover" referrerPolicy="no-referrer" /> : <div className="text-[7px] font-black opacity-20">N/A</div>}
-                      </div>
-                      <div>
-                        <div className="font-black text-xs text-black uppercase">{p.code} - {p.name}</div>
-                        <div className="text-[7px] font-black uppercase text-black/40">{p.category} | Stock: {p.stock}</div>
+              {stockSearchQuery.length >= 2 && (
+                <div className="space-y-1.5 max-h-64 overflow-y-auto pr-2 border rounded-xl p-2 bg-muted/5 custom-scrollbar">
+                  {filteredProductsForStock.map(p => (
+                    <div 
+                      key={p.id} 
+                      className={cn(
+                        "flex items-center justify-between p-3 rounded-xl border-2 transition-all cursor-pointer",
+                        stockEntry.productCode === p.code ? "border-primary bg-primary/5" : "border-transparent hover:bg-black/5"
+                      )} 
+                      onClick={() => setStockEntry({...stockEntry, productCode: p.code})}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg overflow-hidden border border-black/10 bg-white">
+                          {p.images?.[0] ? <img src={getThumbnailUrl(p.images[0])} className="w-full h-full object-cover" referrerPolicy="no-referrer" /> : <div className="text-[7px] font-black opacity-20">N/A</div>}
+                        </div>
+                        <div>
+                          <div className="font-black text-xs text-black uppercase">{p.code} - {p.name}</div>
+                          <div className="text-[7px] font-black uppercase text-black/40">{p.category} | Stock: {p.stock}</div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-
-              {stockEntry.productCode && (
-                <div className="grid grid-cols-2 gap-4 animate-in slide-in-from-bottom-2">
-                  <div className="space-y-0.5">
-                    <Label className="text-[9px] font-black text-black ml-1 uppercase">Cantidad</Label>
-                    <Input type="number" autoFocus value={stockEntry.quantity} onChange={e => setStockEntry({...stockEntry, quantity: e.target.value})} className="h-10 text-lg font-black text-center text-primary rounded-xl border-primary/20" />
-                  </div>
-                  <div className="h-10 mt-5 flex items-center justify-center bg-black/5 rounded-xl font-black text-[10px] text-black uppercase">REPOSICIÓN</div>
+                  ))}
+                  {filteredProductsForStock.length === 0 && (
+                    <div className="text-center py-8 text-[10px] font-black uppercase text-black/20">No se encontraron prendas</div>
+                  )}
                 </div>
               )}
 
-              <Button className="w-full h-14 text-lg font-black rounded-2xl bg-black text-white active:scale-95 transition-all shadow-xl" onClick={handleAddStock} disabled={!stockEntry.productCode || !stockEntry.quantity || saving}>
-                {saving ? <Loader2 className="animate-spin" /> : <Save className="mr-2 w-4 h-4" />} CONFIRMAR INGRESO
-              </Button>
+              {stockEntry.productCode && (
+                <div className="space-y-4 animate-in slide-in-from-bottom-2">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-0.5">
+                      <Label className="text-[9px] font-black text-black ml-1 uppercase">Cantidad</Label>
+                      <Input type="number" autoFocus value={stockEntry.quantity} onChange={e => setStockEntry({...stockEntry, quantity: e.target.value})} className="h-10 text-lg font-black text-center text-primary rounded-xl border-primary/20" />
+                    </div>
+                    <div className="space-y-0.5">
+                      <Label className="text-[9px] font-black text-black ml-1 uppercase">Motivo</Label>
+                      <Input value={stockEntry.reason} onChange={e => setStockEntry({...stockEntry, reason: e.target.value})} className="h-10 text-[10px] font-black uppercase rounded-xl border-black/10" />
+                    </div>
+                  </div>
+                  
+                  <Button className="w-full h-14 text-lg font-black rounded-2xl bg-black text-white active:scale-95 transition-all shadow-xl" onClick={handleAddStock} disabled={!stockEntry.productCode || !stockEntry.quantity || saving}>
+                    {saving ? <Loader2 className="animate-spin" /> : <Save className="mr-2 w-4 h-4" />} CONFIRMAR INGRESO
+                  </Button>
+                </div>
+              )}
+
+              {!stockEntry.productCode && stockSearchQuery.length < 2 && (
+                <div className="py-12 text-center text-[10px] font-black uppercase text-black/20 tracking-widest">Ingrese término de búsqueda</div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
