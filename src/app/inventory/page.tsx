@@ -23,8 +23,9 @@ import {
 import { Search, Edit2, Trash2, MoreVertical, Calendar, LayoutGrid, Layers } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useCollection, useFirestore, useDoc } from "@/firebase"
-import { collection, query, orderBy, doc, deleteDoc, serverTimestamp } from "firebase/firestore"
+import { collection, query, orderBy, doc, deleteDoc, serverTimestamp, getDocs } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
+import { syncCatalogToDrive } from "@/services/sheets-service"
 
 export default function InventoryPage() {
   const router = useRouter()
@@ -75,7 +76,12 @@ export default function InventoryPage() {
     if (!db) return
     try {
       await deleteDoc(doc(db, "products", id))
-      toast({ title: "BAJA PROCESADA" })
+      
+      const updatedProducts = await getDocs(query(collection(db, "products")))
+      const allProds = updatedProducts.docs.map(d => ({ id: d.id, ...d.data() }))
+      await syncCatalogToDrive(allProds)
+      
+      toast({ title: "BAJA PROCESADA", description: "Catálogo sincronizado." })
     } catch (e) { toast({ variant: "destructive", title: "ERROR AL ELIMINAR" }) }
   }
 

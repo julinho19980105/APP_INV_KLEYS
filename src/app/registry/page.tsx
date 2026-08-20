@@ -19,8 +19,8 @@ import {
 import { ImagePlus, X, Save, Loader2, Search } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useFirestore, useDoc, useCollection } from "@/firebase"
-import { doc, setDoc, collection, query, orderBy, serverTimestamp, updateDoc, addDoc, increment } from "firebase/firestore"
-import { uploadImageToDrive } from "@/services/sheets-service"
+import { doc, setDoc, collection, query, orderBy, serverTimestamp, updateDoc, addDoc, increment, getDocs } from "firebase/firestore"
+import { uploadImageToDrive, syncCatalogToDrive } from "@/services/sheets-service"
 import { cn } from "@/lib/utils"
 
 export default function RegistryPage() {
@@ -89,9 +89,34 @@ export default function RegistryPage() {
         updatedAt: serverTimestamp()
       }
       await setDoc(doc(db, "products", productCode), productData, { merge: true })
-      toast({ title: "Guardado Correctamente" })
+      
+      // Sincronizar catálogo con Drive
+      const updatedProducts = await getDocs(query(collection(db, "products")))
+      const allProds = updatedProducts.docs.map(d => ({ id: d.id, ...d.data() }))
+      await syncCatalogToDrive(allProds)
+      
+      toast({ title: "Guardado Correctamente", description: "Catálogo sincronizado con Drive." })
       router.push('/inventory')
     } catch (e) { toast({ variant: "destructive", title: "Error al Guardar" }) }
+    finally { setSaving(false) }
+  }
+
+  const handleStockUpdate = async () => {
+    if (!db || !stockEntry.productCode || !stockEntry.quantity) return
+    setSaving(true)
+    try {
+      const qty = Number(stockEntry.quantity)
+      await updateDoc(doc(db, "products", stockEntry.productCode), { stock: increment(qty), updatedAt: serverTimestamp() })
+      await addDoc(collection(db, "movements"), { productCode: stockEntry.productCode, type: "in", quantity: qty, reason: stockEntry.reason.toUpperCase(), timestamp: serverTimestamp() })
+      
+      const updatedProducts = await getDocs(query(collection(db, "products")))
+      const allProds = updatedProducts.docs.map(d => ({ id: d.id, ...d.data() }))
+      await syncCatalogToDrive(allProds)
+      
+      toast({ title: "Stock Actualizado", description: "Sincronizado con Drive." })
+      setStockEntry({ productCode: "", quantity: "", reason: "Reposición Industrial" })
+      setStockSearchQuery("")
+    } catch (e) { toast({ variant: "destructive", title: "Error" }) }
     finally { setSaving(false) }
   }
 
@@ -118,12 +143,21 @@ export default function RegistryPage() {
                   <div className="bg-black text-white px-4 py-0.5 rounded-lg font-black text-lg">{form.code || "..."}</div>
                 </div>
                 <CardContent className="space-y-4 pt-4 px-6">
-                  <div className="space-y-0.5"><Label className="text-[9px] uppercase font-black ml-1">Nombre Comercial *</Label><Input value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="h-10 text-black border-black/10 rounded-xl font-black text-sm uppercase" /></div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-0.5"><Label className="text-[9px] uppercase font-black ml-1">Código de Modelo *</Label><Input value={form.code} onChange={e => setForm({...form, code: e.target.value.toUpperCase()})} className="h-10 text-black border-black/10 rounded-xl font-black text-sm uppercase" disabled={!!editId} /></div>
+                    <div className="space-y-0.5"><Label className="text-[9px] uppercase font-black ml-1">Nombre Comercial *</Label><Input value={form.name} onChange={e => setForm({...form, name: e.target.value.toUpperCase()})} className="h-10 text-black border-black/10 rounded-xl font-black text-sm uppercase" /></div>
+                  </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-0.5"><Label className="text-[9px] uppercase font-black ml-1">Categoría *</Label><Select value={form.category} onValueChange={v => setForm({...form, category: v})}><SelectTrigger className="h-10 rounded-xl font-black text-[10px]"><SelectValue placeholder="Elegir..." /></SelectTrigger><SelectContent>{categories.map(c => <SelectItem key={c.id} value={c.name} className="text-[10px] font-black">{c.name}</SelectItem>)}</SelectContent></Select></div>
                     <div className="space-y-0.5"><Label className="text-[9px] uppercase font-black ml-1">Colección *</Label><Select value={form.collection} onValueChange={v => setForm({...form, collection: v})}><SelectTrigger className="h-10 rounded-xl font-black text-[10px]"><SelectValue placeholder="Elegir..." /></SelectTrigger><SelectContent>{collectionsData.map(c => <SelectItem key={c.id} value={c.name} className="text-[10px] font-black">{c.name}</SelectItem>)}</SelectContent></Select></div>
                   </div>
-                  <div className="space-y-0.5"><Label className="text-[9px] uppercase font-black ml-1">Observaciones</Label><Textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="min-h-[80px] rounded-xl bg-black/5 p-4 text-xs font-normal border-none text-black" placeholder="Descripción libre en letras normales..." /></div>
+                  <div className="grid grid-cols-4 gap-4">
+                    <div className="space-y-0.5"><Label className="text-[9px] uppercase font-black ml-1">Stock Inicial</Label><Input type="number" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} className="h-10 rounded-xl font-black text-xs" /></div>
+                    <div className="space-y-0.5"><Label className="text-[9px] uppercase font-black ml-1">P. Fardo</Label><Input type="number" value={form.priceFardo} onChange={e => setForm({...form, priceFardo: e.target.value})} className="h-10 rounded-xl font-black text-xs" /></div>
+                    <div className="space-y-0.5"><Label className="text-[9px] uppercase font-black ml-1">P. Mayor</Label><Input type="number" value={form.priceMayor} onChange={e => setForm({...form, priceMayor: e.target.value})} className="h-10 rounded-xl font-black text-xs" /></div>
+                    <div className="space-y-0.5"><Label className="text-[9px] uppercase font-black ml-1">P. Unidad</Label><Input type="number" value={form.priceUnidad} onChange={e => setForm({...form, priceUnidad: e.target.value})} className="h-10 rounded-xl font-black text-xs" /></div>
+                  </div>
+                  <div className="space-y-0.5"><Label className="text-[9px] uppercase font-black ml-1">Observaciones</Label><Textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="min-h-[80px] rounded-xl bg-black/5 p-4 text-xs font-normal border-none text-black" placeholder="Descripción libre..." /></div>
                 </CardContent>
               </Card>
             </div>
@@ -140,7 +174,17 @@ export default function RegistryPage() {
                     <ImagePlus className="w-5 h-5" style={{ color: brandColor }} />
                     <span className="text-[8px] font-black uppercase opacity-40">Subir</span>
                   </button>
-                  <input type="file" hidden ref={fileInputRef} onChange={e => { const f = e.target.files?.[0]; if(f){const r = new FileReader(); r.onloadend = () => setLocalImagePreviews(p => [...p, r.result as string]); r.readAsDataURL(f);}}} />
+                  <input type="file" hidden ref={fileInputRef} onChange={async e => {
+                    const f = e.target.files?.[0];
+                    if (f) {
+                      const r = new FileReader();
+                      r.onloadend = async () => {
+                        const url = await uploadImageToDrive(r.result as string, `${form.code || 'PROD'}_${Date.now()}.jpg`);
+                        setLocalImagePreviews(p => [...p, url]);
+                      };
+                      r.readAsDataURL(f);
+                    }
+                  }} />
                 </CardContent>
               </Card>
               <Button className="w-full h-14 rounded-2xl bg-black text-white font-black" onClick={handleSave} disabled={saving}>{saving ? <Loader2 className="animate-spin" /> : <Save className="mr-2 w-4 h-4" />} GUARDAR</Button>
@@ -166,6 +210,19 @@ export default function RegistryPage() {
                   </div>
                 ))}
               </div>
+              {stockEntry.productCode && (
+                <div className="pt-4 border-t space-y-4">
+                  <div className="bg-black/5 p-4 rounded-xl flex justify-between items-center">
+                    <span className="font-black text-xs uppercase text-black">{stockEntry.productCode}</span>
+                    <span className="text-[10px] font-black text-black/40">PREPARADO PARA INGRESO</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1"><Label className="text-[9px] font-black uppercase ml-1">Cantidad</Label><Input type="number" value={stockEntry.quantity} onChange={e => setStockEntry({...stockEntry, quantity: e.target.value})} className="h-10 rounded-xl font-black" /></div>
+                    <div className="space-y-1"><Label className="text-[9px] font-black uppercase ml-1">Motivo</Label><Input value={stockEntry.reason} onChange={e => setStockEntry({...stockEntry, reason: e.target.value})} className="h-10 rounded-xl font-black text-[10px] uppercase" /></div>
+                  </div>
+                  <Button className="w-full h-12 bg-black text-white font-black rounded-xl" onClick={handleStockUpdate} disabled={saving}>{saving ? <Loader2 className="animate-spin" /> : "PROCESAR INGRESO"}</Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
