@@ -79,7 +79,12 @@ export default function InventoryPage() {
   const { data: config } = useDoc(configDocRef)
   const brandColor = config?.brandColor || "#FF3399"
   const viewType = config?.inventoryViewMode || "collection"
-  const lastDriveSync = config?.lastDriveSync?.toDate?.() || new Date(0)
+  
+  // Convertir timestamp a Date de forma segura
+  const lastDriveSync = React.useMemo(() => {
+    if (!config?.lastDriveSync) return new Date(0);
+    return config.lastDriveSync.toDate ? config.lastDriveSync.toDate() : new Date(config.lastDriveSync);
+  }, [config])
   
   const productsRef = React.useMemo(() => db ? query(collection(db, "products"), orderBy("code", "asc")) : null, [db])
   const movementsRef = React.useMemo(() => db ? query(collection(db, "movements"), orderBy("timestamp", "desc")) : null, [db])
@@ -90,7 +95,7 @@ export default function InventoryPage() {
   const needsSync = React.useMemo(() => {
     if (products.length === 0) return false
     return products.some(p => {
-      const updatedAt = p.updatedAt?.toDate?.() || new Date(0)
+      const updatedAt = p.updatedAt?.toDate ? p.updatedAt.toDate() : new Date(p.updatedAt || 0)
       return updatedAt > lastDriveSync
     })
   }, [products, lastDriveSync])
@@ -128,14 +133,24 @@ export default function InventoryPage() {
     if (!db || syncing) return
     setSyncing(true)
     try {
-      toast({ title: "Sincronizando...", description: "Actualizando catálogo en Drive..." })
+      toast({ title: "Sincronizando...", description: "Actualizando Google Sheet y JSON..." })
+      
+      // Enviamos el catálogo completo (la función filtrará stock > 0 y limpiará columnas)
       await syncCatalogToDrive(products)
+      
+      // Actualizamos la marca de tiempo en la configuración global
       await updateDoc(doc(db, "config", "global"), {
         lastDriveSync: serverTimestamp()
       })
-      toast({ title: "Nube Actualizada", description: "El catálogo en Drive está al día." })
-    } catch (e) {
-      toast({ variant: "destructive", title: "Error de Sincronización" })
+      
+      toast({ title: "Nube Actualizada", description: "El Sheet de Inventario está al día." })
+    } catch (e: any) {
+      console.error(e)
+      toast({ 
+        variant: "destructive", 
+        title: "Error de Sincronización", 
+        description: e.message || "No se pudo actualizar Drive." 
+      })
     } finally {
       setSyncing(false)
     }
@@ -166,7 +181,7 @@ export default function InventoryPage() {
             className={cn(
               "h-12 px-4 rounded-xl font-black text-[9px] uppercase gap-2 transition-all border-2",
               needsSync 
-                ? "border-red-500 bg-red-50 text-red-600 hover:bg-red-100 hover:border-red-600 animate-pulse" 
+                ? "border-red-500 bg-red-50 text-red-600 hover:bg-red-100 hover:border-red-600 shadow-md animate-pulse" 
                 : "border-green-500 bg-green-50 text-green-600 opacity-60 cursor-default"
             )}
           >
@@ -322,7 +337,6 @@ export default function InventoryPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Zoom Modal con Título Accesible para evitar error de Radix */}
       <Dialog open={!!zoomImage} onOpenChange={() => setZoomImage(null)}>
         <DialogContent className="max-w-[95vw] md:max-w-4xl p-0 border-none bg-transparent shadow-none">
           <DialogHeader className="sr-only">

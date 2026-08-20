@@ -13,12 +13,11 @@
  *     var folder = DriveApp.getFolderById(folderId);
  *     
  *     if (data.action === "uploadImage") {
- *       if (!data.base64 || typeof data.base64 !== 'string') throw new Error("Base64 de imagen no recibido.");
- *       var contentType = data.mimeType || "image/jpeg";
+ *       if (!data.base64) throw new Error("Base64 no recibido");
  *       var parts = data.base64.split(",");
  *       var base64 = parts.length > 1 ? parts[1] : parts[0];
  *       var decode = Utilities.base64Decode(base64);
- *       var blob = Utilities.newBlob(decode, contentType, data.name);
+ *       var blob = Utilities.newBlob(decode, data.mimeType || "image/jpeg", data.name);
  *       var file = folder.createFile(blob);
  *       file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
  *       return ContentService.createTextOutput(JSON.stringify({ 
@@ -37,7 +36,7 @@
  *               .setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
  *       }
  *
- *       // 2. ACTUALIZAR GOOGLE SHEET (Para Gestión Humana)
+ *       // 2. ACTUALIZAR GOOGLE SHEET (Gestión de Inventario Industrial)
  *       var ssFiles = folder.getFilesByName("Inventario_Diva_Industrial");
  *       var ss;
  *       if (ssFiles.hasNext()) {
@@ -53,7 +52,7 @@
  *       
  *       var headers = ["CÓDIGO", "NOMBRE", "CATEGORÍA", "COLECCIÓN", "P. FARDO", "P. MAYOR", "P. UNIDAD", "IMÁGENES", "DESCRIPCIÓN"];
  *       sheet.appendRow(headers);
- *       sheet.getRange(1, 1, 1, headers.length).setFontWeight("bold").setBackground("#f3f3f3").setHorizontalAlignment("center");
+ *       sheet.getRange(1, 1, 1, headers.length).setFontWeight("bold").setBackground("#000000").setFontColor("#FFFFFF").setHorizontalAlignment("center");
  *
  *       if (data.catalog && Array.isArray(data.catalog)) {
  *         data.catalog.forEach(function(p) {
@@ -123,9 +122,10 @@ export async function syncCatalogToDrive(products: any[]): Promise<void> {
   if (!API_CONFIG.WEB_APP_URL || !Array.isArray(products)) return;
   try {
     // Filtrar solo productos con stock > 0 y limpiar campos innecesarios
+    // La columna stock NO se incluye en el envío para cumplir con el requisito del Sheet
     const cleanCatalog = products
       .filter(p => (Number(p.stock) || 0) > 0)
-      .map(({ stock, updatedAt, ...rest }) => rest);
+      .map(({ stock, updatedAt, id, ...rest }) => rest);
 
     const response = await fetch(API_CONFIG.WEB_APP_URL, {
       method: 'POST',
@@ -137,8 +137,7 @@ export async function syncCatalogToDrive(products: any[]): Promise<void> {
     });
     const result = await response.json();
     if (!result.success) {
-      console.error("Error Apps Script:", result.error);
-      throw new Error(result.error);
+      throw new Error(result.error || "Error desconocido en Apps Script");
     }
   } catch (error) {
     console.error("Error al sincronizar catálogo con Drive:", error);
