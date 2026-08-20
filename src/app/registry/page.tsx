@@ -23,6 +23,16 @@ import { doc, setDoc, collection, query, orderBy, serverTimestamp, updateDoc, ad
 import { uploadImageToDrive, syncCatalogToDrive } from "@/services/sheets-service"
 import { cn } from "@/lib/utils"
 
+// Helper to transform Drive URLs to thumbnails
+function getDriveThumb(url: string, size: number = 400) {
+  if (!url || !url.includes('drive.google.com')) return url;
+  const match = url.match(/[?&]id=([^&]+)/);
+  if (match && match[1]) {
+    return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w${size}`;
+  }
+  return url;
+}
+
 export default function RegistryPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -188,8 +198,8 @@ export default function RegistryPage() {
                 <CardContent className="pt-3 grid grid-cols-2 gap-2 px-6 pb-3">
                   {localImagePreviews.map((img, idx) => (
                     <div key={idx} className="relative aspect-square rounded-xl overflow-hidden border">
-                      <img src={img} className="w-full h-full object-cover" />
-                      <button onClick={() => setLocalImagePreviews(localImagePreviews.filter((_, i) => i !== idx))} className="absolute top-1 right-1 p-1 bg-destructive rounded-full text-white"><X className="w-3 h-3" /></button>
+                      <img src={getDriveThumb(img, 400)} className="w-full h-full object-cover" />
+                      <button onClick={() => setLocalImagePreviews(localImagePreviews.filter((_, i) => i !== idx))} className="absolute top-1 right-1 p-1 bg-destructive rounded-full text-white shadow-lg"><X className="w-3 h-3" /></button>
                     </div>
                   ))}
                   <button onClick={() => fileInputRef.current?.click()} className="aspect-square rounded-xl border-2 border-dashed border-black/10 flex flex-col items-center justify-center gap-1 bg-black/5 hover:bg-black/10 transition-colors">
@@ -209,9 +219,20 @@ export default function RegistryPage() {
                   }} />
                 </CardContent>
               </Card>
-              <Button className="w-full h-16 rounded-2xl bg-black text-white font-black text-base shadow-xl active:scale-95 transition-all" onClick={handleSave} disabled={saving}>
-                {saving ? <Loader2 className="animate-spin" /> : <Save className="mr-3 w-5 h-5" />} {editId ? "ACTUALIZAR" : "GUARDAR PRENDA"}
-              </Button>
+              <div className="flex gap-2">
+                {editId && (
+                  <Button 
+                    variant="outline" 
+                    className="h-16 w-20 rounded-2xl border-destructive/20 text-destructive bg-destructive/5 hover:bg-destructive hover:text-white transition-all"
+                    onClick={() => router.push('/inventory')}
+                  >
+                    <X className="w-6 h-6" />
+                  </Button>
+                )}
+                <Button className="flex-1 h-16 rounded-2xl bg-black text-white font-black text-base shadow-xl active:scale-95 transition-all" onClick={handleSave} disabled={saving}>
+                  {saving ? <Loader2 className="animate-spin" /> : <Save className="mr-3 w-5 h-5" />} {editId ? "ACTUALIZAR" : "GUARDAR PRENDA"}
+                </Button>
+              </div>
             </div>
           </div>
         </TabsContent>

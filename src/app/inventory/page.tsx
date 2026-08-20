@@ -20,18 +20,34 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Search, Edit2, Trash2, MoreVertical, Calendar, LayoutGrid, Layers, ImageIcon } from "lucide-react"
+import { 
+  Dialog,
+  DialogContent,
+  DialogClose
+} from "@/components/ui/dialog"
+import { Search, Edit2, Trash2, MoreVertical, Calendar, LayoutGrid, Layers, ImageIcon, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useCollection, useFirestore, useDoc } from "@/firebase"
 import { collection, query, orderBy, doc, deleteDoc, getDocs } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { syncCatalogToDrive } from "@/services/sheets-service"
 
+// Helper to transform Drive URLs to thumbnails
+function getDriveThumb(url: string, size: number = 400) {
+  if (!url || !url.includes('drive.google.com')) return url;
+  const match = url.match(/[?&]id=([^&]+)/);
+  if (match && match[1]) {
+    return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w${size}`;
+  }
+  return url;
+}
+
 export default function InventoryPage() {
   const router = useRouter()
   const db = useFirestore()
   const { toast } = useToast()
   const [searchQuery, setSearchQuery] = React.useState("")
+  const [zoomImage, setZoomImage] = React.useState<string | null>(null)
 
   const configDocRef = React.useMemo(() => db ? doc(db, "config", "global") : null, [db])
   const { data: config } = useDoc(configDocRef)
@@ -134,8 +150,13 @@ export default function InventoryPage() {
                           <div className="flex items-center gap-4">
                             <div className="flex gap-1 shrink-0">
                               {(p.images || []).length > 0 ? (p.images || []).slice(0, 3).map((img: string, idx: number) => (
-                                <div key={idx} className="w-8 h-8 rounded-lg border overflow-hidden bg-black/5">
-                                  <img src={img} className="w-full h-full object-cover" alt="foto" />
+                                <div 
+                                  key={idx} 
+                                  className="w-10 h-10 rounded-lg border overflow-hidden bg-black/5 cursor-pointer hover:ring-2 transition-all"
+                                  onClick={() => setZoomImage(img)}
+                                  style={{ borderColor: brandColor }}
+                                >
+                                  <img src={getDriveThumb(img, 400)} className="w-full h-full object-cover" alt="foto" />
                                 </div>
                               )) : (
                                 <ImageIcon className="w-6 h-6 opacity-20" style={{ color: brandColor }} />
@@ -228,6 +249,27 @@ export default function InventoryPage() {
           ))}
         </TabsContent>
       </Tabs>
+
+      {/* Zoom Modal */}
+      <Dialog open={!!zoomImage} onOpenChange={() => setZoomImage(null)}>
+        <DialogContent className="max-w-[95vw] md:max-w-4xl p-0 border-none bg-transparent shadow-none">
+          <div className="relative w-full aspect-square md:aspect-video flex items-center justify-center bg-black/90 rounded-[2rem] overflow-hidden">
+            <button 
+              onClick={() => setZoomImage(null)}
+              className="absolute top-6 right-6 z-50 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            {zoomImage && (
+              <img 
+                src={getDriveThumb(zoomImage, 2000)} 
+                className="max-w-full max-h-full object-contain" 
+                alt="Zoom" 
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
