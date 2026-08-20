@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -87,7 +86,7 @@ export default function InventoryPage() {
   const { data: products = [] } = useCollection(productsRef)
   const { data: movements = [] } = useCollection(movementsRef)
 
-  // Detect sync status
+  // Detect sync status: Red if there are changes after last sync
   const needsSync = React.useMemo(() => {
     if (products.length === 0) return false
     return products.some(p => {
@@ -323,7 +322,7 @@ export default function InventoryPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Zoom Modal */}
+      {/* Zoom Modal con Título Accesible para evitar error de Radix */}
       <Dialog open={!!zoomImage} onOpenChange={() => setZoomImage(null)}>
         <DialogContent className="max-w-[95vw] md:max-w-4xl p-0 border-none bg-transparent shadow-none">
           <DialogHeader className="sr-only">

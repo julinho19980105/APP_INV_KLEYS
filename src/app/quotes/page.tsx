@@ -19,7 +19,8 @@ import {
   ChevronDown,
   X,
   Check,
-  Calculator
+  Calculator,
+  ImageIcon
 } from "lucide-react"
 import { 
   DropdownMenu, 
@@ -86,6 +87,27 @@ const EMPTY_ENTRY: QuoteItem = {
   manualNote: ""
 }
 
+// Helper to transform Drive URLs to thumbnails
+function getDriveThumb(url: string, size: number = 400) {
+  if (!url || !url.includes('drive.google.com')) return url;
+  
+  let fileId = '';
+  const idMatch = url.match(/[?&]id=([^&]+)/);
+  if (idMatch && idMatch[1]) {
+    fileId = idMatch[1];
+  } else {
+    const dMatch = url.match(/\/d\/([^/]+)/);
+    if (dMatch && dMatch[1]) {
+      fileId = dMatch[1];
+    }
+  }
+
+  if (fileId) {
+    return `https://drive.google.com/thumbnail?id=${fileId}&sz=w${size}`;
+  }
+  return url;
+}
+
 export default function QuotesPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -108,6 +130,7 @@ export default function QuotesPage() {
   
   const [isCalcOpen, setIsCalcOpen] = React.useState(false)
   const [calcData, setCalcData] = React.useState({ unidades: "", series: "", libres: "" })
+  const [zoomImage, setZoomImage] = React.useState<string | null>(null)
 
   const productsRef = React.useMemo(() => db ? query(collection(db, "products"), orderBy("code")) : null, [db])
   const customersRef = React.useMemo(() => db ? query(collection(db, "customers"), orderBy("id")) : null, [db])
@@ -307,14 +330,37 @@ export default function QuotesPage() {
             {productQuery.length >= 2 && (
               <div className="absolute z-50 w-full mt-2 bg-white border rounded-2xl shadow-2xl overflow-hidden">
                 {productSuggestions.map(p => (
-                  <button key={p.code} className="w-full text-left px-4 py-3 hover:bg-black/5 flex items-center gap-3 border-b last:border-0" onClick={() => selectProductForEntry(p)}>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-black text-[10px] text-black uppercase">{p.name}</div>
-                      <div className="text-[7px] font-black text-black/40 uppercase">{p.code}</div>
+                  <div key={p.code} className="w-full text-left px-4 py-3 hover:bg-black/5 flex items-center gap-3 border-b last:border-0 group">
+                    <div 
+                      className="w-10 h-10 rounded-lg border overflow-hidden bg-black/5 cursor-pointer shrink-0 hover:ring-2 transition-all"
+                      onClick={(e) => { e.stopPropagation(); setZoomImage(p.images?.[0] || null); }}
+                      style={{ borderColor: brandColor }}
+                    >
+                      {p.images?.[0] ? <img src={getDriveThumb(p.images[0], 400)} className="w-full h-full object-cover" alt="min" /> : <ImageIcon className="w-full h-full p-2 opacity-20" />}
                     </div>
-                    <Plus className="w-4 h-4" style={{ color: brandColor }} />
-                  </button>
+                    <button className="flex-1 min-w-0 text-left" onClick={() => selectProductForEntry(p)}>
+                      <div className="font-black text-[10px] text-black uppercase group-hover:text-primary transition-colors">{p.name}</div>
+                      <div className="text-[7px] font-black text-black/40 uppercase">{p.code}</div>
+                    </button>
+                    <Plus className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: brandColor }} />
+                  </div>
                 ))}
+                <button 
+                  className="w-full text-left px-4 py-4 hover:bg-black/5 bg-primary/5 border-t flex items-center gap-3"
+                  onClick={() => {
+                    setCurrentEntry({
+                      ...EMPTY_ENTRY,
+                      id: Math.random().toString(),
+                      name: productQuery.toUpperCase(),
+                      productId: "MANUAL",
+                      isRegistered: false
+                    });
+                    setProductQuery("");
+                  }}
+                >
+                  <Plus className="w-4 h-4" style={{ color: brandColor }} />
+                  <span className="text-[10px] font-black uppercase text-black">Agregar Prenda Manual: "{productQuery}"</span>
+                </button>
               </div>
             )}
           </div>
@@ -328,14 +374,22 @@ export default function QuotesPage() {
               <span className="text-[14px] font-black uppercase text-black">{currentEntry.name}</span>
               <span className="text-[9px] font-black text-black/40 uppercase tracking-widest">{currentEntry.productId}</span>
             </div>
-            <Badge variant="outline" className="font-black text-[10px] px-3 bg-green-50 text-green-600 border-green-200">
-              DISPONIBLE: {currentEntry.stock}
-            </Badge>
+            <div className="flex items-center gap-3">
+              <Badge variant="outline" className="font-black text-[10px] px-3 bg-green-50 text-green-600 border-green-200">
+                DISPONIBLE: {currentEntry.stock}
+              </Badge>
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-black/20 hover:text-black" onClick={() => setCurrentEntry(EMPTY_ENTRY)}>
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
           <CardContent className="p-4 md:p-8 space-y-6">
             <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
-              <div className="w-20 h-20 rounded-2xl overflow-hidden border shrink-0 bg-muted flex items-center justify-center">
-                {currentEntry.img ? <img src={currentEntry.img} className="w-full h-full object-cover" /> : <PackageSearch className="w-8 h-8 opacity-20" />}
+              <div 
+                className="w-20 h-20 rounded-2xl overflow-hidden border shrink-0 bg-muted flex items-center justify-center cursor-pointer hover:ring-2 transition-all"
+                onClick={() => setZoomImage(currentEntry.img)}
+              >
+                {currentEntry.img ? <img src={getDriveThumb(currentEntry.img, 400)} className="w-full h-full object-cover" /> : <PackageSearch className="w-8 h-8 opacity-20" />}
               </div>
               <div className="flex-1 w-full space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -372,9 +426,14 @@ export default function QuotesPage() {
                 </div>
               </div>
             </div>
-            <Button className="w-full h-12 bg-black text-white rounded-2xl font-black text-xs uppercase" onClick={addCurrentToList}>
-              <Plus className="w-4 h-4 mr-2" /> AGREGAR A LA LISTA
-            </Button>
+            <div className="grid grid-cols-2 gap-3">
+              <Button variant="outline" className="h-12 rounded-2xl font-black text-xs uppercase border-black/10 text-black/40" onClick={() => setCurrentEntry(EMPTY_ENTRY)}>
+                <Trash2 className="w-4 h-4 mr-2" /> LIMPIAR
+              </Button>
+              <Button className="h-12 bg-black text-white rounded-2xl font-black text-xs uppercase" onClick={addCurrentToList}>
+                <Plus className="w-4 h-4 mr-2" /> AGREGAR A LISTA
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}
@@ -449,6 +508,17 @@ export default function QuotesPage() {
               <Button variant="outline" className="rounded-xl font-black text-[9px] uppercase" onClick={() => setIsCalcOpen(false)}>CANCELAR</Button>
               <Button className="bg-black text-white rounded-xl font-black text-[9px] uppercase" onClick={handleApplyCalc}>CONFIRMAR</Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Zoom Modal Accesible */}
+      <Dialog open={!!zoomImage} onOpenChange={() => setZoomImage(null)}>
+        <DialogContent className="max-w-[90vw] md:max-w-4xl p-0 border-none bg-transparent shadow-none">
+          <DialogHeader className="sr-only"><DialogTitle>Vista de Prenda</DialogTitle></DialogHeader>
+          <div className="relative w-full aspect-square md:aspect-video flex items-center justify-center bg-black/90 rounded-[2rem] overflow-hidden">
+            <button onClick={() => setZoomImage(null)} className="absolute top-6 right-6 z-50 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full"><X className="w-6 h-6" /></button>
+            {zoomImage && <img src={getDriveThumb(zoomImage, 2000)} className="max-w-full max-h-full object-contain" alt="Zoom" />}
           </div>
         </DialogContent>
       </Dialog>

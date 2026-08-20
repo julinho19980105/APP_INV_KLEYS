@@ -1,4 +1,3 @@
-
 'use client';
 
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
@@ -14,27 +13,34 @@ let storage: FirebaseStorage;
 
 /**
  * Inicializa los servicios de Firebase utilizando un patrón Singleton.
- * Configura caché en memoria para evitar errores de aserción interna y bloqueos de persistencia
- * en entornos de desarrollo o múltiples pestañas del navegador.
+ * Se utiliza memoryLocalCache para evitar errores de aserción interna (Assertion Failed)
+ * causados por conflictos en IndexedDB durante el desarrollo y recargas HMR.
  */
 export function initializeFirebase() {
   if (typeof window !== 'undefined') {
-    if (!getApps().length) {
-      app = initializeApp(firebaseConfig);
-      // Evita IndexedDB en desarrollo para prevenir FIRESTORE INTERNAL ASSERTION FAILED
-      db = initializeFirestore(app, {
-        localCache: memoryLocalCache()
-      });
+    try {
+      if (!getApps().length) {
+        app = initializeApp(firebaseConfig);
+        // Forzamos caché en memoria para evitar el error "FIRESTORE INTERNAL ASSERTION FAILED"
+        db = initializeFirestore(app, {
+          localCache: memoryLocalCache()
+        });
+      } else {
+        app = getApp();
+        db = getFirestore(app);
+      }
       auth = getAuth(app);
       storage = getStorage(app);
-    } else {
+    } catch (e) {
+      console.warn("Firebase ya inicializado o error en caché:", e);
       app = getApp();
       db = getFirestore(app);
       auth = getAuth(app);
       storage = getStorage(app);
     }
+    return { app, db, auth, storage };
   }
-  return { app, db, auth, storage };
+  return { app: null, db: null, auth: null, storage: null };
 }
 
 export * from './provider';
