@@ -384,6 +384,14 @@ export default function QuotesPage() {
           )}
         </div>
         <CardContent className="p-4 md:p-8 space-y-6">
+          {/* Nombre del Producto Seleccionado Visible */}
+          {currentEntry.name && (
+            <div className="border-b pb-4 mb-2">
+              <h2 className="text-lg font-black text-black uppercase tracking-tight">{currentEntry.name}</h2>
+              <span className="text-[8px] font-black text-black/40 uppercase tracking-widest">{currentEntry.isRegistered ? currentEntry.productId : 'PRODUCTO MANUAL'}</span>
+            </div>
+          )}
+
           <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
             <div className="w-20 h-20 rounded-2xl overflow-hidden border shrink-0 bg-muted shadow-md mx-auto md:mx-0">
               {currentEntry.img ? <img src={getThumbnailUrl(currentEntry.img)} className="w-full h-full object-cover" /> : <PackageSearch className="w-full h-full p-5 opacity-10" />}
