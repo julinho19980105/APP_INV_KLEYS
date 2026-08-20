@@ -1,60 +1,51 @@
 /**
- * INSTRUCCIONES PARA GOOGLE APPS SCRIPT (script.google.com):
+ * INSTRUCCIONES ACTUALIZADAS PARA GOOGLE APPS SCRIPT (script.google.com):
  * 
- * 1. Crea un nuevo proyecto en Google Apps Script.
- * 2. Pega este código y reemplaza "1eiNwGNeMfRcP7yd6-XkhLLzTCoxC4uOT" con el ID de tu carpeta de Drive.
- * 3. Despliega como "Aplicación Web" (Configurar: Ejecutar como: Yo, Acceso: Cualquiera).
- * 4. Copia la URL del despliegue en src/lib/api-config.ts.
+ * 1. Crea un nuevo proyecto en Apps Script.
+ * 2. Pega este código y reemplaza el ID de la carpeta por el tuyo.
+ * 3. Despliega como "Aplicación Web".
+ *    - Ejecutar como: YO (tu cuenta).
+ *    - Quién tiene acceso: CUALQUIERA (Anyone).
  * 
  * function doPost(e) {
+ *   var result = { success: false };
  *   try {
- *     if (!e || !e.postData || !e.postData.contents) {
- *        throw new Error("No se recibieron datos en la petición");
- *     }
  *     var data = JSON.parse(e.postData.contents);
- *     var folderId = "1eiNwGNeMfRcP7yd6-XkhLLzTCoxC4uOT"; 
+ *     var folderId = "1eiNwGNeMfRcP7yd6-XkhLLzTCoxC4uOT"; // <-- CAMBIA ESTO POR TU ID DE CARPETA
  *     var folder = DriveApp.getFolderById(folderId);
  *     
  *     if (data.action === "uploadImage") {
- *       if (!data.base64) throw new Error("Base64 no recibido");
  *       var base64Content = data.base64;
- *       if (base64Content.indexOf(",") > -1) {
+ *       if (base64Content && base64Content.indexOf(",") > -1) {
  *         base64Content = base64Content.split(",")[1];
  *       }
  *       var decode = Utilities.base64Decode(base64Content);
- *       var blob = Utilities.newBlob(decode, data.mimeType || "image/jpeg", data.name || "prenda_" + Date.now());
+ *       var blob = Utilities.newBlob(decode, data.mimeType || "image/jpeg", data.name || "img_" + Date.now());
  *       var file = folder.createFile(blob);
  *       file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
- *       return ContentService.createTextOutput(JSON.stringify({ 
- *         success: true, 
- *         url: "https://drive.google.com/uc?export=view&id=" + file.getId() 
- *       })).setMimeType(ContentService.MimeType.JSON);
+ *       result = { success: true, url: "https://drive.google.com/uc?export=view&id=" + file.getId() };
  *     }
  *
  *     if (data.action === "updateCatalog") {
- *       // 1. ACTUALIZAR JSON (Para Aplicaciones Externas)
- *       var jsonFiles = folder.getFilesByName("catalog.json");
- *       if (jsonFiles.hasNext()) {
- *         jsonFiles.next().setContent(JSON.stringify(data.catalog));
- *       } else {
- *         folder.createFile("catalog.json", JSON.stringify(data.catalog), MimeType.PLAIN_TEXT)
- *               .setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
- *       }
+ *       // 1. JSON
+ *       var jsonName = "catalog.json";
+ *       var jsonFiles = folder.getFilesByName(jsonName);
+ *       if (jsonFiles.hasNext()) { jsonFiles.next().setContent(JSON.stringify(data.catalog)); }
+ *       else { folder.createFile(jsonName, JSON.stringify(data.catalog), MimeType.PLAIN_TEXT).setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); }
  *
- *       // 2. ACTUALIZAR GOOGLE SHEET (Inventario Maestro Activo)
- *       var ssFiles = folder.getFilesByName("Inventario_Diva_Industrial");
+ *       // 2. GOOGLE SHEET
+ *       var ssName = "Inventario_Diva_Industrial";
+ *       var ssFiles = folder.getFilesByName(ssName);
  *       var ss;
- *       if (ssFiles.hasNext()) {
- *         ss = SpreadsheetApp.open(ssFiles.next());
- *       } else {
- *         ss = SpreadsheetApp.create("Inventario_Diva_Industrial");
+ *       if (ssFiles.hasNext()) { ss = SpreadsheetApp.open(ssFiles.next()); }
+ *       else { 
+ *         ss = SpreadsheetApp.create(ssName);
  *         var ssFile = DriveApp.getFileById(ss.getId());
  *         folder.addFile(ssFile);
  *         DriveApp.getRootFolder().removeFile(ssFile);
  *       }
  *       var sheet = ss.getSheets()[0];
  *       sheet.clear();
- *       
  *       var headers = ["CÓDIGO", "NOMBRE", "CATEGORÍA", "COLECCIÓN", "P. FARDO", "P. MAYOR", "P. UNIDAD", "IMÁGENES", "DESCRIPCIÓN"];
  *       sheet.appendRow(headers);
  *       sheet.getRange(1, 1, 1, headers.length).setFontWeight("bold").setBackground("#000000").setFontColor("#FFFFFF").setHorizontalAlignment("center");
@@ -62,41 +53,28 @@
  *       if (data.catalog && Array.isArray(data.catalog)) {
  *         data.catalog.forEach(function(p) {
  *           sheet.appendRow([
- *             p.code || "", 
- *             p.name || "", 
- *             p.category || "", 
- *             p.collection || "", 
- *             p.priceFardo || 0, 
- *             p.priceMayor || 0, 
- *             p.priceUnidad || 0, 
- *             (p.images || []).join("\n"), 
- *             p.description || ""
+ *             p.code || "", p.name || "", p.category || "", p.collection || "", 
+ *             p.priceFardo || 0, p.priceMayor || 0, p.priceUnidad || 0, 
+ *             (p.images || []).join("\n"), p.description || ""
  *           ]);
  *         });
  *       }
  *       sheet.setColumnWidth(8, 400); 
  *       sheet.setColumnWidth(9, 300);
  *       sheet.setFrozenRows(1);
- *
- *       return ContentService.createTextOutput(JSON.stringify({ success: true }))
- *         .setMimeType(ContentService.MimeType.JSON);
+ *       result = { success: true };
  *     }
  *
  *     if (data.action === "getCatalog") {
  *       var files = folder.getFilesByName("catalog.json");
- *       if (files.hasNext()) {
- *         var content = files.next().getBlob().getDataAsString();
- *         return ContentService.createTextOutput(content).setMimeType(ContentService.MimeType.JSON);
- *       }
- *       return ContentService.createTextOutput("[]").setMimeType(ContentService.MimeType.JSON);
+ *       var content = files.hasNext() ? files.next().getBlob().getDataAsString() : "[]";
+ *       return ContentService.createTextOutput(content).setMimeType(ContentService.MimeType.JSON);
  *     }
  *     
- *     return ContentService.createTextOutput(JSON.stringify({ success: false, error: "Acción no reconocida" }))
- *       .setMimeType(ContentService.MimeType.JSON);
  *   } catch (err) {
- *     return ContentService.createTextOutput(JSON.stringify({ success: false, error: err.toString() }))
- *       .setMimeType(ContentService.MimeType.JSON);
+ *     result = { success: false, error: err.toString() };
  *   }
+ *   return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
  * }
  */
 
@@ -134,7 +112,6 @@ export async function syncCatalogToDrive(products: any[]): Promise<void> {
   if (!API_CONFIG.WEB_APP_URL || !Array.isArray(products)) return;
   
   try {
-    // Filtrar solo productos con stock > 0 y limpiar campos para el Sheet (sin stock ni metadatos internos)
     const cleanCatalog = products
       .filter(p => (Number(p.stock) || 0) > 0)
       .map(p => {
@@ -153,10 +130,11 @@ export async function syncCatalogToDrive(products: any[]): Promise<void> {
     
     const result = await response.json();
     if (!result.success) {
-      throw new Error(result.error || "Error desconocido en Apps Script");
+      console.error("Error Apps Script:", result.error);
+      throw new Error(result.error || "Error en Drive");
     }
   } catch (error) {
-    console.error("Error al sincronizar catálogo con Drive:", error);
+    console.error("Error al sincronizar con Drive:", error);
     throw error;
   }
 }
@@ -172,7 +150,7 @@ export async function getCatalogFromDrive(): Promise<any[]> {
     const result = await response.json();
     return Array.isArray(result) ? result : [];
   } catch (error) {
-    console.error("Error al obtener catálogo desde Drive:", error);
+    console.error("Error al obtener catálogo:", error);
     return [];
   }
 }

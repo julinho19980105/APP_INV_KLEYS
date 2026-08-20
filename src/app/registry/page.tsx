@@ -22,25 +22,16 @@ import { doc, setDoc, collection, query, orderBy, serverTimestamp, updateDoc, ad
 import { uploadImageToDrive, syncCatalogToDrive } from "@/services/sheets-service"
 import { cn } from "@/lib/utils"
 
-// Helper to transform Drive URLs to thumbnails
 function getDriveThumb(url: string, size: number = 400) {
   if (!url || !url.includes('drive.google.com')) return url;
-  
   let fileId = '';
   const idMatch = url.match(/[?&]id=([^&]+)/);
-  if (idMatch && idMatch[1]) {
-    fileId = idMatch[1];
-  } else {
+  if (idMatch && idMatch[1]) fileId = idMatch[1];
+  else {
     const dMatch = url.match(/\/d\/([^/]+)/);
-    if (dMatch && dMatch[1]) {
-      fileId = dMatch[1];
-    }
+    if (dMatch && dMatch[1]) fileId = dMatch[1];
   }
-
-  if (fileId) {
-    return `https://drive.google.com/thumbnail?id=${fileId}&sz=w${size}`;
-  }
-  return url;
+  return fileId ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w${size}` : url;
 }
 
 export default function RegistryPage() {
@@ -123,15 +114,25 @@ export default function RegistryPage() {
         images: localImagePreviews,
         updatedAt: serverTimestamp()
       }
+      
+      // Guardado en Firebase (Prioridad)
       await setDoc(doc(db, "products", productCode), productData, { merge: true })
       
-      const updatedProducts = await getDocs(query(collection(db, "products")))
-      const allProds = updatedProducts.docs.map(d => ({ id: d.id, ...d.data() }))
-      await syncCatalogToDrive(allProds)
+      toast({ title: editId ? "PRENDA ACTUALIZADA" : "PRENDA REGISTRADA" })
       
-      toast({ title: "Guardado Correctamente" })
+      // Sincronización en segundo plano (No bloquea el guardado)
+      try {
+        const updatedProducts = await getDocs(query(collection(db, "products")))
+        const allProds = updatedProducts.docs.map(d => ({ id: d.id, ...d.data() }))
+        await syncCatalogToDrive(allProds)
+      } catch (syncErr) {
+        console.warn("Fallo sincronización Drive, se requiere manual:", syncErr)
+      }
+      
       router.push('/inventory')
-    } catch (e) { toast({ variant: "destructive", title: "Error al Guardar" }) }
+    } catch (e) { 
+      toast({ variant: "destructive", title: "Error en el Sistema", description: "No se pudo completar el guardado." }) 
+    }
     finally { setSaving(false) }
   }
 
@@ -143,13 +144,15 @@ export default function RegistryPage() {
       await updateDoc(doc(db, "products", stockEntry.productCode), { stock: increment(qty), updatedAt: serverTimestamp() })
       await addDoc(collection(db, "movements"), { productCode: stockEntry.productCode, type: "in", quantity: qty, reason: stockEntry.reason.toUpperCase(), timestamp: serverTimestamp() })
       
-      const updatedProducts = await getDocs(query(collection(db, "products")))
-      const allProds = updatedProducts.docs.map(d => ({ id: d.id, ...d.data() }))
-      await syncCatalogToDrive(allProds)
-      
       toast({ title: "Stock Actualizado" })
       setStockEntry({ productCode: "", quantity: "", reason: "Reposición Industrial" })
       setStockSearchQuery("")
+      
+      try {
+        const updatedProducts = await getDocs(query(collection(db, "products")))
+        const allProds = updatedProducts.docs.map(d => ({ id: d.id, ...d.data() }))
+        await syncCatalogToDrive(allProds)
+      } catch (e) {}
     } catch (e) { toast({ variant: "destructive", title: "Error" }) }
     finally { setSaving(false) }
   }
@@ -164,7 +167,7 @@ export default function RegistryPage() {
     <div className="max-w-6xl mx-auto space-y-4 pt-2 pb-24 px-2 md:px-0">
       <Tabs defaultValue="new" className="w-full">
         <TabsList className="bg-black/5 p-1 rounded-2xl w-full justify-start border">
-          <TabsTrigger value="new" className="rounded-xl px-12 data-[state=active]:bg-black data-[state=active]:text-white text-xs font-black uppercase">Nueva Prenda</TabsTrigger>
+          <TabsTrigger value="new" className="rounded-xl px-12 data-[state=active]:bg-black data-[state=active]:text-white text-xs font-black uppercase">Ficha Técnica</TabsTrigger>
           <TabsTrigger value="stock" className="rounded-xl px-12 data-[state=active]:bg-black data-[state=active]:text-white text-xs font-black uppercase">Ingreso Stock</TabsTrigger>
         </TabsList>
 
@@ -175,7 +178,7 @@ export default function RegistryPage() {
                 <div className="bg-black/5 border-b py-3 px-6 flex justify-between items-center">
                   <div className="flex items-center gap-2">
                     <Package className="w-5 h-5" style={{ color: brandColor }} />
-                    <span className="text-[10px] text-black font-black uppercase tracking-widest">Ficha de Registro</span>
+                    <span className="text-[10px] text-black font-black uppercase tracking-widest">Información de Producto</span>
                   </div>
                   <div className="bg-black text-white px-6 py-1 rounded-xl font-black text-xl shadow-lg">{nextId}</div>
                 </div>
@@ -183,7 +186,7 @@ export default function RegistryPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-1">
                       <Label className="text-[9px] uppercase font-black ml-1 text-black/60">Nombre Comercial *</Label>
-                      <Input value={form.name} onChange={e => setForm({...form, name: e.target.value.toUpperCase()})} className="h-12 text-black border-black/10 rounded-xl font-black text-sm uppercase" />
+                      <Input value={form.name} onChange={e => setForm({...form, name: e.target.value.toUpperCase()})} className="h-12 border-black/10 rounded-xl font-black text-sm uppercase" />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1"><Label className="text-[9px] uppercase font-black ml-1 text-black/60">Categoría *</Label><Select value={form.category} onValueChange={v => setForm({...form, category: v})}><SelectTrigger className="h-12 rounded-xl font-black text-[10px]"><SelectValue placeholder="Elegir..." /></SelectTrigger><SelectContent>{categories.map(c => <SelectItem key={c.id} value={c.name} className="text-[10px] font-black">{c.name}</SelectItem>)}</SelectContent></Select></div>
@@ -191,14 +194,14 @@ export default function RegistryPage() {
                     </div>
                   </div>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="space-y-1"><Label className="text-[9px] uppercase font-black ml-1 text-black/60">Stock Inicial</Label><Input type="number" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} className="h-12 rounded-xl font-black text-sm" /></div>
+                    <div className="space-y-1"><Label className="text-[9px] uppercase font-black ml-1 text-black/60">Stock</Label><Input type="number" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} className="h-12 rounded-xl font-black text-sm" /></div>
                     <div className="space-y-1"><Label className="text-[9px] uppercase font-black ml-1 text-black/60">P. Fardo</Label><Input type="number" value={form.priceFardo} onChange={e => setForm({...form, priceFardo: e.target.value})} className="h-12 rounded-xl font-black text-sm" /></div>
                     <div className="space-y-1"><Label className="text-[9px] uppercase font-black ml-1 text-black/60">P. Mayor</Label><Input type="number" value={form.priceMayor} onChange={e => setForm({...form, priceMayor: e.target.value})} className="h-12 rounded-xl font-black text-sm" /></div>
                     <div className="space-y-1"><Label className="text-[9px] uppercase font-black ml-1 text-black/60">P. Unidad</Label><Input type="number" value={form.priceUnidad} onChange={e => setForm({...form, priceUnidad: e.target.value})} className="h-12 rounded-xl font-black text-sm" /></div>
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-[9px] uppercase font-black ml-1 text-black/60">Observaciones (Escritura Normal)</Label>
-                    <Textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="min-h-[100px] rounded-2xl bg-black/5 p-4 text-xs font-normal border-none text-black" placeholder="Detalles de tela, tallas, colores..." />
+                    <Label className="text-[9px] uppercase font-black ml-1 text-black/60">Observaciones</Label>
+                    <Textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="min-h-[100px] rounded-2xl bg-black/5 p-4 text-xs font-normal border-none text-black" />
                   </div>
                 </CardContent>
               </Card>
@@ -208,13 +211,13 @@ export default function RegistryPage() {
                 <CardContent className="pt-3 grid grid-cols-2 gap-2 px-6 pb-3">
                   {localImagePreviews.map((img, idx) => (
                     <div key={idx} className="relative aspect-square rounded-xl overflow-hidden border">
-                      <img src={getDriveThumb(img, 400)} className="w-full h-full object-cover" alt="Vista previa" />
-                      <button onClick={() => setLocalImagePreviews(localImagePreviews.filter((_, i) => i !== idx))} className="absolute top-1 right-1 p-1 bg-destructive rounded-full text-white shadow-lg"><X className="w-3 h-3" /></button>
+                      <img src={getDriveThumb(img, 400)} className="w-full h-full object-cover" alt="Previa" />
+                      <button onClick={() => setLocalImagePreviews(localImagePreviews.filter((_, i) => i !== idx))} className="absolute top-1 right-1 p-1 bg-destructive rounded-full text-white"><X className="w-3 h-3" /></button>
                     </div>
                   ))}
-                  <button onClick={() => fileInputRef.current?.click()} className="aspect-square rounded-xl border-2 border-dashed border-black/10 flex flex-col items-center justify-center gap-1 bg-black/5 hover:bg-black/10 transition-colors">
+                  <button onClick={() => fileInputRef.current?.click()} className="aspect-square rounded-xl border-2 border-dashed border-black/10 flex flex-col items-center justify-center gap-1 bg-black/5">
                     <ImagePlus className="w-6 h-6" style={{ color: brandColor }} />
-                    <span className="text-[8px] font-black uppercase opacity-40">Subir Imagen</span>
+                    <span className="text-[8px] font-black uppercase opacity-40">Subir Foto</span>
                   </button>
                   <input type="file" hidden ref={fileInputRef} onChange={async e => {
                     const f = e.target.files?.[0];
@@ -231,16 +234,12 @@ export default function RegistryPage() {
               </Card>
               <div className="flex gap-2">
                 {editId && (
-                  <Button 
-                    variant="outline" 
-                    className="h-16 w-20 rounded-2xl border-destructive/20 text-destructive bg-destructive/5 hover:bg-destructive hover:text-white transition-all"
-                    onClick={() => router.push('/inventory')}
-                  >
+                  <Button variant="outline" className="h-16 w-20 rounded-2xl border-destructive/20 text-destructive bg-destructive/5" onClick={() => router.push('/inventory')}>
                     <X className="w-6 h-6" />
                   </Button>
                 )}
-                <Button className="flex-1 h-16 rounded-2xl bg-black text-white font-black text-base shadow-xl active:scale-95 transition-all" onClick={handleSave} disabled={saving}>
-                  {saving ? <Loader2 className="animate-spin" /> : <Save className="mr-3 w-5 h-5" />} {editId ? "ACTUALIZAR" : "GUARDAR PRENDA"}
+                <Button className="flex-1 h-16 rounded-2xl bg-black text-white font-black text-base shadow-xl" onClick={handleSave} disabled={saving}>
+                  {saving ? <Loader2 className="animate-spin" /> : <Save className="mr-3 w-5 h-5" />} {editId ? "ACTUALIZAR" : "GUARDAR"}
                 </Button>
               </div>
             </div>
@@ -252,28 +251,28 @@ export default function RegistryPage() {
             <CardContent className="p-8 space-y-6">
               <div className="relative">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: brandColor }} />
-                <Input placeholder="ESCRIBE PARA BUSCAR PRENDA..." value={stockSearchQuery} onChange={e => setStockSearchQuery(e.target.value)} className="pl-12 h-14 text-[12px] font-black uppercase rounded-2xl border-black/10" />
+                <Input placeholder="BUSCAR PRENDA..." value={stockSearchQuery} onChange={e => setStockSearchQuery(e.target.value)} className="pl-12 h-14 font-black uppercase rounded-2xl border-black/10" />
               </div>
               <div className="space-y-3">
                 {filteredProductsForStock.map(p => (
-                  <div key={p.id} className="p-4 rounded-2xl border flex justify-between items-center cursor-pointer hover:bg-black/5 transition-colors" onClick={() => setStockEntry({...stockEntry, productCode: p.code})}>
+                  <div key={p.id} className="p-4 rounded-2xl border flex justify-between items-center cursor-pointer hover:bg-black/5" onClick={() => setStockEntry({...stockEntry, productCode: p.code})}>
                     <div className="flex flex-col">
-                      <span className="font-black text-sm text-black uppercase">{p.name}</span>
-                      <span className="text-[9px] font-black text-black/40 uppercase tracking-widest">{p.code}</span>
+                      <span className="font-black text-sm uppercase">{p.name}</span>
+                      <span className="text-[9px] font-black text-black/40 uppercase">{p.code}</span>
                     </div>
-                    <div className="bg-black text-white px-4 py-1 rounded-xl text-[10px] font-black">STOCK: {p.stock}</div>
+                    <div className="bg-black text-white px-4 py-1 rounded-xl text-[10px] font-black">ACTUAL: {p.stock}</div>
                   </div>
                 ))}
               </div>
               {stockEntry.productCode && (
                 <div className="pt-6 border-t-2 border-black/5 space-y-6">
-                  <div className="bg-black text-white p-5 rounded-2xl flex justify-between items-center shadow-lg">
-                    <span className="font-black text-base uppercase tracking-widest">{stockEntry.productCode}</span>
-                    <span className="text-[10px] font-black opacity-60 uppercase">Ingreso de Mercancía</span>
+                  <div className="bg-black text-white p-5 rounded-2xl flex justify-between items-center">
+                    <span className="font-black text-base uppercase">{stockEntry.productCode}</span>
+                    <span className="text-[10px] font-black opacity-60 uppercase">Reposición</span>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1"><Label className="text-[9px] font-black uppercase text-black/60 ml-2">Cantidad</Label><Input type="number" value={stockEntry.quantity} onChange={e => setStockEntry({...stockEntry, quantity: e.target.value})} className="h-12 rounded-xl font-black text-center text-lg" /></div>
-                    <div className="space-y-1"><Label className="text-[9px] font-black uppercase text-black/60 ml-2">Motivo</Label><Input value={stockEntry.reason} onChange={e => setStockEntry({...stockEntry, reason: e.target.value})} className="h-12 rounded-xl font-black text-[10px] uppercase px-4" /></div>
+                    <div className="space-y-1"><Label className="text-[9px] font-black uppercase text-black/60 ml-2">Motivo</Label><Input value={stockEntry.reason} onChange={e => setStockEntry({...stockEntry, reason: e.target.value})} className="h-12 rounded-xl font-black text-[10px] uppercase" /></div>
                   </div>
                   <Button className="w-full h-16 bg-black text-white font-black rounded-2xl shadow-xl" onClick={handleStockUpdate} disabled={saving}>{saving ? <Loader2 className="animate-spin" /> : "CONFIRMAR INGRESO"}</Button>
                 </div>
