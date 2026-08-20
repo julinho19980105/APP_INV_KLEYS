@@ -51,18 +51,7 @@ export default function RegistryPage() {
   const { data: collectionsData = [] } = useCollection(collectionsQuery)
   const { data: allProducts = [] } = useCollection(productsQuery)
 
-  const initialForm = {
-    name: "",
-    code: "",
-    category: "",
-    collection: "",
-    description: "",
-    stock: "",
-    priceFardo: "",
-    priceMayor: "",
-    priceUnidad: "",
-  }
-
+  const initialForm = { name: "", code: "", category: "", collection: "", description: "", stock: "", priceFardo: "", priceMayor: "", priceUnidad: "" }
   const [form, setForm] = React.useState(initialForm)
   const [localImagePreviews, setLocalImagePreviews] = React.useState<string[]>([])
   const [manageType, setManageType] = React.useState<'category' | 'collection' | null>(null)
@@ -70,52 +59,7 @@ export default function RegistryPage() {
   const [editingItem, setEditingItem] = React.useState<{id: string, name: string} | null>(null)
   const [stockSearchQuery, setStockSearchQuery] = React.useState("")
 
-  const [stockEntry, setStockEntry] = React.useState({
-    productCode: "",
-    quantity: "",
-    reason: "Reposición de Mercadería"
-  })
-
-  React.useEffect(() => {
-    if (!editId) {
-      const saved = localStorage.getItem('diva_registry_form')
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          setForm(prev => ({ ...prev, ...parsed }));
-        } catch (e) {}
-      }
-    }
-  }, [editId])
-
-  React.useEffect(() => {
-    if (!editId && form.name !== "") {
-      localStorage.setItem('diva_registry_form', JSON.stringify(form))
-    }
-  }, [form, editId])
-
-  const fetchNextCode = React.useCallback(async () => {
-    if (!db || editId) return
-    try {
-      const q = query(collection(db, "products"), orderBy("code", "desc"), limit(1))
-      const snap = await getDocs(q)
-      let nextNum = 1
-      if (!snap.empty) {
-        const lastCode = snap.docs[0].data().code || "P-000"
-        const match = lastCode.match(/\d+/)
-        const lastNum = match ? parseInt(match[0]) : 0
-        nextNum = lastNum + 1
-      }
-      const newCode = `P-${nextNum.toString().padStart(3, '0')}`
-      setForm(prev => ({ ...prev, code: newCode }))
-    } catch (e) {
-      setForm(prev => ({ ...prev, code: "P-001" }))
-    }
-  }, [db, editId])
-
-  React.useEffect(() => {
-    fetchNextCode()
-  }, [fetchNextCode])
+  const [stockEntry, setStockEntry] = React.useState({ productCode: "", quantity: "", reason: "Reposición de Mercadería" })
 
   React.useEffect(() => {
     if (editingProduct) {
@@ -134,26 +78,18 @@ export default function RegistryPage() {
     }
   }, [editingProduct])
 
-  const handleClear = () => {
-    setForm(initialForm)
-    setLocalImagePreviews([])
-    localStorage.removeItem('diva_registry_form')
-    fetchNextCode()
-  }
-
   const handleSave = async () => {
     if (!db || !isFormValid) return
     setSaving(true)
-    
-    const productCode = form.code.trim().toUpperCase();
+    const productCode = form.code.trim().toUpperCase()
 
     try {
       const uploadedImageUrls = await Promise.all(
         localImagePreviews.map(async (img, index) => {
-          if (img.startsWith('http')) return img;
-          return await uploadImageToDrive(img, `${productCode}_${index}.jpg`);
+          if (img.startsWith('http')) return img
+          return await uploadImageToDrive(img, `${productCode}_${index}.jpg`)
         })
-      );
+      )
 
       const productData = {
         name: form.name.toUpperCase(),
@@ -171,33 +107,18 @@ export default function RegistryPage() {
 
       await setDoc(doc(db, "products", productCode), productData, { merge: true })
       
-      if (editId) {
-        const mRef = collection(db, "movements")
-        const q = query(mRef, where("productCode", "==", productCode), where("reason", "==", "Stock Inicial"))
-        const snap = await getDocs(q)
-        if (!snap.empty) {
-          await updateDoc(snap.docs[0].ref, {
-            quantity: Number(form.stock),
-            timestamp: serverTimestamp()
-          })
-        }
-      } else {
+      if (!editId) {
         await addDoc(collection(db, "movements"), {
-          productCode: productCode,
-          type: "in",
-          quantity: Number(form.stock),
-          reason: "Stock Inicial",
-          timestamp: serverTimestamp()
+          productCode, type: "in", quantity: Number(form.stock), reason: "Stock Inicial", timestamp: serverTimestamp()
         })
       }
       
-      localStorage.removeItem('diva_registry_form')
-      toast({ title: "Guardado con éxito" })
+      toast({ title: "Guardado" })
       router.push('/inventory')
-    } catch (error) {
-      toast({ variant: "destructive", title: "Error en base de datos" })
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error" })
     } finally {
-      setSaving(false);
+      setSaving(false)
     }
   }
 
@@ -210,68 +131,33 @@ export default function RegistryPage() {
         updatedAt: serverTimestamp()
       })
       await addDoc(collection(db, "movements"), {
-        productCode: stockEntry.productCode,
-        type: "in",
-        quantity: Number(stockEntry.quantity),
-        reason: stockEntry.reason || "Reposición Stock",
-        timestamp: serverTimestamp()
+        productCode: stockEntry.productCode, type: "in", quantity: Number(stockEntry.quantity), reason: stockEntry.reason, timestamp: serverTimestamp()
       })
       toast({ title: "Ingreso confirmado" })
       router.push('/inventory')
     } catch (e) {
-      toast({ variant: "destructive", title: "Error en ingreso" })
+      toast({ variant: "destructive", title: "Error" })
     } finally {
       setSaving(false)
     }
   }
 
-  const handleAddItem = async () => {
-    if (!db || !manageType || !newItemName.trim()) return
-    const colName = manageType === 'category' ? 'categories' : 'collections'
-    addDoc(collection(db, colName), { name: newItemName.trim() }).then(() => {
-      setNewItemName("")
-      toast({ title: "Añadido" })
-    })
-  }
-
-  const handleRenameItem = async () => {
-    if (!db || !manageType || !editingItem || !editingItem.name.trim()) return
-    const colName = manageType === 'category' ? 'categories' : 'collections'
-    updateDoc(doc(db, colName, editingItem.id), { name: editingItem.name.trim() }).then(() => {
-      setEditingItem(null)
-      toast({ title: "Renombrado" })
-    })
-  }
-
   const isFormValid = React.useMemo(() => {
-    const f = Number(form.priceFardo || 0);
-    const m = Number(form.priceMayor || 0);
-    const u = Number(form.priceUnidad || 0);
-    const pricesCorrect = (f === 0 && m === 0 && u === 0) || (f < m && m < u);
-    return form.name && form.category && form.collection && form.stock !== "" && pricesCorrect && !saving;
-  }, [form, saving]);
-
-  const getThumbnailUrl = (url: string) => {
-    if (!url || typeof url !== 'string' || !url.startsWith('http')) return url;
-    const idMatch = url.match(/id=([^&]+)/);
-    return idMatch ? `https://drive.google.com/thumbnail?id=${idMatch[1]}&sz=400` : url;
-  };
+    return form.name && form.category && form.collection && form.stock !== "" && !saving
+  }, [form, saving])
 
   const filteredProductsForStock = React.useMemo(() => {
-    if (stockSearchQuery.length < 2) return [];
-    const q = stockSearchQuery.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    return allProducts.filter(p => 
-      p.code.toLowerCase().includes(q) ||
-      p.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(q)
-    );
-  }, [allProducts, stockSearchQuery]);
+    if (stockSearchQuery.length < 2) return []
+    const q = stockSearchQuery.toLowerCase()
+    return allProducts.filter(p => p.code.toLowerCase().includes(q) || p.name.toLowerCase().includes(q))
+  }, [allProducts, stockSearchQuery])
 
   return (
     <div className="max-w-6xl mx-auto space-y-4 pt-2 pb-24 px-2 md:px-0">
       <Tabs defaultValue="new" className="w-full">
-        <TabsList className="bg-muted/50 p-1 rounded-2xl w-full justify-start overflow-hidden border">
-          <TabsTrigger value="new" className="rounded-xl px-12 data-[state=active]:bg-primary data-[state=active]:text-white transition-all text-xs font-black uppercase font-headline">NUEVA PRENDA</TabsTrigger>
-          <TabsTrigger value="stock" className="rounded-xl px-12 data-[state=active]:bg-primary data-[state=active]:text-white transition-all text-xs font-black uppercase font-headline">INGRESO STOCK</TabsTrigger>
+        <TabsList className="bg-black/5 p-1 rounded-2xl w-full justify-start border">
+          <TabsTrigger value="new" className="rounded-xl px-12 data-[state=active]:bg-black data-[state=active]:text-white text-xs font-black uppercase">Nueva Prenda</TabsTrigger>
+          <TabsTrigger value="stock" className="rounded-xl px-12 data-[state=active]:bg-black data-[state=active]:text-white text-xs font-black uppercase">Ingreso Stock</TabsTrigger>
         </TabsList>
 
         <TabsContent value="new" className="pt-2">
@@ -279,202 +165,37 @@ export default function RegistryPage() {
             <div className="lg:col-span-2 space-y-4">
               <Card className="border shadow-sm bg-white rounded-2xl overflow-hidden">
                 <div className="bg-black/5 border-b py-2 px-6 flex justify-between items-center">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="text-primary w-4 h-4" />
-                    <span className="text-[10px] text-black font-black uppercase tracking-widest">Ficha Técnica Industrial</span>
-                  </div>
-                  <div className="bg-primary text-white px-4 py-0.5 rounded-lg font-mono font-black text-lg border-2 border-white shadow-sm">
-                    {form.code || "..."}
-                  </div>
+                  <span className="text-[10px] text-black font-black uppercase">Ficha Técnica</span>
+                  <div className="bg-black text-white px-4 py-0.5 rounded-lg font-black text-lg">{form.code || "..."}</div>
                 </div>
                 <CardContent className="space-y-4 pt-4 px-6">
-                  <div className="space-y-0.5">
-                    <Label className="text-[9px] uppercase font-black text-black ml-1">Nombre Comercial *</Label>
-                    <Input value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="h-10 text-black border-black/10 rounded-xl font-black text-sm uppercase" />
-                  </div>
-                  
+                  <div className="space-y-0.5"><Label className="text-[9px] uppercase font-black ml-1">Nombre Comercial *</Label><Input value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="h-10 text-black border-black/10 rounded-xl font-black text-sm uppercase" /></div>
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-0.5">
-                      <Label className="text-[9px] uppercase font-black text-black ml-1">Categoría *</Label>
-                      <div className="flex gap-2">
-                        <Select value={form.category} onValueChange={v => setForm({...form, category: v})}>
-                          <SelectTrigger className="h-10 border-black/10 rounded-xl font-black bg-white text-[10px] text-black">
-                            <SelectValue placeholder="Elegir..." />
-                          </SelectTrigger>
-                          <SelectContent className="rounded-xl">
-                            {categories.map(c => <SelectItem key={c.id} value={c.name} className="text-[10px] font-black">{c.name}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                        <Dialog open={manageType === 'category'} onOpenChange={o => setManageType(o ? 'category' : null)}>
-                          <DialogTrigger asChild><Button variant="outline" size="icon" className="h-10 w-10 rounded-lg border-black/10 text-black"><Edit3 className="w-4 h-4" /></Button></DialogTrigger>
-                          <DialogContent className="rounded-[2rem] max-w-sm">
-                            <DialogHeader><DialogTitle className="text-xs font-black text-black uppercase">Gestión Categorías</DialogTitle></DialogHeader>
-                            <div className="space-y-3 pt-2">
-                              <div className="flex gap-2"><Input value={newItemName} onChange={e => setNewItemName(e.target.value)} className="h-8 text-xs font-bold" /><Button className="h-8 w-8 bg-primary" onClick={handleAddItem}><Plus className="w-4 h-4" /></Button></div>
-                              <div className="max-h-40 overflow-y-auto space-y-1">
-                                {categories.map(c => (
-                                  <div key={c.id} className="flex items-center justify-between p-2 bg-black/5 rounded-xl">
-                                    {editingItem?.id === c.id ? 
-                                      <div className="flex gap-1"><Input value={editingItem.name} onChange={e => setEditingItem({...editingItem, name: e.target.value})} className="h-7 text-[10px]" /><Button size="icon" className="h-7 w-7 bg-green-500" onClick={handleRenameItem}><Save className="w-3 h-3" /></Button></div> 
-                                    : <><span className="font-black text-black text-[10px] uppercase">{c.name}</span><Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setEditingItem({id: c.id, name: c.name})}><Edit3 className="w-3 h-3 text-black" /></Button></>}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          </DialogContent>
-                        </Dialog>
-                      </div>
-                    </div>
-
-                    <div className="space-y-0.5">
-                      <Label className="text-[9px] uppercase font-black text-black ml-1">Colección *</Label>
-                      <div className="flex gap-2">
-                        <Select value={form.collection} onValueChange={v => setForm({...form, collection: v})}>
-                          <SelectTrigger className="h-10 border-black/10 rounded-xl font-black bg-white text-[10px] text-black">
-                            <SelectValue placeholder="Elegir..." />
-                          </SelectTrigger>
-                          <SelectContent className="rounded-xl">
-                            {collectionsData.map(c => <SelectItem key={c.id} value={c.name} className="text-[10px] font-black">{c.name}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                        <Dialog open={manageType === 'collection'} onOpenChange={o => setManageType(o ? 'collection' : null)}>
-                          <DialogTrigger asChild><Button variant="outline" size="icon" className="h-10 w-10 rounded-lg border-black/10 text-black"><Edit3 className="w-4 h-4" /></Button></DialogTrigger>
-                          <DialogContent className="rounded-[2rem] max-w-sm">
-                            <DialogHeader><DialogTitle className="text-xs font-black text-black uppercase">Gestión Colecciones</DialogTitle></DialogHeader>
-                            <div className="space-y-3 pt-2">
-                              <div className="flex gap-2"><Input value={newItemName} onChange={e => setNewItemName(e.target.value)} className="h-8 text-xs font-bold" /><Button className="h-8 w-8 bg-primary" onClick={handleAddItem}><Plus className="w-4 h-4" /></Button></div>
-                              <div className="max-h-40 overflow-y-auto space-y-1">
-                                {collectionsData.map(c => (
-                                  <div key={c.id} className="flex items-center justify-between p-2 bg-black/5 rounded-xl">
-                                    {editingItem?.id === c.id ? 
-                                      <div className="flex gap-1"><Input value={editingItem.name} onChange={e => setEditingItem({...editingItem, name: e.target.value})} className="h-7 text-[10px]" /><Button size="icon" className="h-7 w-7 bg-green-500" onClick={handleRenameItem}><Save className="w-3 h-3" /></Button></div> 
-                                    : <><span className="font-black text-black text-[10px] uppercase">{c.name}</span><Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setEditingItem({id: c.id, name: c.name})}><Edit3 className="w-3 h-3 text-black" /></Button></>}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          </DialogContent>
-                        </Dialog>
-                      </div>
-                    </div>
+                    <div className="space-y-0.5"><Label className="text-[9px] uppercase font-black ml-1">Categoría *</Label><Select value={form.category} onValueChange={v => setForm({...form, category: v})}><SelectTrigger className="h-10 rounded-xl font-black text-[10px]"><SelectValue placeholder="Elegir..." /></SelectTrigger><SelectContent>{categories.map(c => <SelectItem key={c.id} value={c.name} className="text-[10px] font-black">{c.name}</SelectItem>)}</SelectContent></Select></div>
+                    <div className="space-y-0.5"><Label className="text-[9px] uppercase font-black ml-1">Colección *</Label><Select value={form.collection} onValueChange={v => setForm({...form, collection: v})}><SelectTrigger className="h-10 rounded-xl font-black text-[10px]"><SelectValue placeholder="Elegir..." /></SelectTrigger><SelectContent>{collectionsData.map(c => <SelectItem key={c.id} value={c.name} className="text-[10px] font-black">{c.name}</SelectItem>)}</SelectContent></Select></div>
                   </div>
-
-                  <div className="space-y-0.5">
-                    <Label className="text-[9px] uppercase font-black text-black ml-1">Observaciones</Label>
-                    <Textarea 
-                      value={form.description} 
-                      onChange={e => setForm({...form, description: e.target.value})} 
-                      className="min-h-[80px] rounded-xl bg-black/5 p-4 text-xs font-medium border-none text-black" 
-                      placeholder="..."
-                    />
-                  </div>
+                  <div className="space-y-0.5"><Label className="text-[9px] uppercase font-black ml-1">Observaciones (Normal)</Label><Textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="min-h-[80px] rounded-xl bg-black/5 p-4 text-xs font-normal border-none text-black" placeholder="Escriba aquí..." /></div>
                 </CardContent>
               </Card>
-
-              <Card className="border shadow-sm bg-white rounded-2xl overflow-hidden">
-                <div className="bg-primary/5 py-1 px-6 border-b"><span className="text-[9px] text-primary font-black uppercase">Jerarquía Precios Diva</span></div>
-                <CardContent className="pt-2 grid grid-cols-4 gap-4 px-6 pb-3">
-                  <div className="space-y-0.5"><Label className="text-[8px] block font-black text-primary uppercase text-center">Stock Inicial</Label><Input type="number" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} className="h-10 text-center text-lg font-black text-primary bg-primary/5 rounded-xl border-none" /></div>
-                  <div className="space-y-0.5"><Label className="text-[8px] block font-black text-black uppercase text-center">Fardo</Label><Input type="number" value={form.priceFardo} onChange={e => setForm({...form, priceFardo: e.target.value})} className="h-10 text-center text-xs font-black rounded-xl border-black/10 text-black" /></div>
-                  <div className="space-y-0.5"><Label className="text-[8px] block font-black text-black uppercase text-center">Mayor</Label><Input type="number" value={form.priceMayor} onChange={e => setForm({...form, priceMayor: e.target.value})} className="h-10 text-center text-xs font-black rounded-xl border-black/10 text-black" /></div>
-                  <div className="space-y-0.5"><Label className="text-[8px] block font-black text-black uppercase text-center">Unidad</Label><Input type="number" value={form.priceUnidad} onChange={e => setForm({...form, priceUnidad: e.target.value})} className="h-10 text-center text-xs font-black rounded-xl border-black/10 text-black" /></div>
-                </CardContent>
-              </Card>
+              <Card className="border shadow-sm bg-white rounded-2xl overflow-hidden"><CardContent className="pt-4 grid grid-cols-4 gap-4 px-6 pb-4"><div className="space-y-0.5"><Label className="text-[8px] block font-black uppercase text-center">Stock</Label><Input type="number" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} className="h-10 text-center font-black rounded-xl border-primary/20 bg-primary/5 text-primary" /></div><div className="space-y-0.5"><Label className="text-[8px] block font-black uppercase text-center">Fardo</Label><Input type="number" value={form.priceFardo} onChange={e => setForm({...form, priceFardo: e.target.value})} className="h-10 text-center text-xs font-black rounded-xl" /></div><div className="space-y-0.5"><Label className="text-[8px] block font-black uppercase text-center">Mayor</Label><Input type="number" value={form.priceMayor} onChange={e => setForm({...form, priceMayor: e.target.value})} className="h-10 text-center text-xs font-black rounded-xl" /></div><div className="space-y-0.5"><Label className="text-[8px] block font-black uppercase text-center">Unidad</Label><Input type="number" value={form.priceUnidad} onChange={e => setForm({...form, priceUnidad: e.target.value})} className="h-10 text-center text-xs font-black rounded-xl" /></div></CardContent></Card>
             </div>
-
             <div className="space-y-4">
-              <Card className="border shadow-sm bg-white rounded-2xl overflow-hidden">
-                <div className="bg-black/5 py-2 px-6 flex justify-between items-center border-b">
-                  <span className="text-[9px] font-black text-black uppercase">Galería de Imágenes</span>
-                  <span className="text-[8px] bg-black text-white px-2 rounded-full font-black">{localImagePreviews.length}/4</span>
-                </div>
-                <CardContent className="pt-3 grid grid-cols-2 gap-2 px-6 pb-3">
-                   {localImagePreviews.map((img, idx) => (
-                      <div key={idx} className="relative aspect-square rounded-xl overflow-hidden border group bg-muted/30">
-                        <img src={getThumbnailUrl(img)} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                        <button onClick={() => setLocalImagePreviews(localImagePreviews.filter((_, i) => i !== idx))} className="absolute top-1 right-1 p-1 bg-destructive rounded-full text-white opacity-0 group-hover:opacity-100"><X className="w-3 h-3" /></button>
-                      </div>
-                    ))}
-                    {localImagePreviews.length < 4 && <button onClick={() => fileInputRef.current?.click()} className="aspect-square rounded-xl border-2 border-dashed border-black/10 flex flex-col items-center justify-center gap-1 text-black bg-black/5 hover:bg-black/10"><ImagePlus className="w-5 h-5 opacity-40" /><span className="text-[8px] font-black uppercase opacity-40">Añadir Foto</span><input type="file" hidden ref={fileInputRef} onChange={e => {
-                      const file = e.target.files?.[0]; if (file) { const r = new FileReader(); r.onloadend = () => setLocalImagePreviews(p => [...p, r.result as string].slice(0, 4)); r.readAsDataURL(file); }
-                    }} accept="image/*" /></button>}
-                </CardContent>
-              </Card>
-
-              <div className="flex gap-2">
-                <Button variant="ghost" size="icon" className="h-12 w-12 rounded-2xl border-2 border-black text-black hover:bg-black/5" onClick={handleClear} title="Borrar datos"><Eraser className="w-5 h-5" /></Button>
-                <Button className="flex-1 h-12 text-base rounded-2xl bg-primary text-white font-black shadow-lg" onClick={handleSave} disabled={!isFormValid || saving}>
-                  {saving ? <Loader2 className="animate-spin" /> : <Save className="mr-2 w-4 h-4" />} {editId ? 'ACTUALIZAR' : 'GUARDAR PRENDA'}
-                </Button>
-                {editId && <Button variant="outline" size="icon" className="h-12 w-12 rounded-2xl border-destructive text-destructive hover:bg-destructive/10" onClick={() => router.push('/inventory')} title="Descartar"><X className="w-6 h-6" /></Button>}
-              </div>
+              <Card className="border shadow-sm bg-white rounded-2xl overflow-hidden"><CardContent className="pt-3 grid grid-cols-2 gap-2 px-6 pb-3">{localImagePreviews.map((img, idx) => (<div key={idx} className="relative aspect-square rounded-xl overflow-hidden border bg-muted/30"><img src={img} alt="" className="w-full h-full object-cover" /><button onClick={() => setLocalImagePreviews(localImagePreviews.filter((_, i) => i !== idx))} className="absolute top-1 right-1 p-1 bg-destructive rounded-full text-white"><X className="w-3 h-3" /></button></div>))}{localImagePreviews.length < 4 && <button onClick={() => fileInputRef.current?.click()} className="aspect-square rounded-xl border-2 border-dashed border-black/10 flex flex-col items-center justify-center gap-1 bg-black/5"><ImagePlus className="w-5 h-5 opacity-40" /><span className="text-[8px] font-black uppercase opacity-40">Foto</span><input type="file" hidden ref={fileInputRef} onChange={e => {const f = e.target.files?.[0]; if(f){const r = new FileReader(); r.onloadend = () => setLocalImagePreviews(p => [...p, r.result as string]); r.readAsDataURL(f);}}} /></button>}</CardContent></Card>
+              <Button className="w-full h-14 text-base rounded-2xl bg-black text-white font-black shadow-lg" onClick={handleSave} disabled={!isFormValid || saving}>{saving ? <Loader2 className="animate-spin" /> : <Save className="mr-2 w-4 h-4" />} {editId ? 'ACTUALIZAR' : 'GUARDAR'}</Button>
             </div>
           </div>
         </TabsContent>
 
         <TabsContent value="stock" className="pt-2">
           <Card className="border shadow-sm bg-white rounded-[2rem] overflow-hidden max-w-xl mx-auto">
-            <div className="bg-black/5 py-4 px-8 border-b"><span className="text-xs text-black font-black uppercase">Reposición Industrial Diva</span></div>
+            <div className="bg-black/5 py-4 px-8 border-b font-black text-xs uppercase text-black">Reposición Industrial</div>
             <CardContent className="p-6 space-y-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-black/40" />
-                <Input 
-                  placeholder="ESCRIBA DNI O NOMBRE PARA BUSCAR..." 
-                  value={stockSearchQuery}
-                  onChange={e => setStockSearchQuery(e.target.value)}
-                  className="pl-10 h-10 text-[11px] font-black uppercase rounded-xl border-black/10"
-                />
-              </div>
-
-              {stockSearchQuery.length >= 2 && (
-                <div className="space-y-1.5 max-h-64 overflow-y-auto pr-2 border rounded-xl p-2 bg-muted/5 custom-scrollbar">
-                  {filteredProductsForStock.map(p => (
-                    <div 
-                      key={p.id} 
-                      className={cn(
-                        "flex items-center justify-between p-3 rounded-xl border-2 transition-all cursor-pointer",
-                        stockEntry.productCode === p.code ? "border-primary bg-primary/5" : "border-transparent hover:bg-black/5"
-                      )} 
-                      onClick={() => setStockEntry({...stockEntry, productCode: p.code})}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg overflow-hidden border border-black/10 bg-white">
-                          {p.images?.[0] ? <img src={getThumbnailUrl(p.images[0])} className="w-full h-full object-cover" referrerPolicy="no-referrer" /> : <div className="text-[7px] font-black opacity-20">N/A</div>}
-                        </div>
-                        <div>
-                          <div className="font-black text-xs text-black uppercase">{p.code} - {p.name}</div>
-                          <div className="text-[7px] font-black uppercase text-black/40">{p.category} | Stock: {p.stock}</div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  {filteredProductsForStock.length === 0 && (
-                    <div className="text-center py-8 text-[10px] font-black uppercase text-black/20">No se encontraron prendas</div>
-                  )}
-                </div>
+              <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-black/40" /><Input placeholder="DNI O NOMBRE..." value={stockSearchQuery} onChange={e => setStockSearchQuery(e.target.value)} className="pl-10 h-10 text-[11px] font-black uppercase rounded-xl" /></div>
+              {filteredProductsForStock.length > 0 && (
+                <div className="space-y-2 max-h-64 overflow-y-auto p-2 border rounded-xl">{filteredProductsForStock.map(p => (<div key={p.id} className={cn("p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between", stockEntry.productCode === p.code ? "border-primary bg-primary/5" : "hover:bg-black/5")} onClick={() => setStockEntry({...stockEntry, productCode: p.code})}><div className="flex flex-col"><span className="font-black text-xs text-black uppercase">{p.code} - {p.name}</span><span className="text-[8px] font-black uppercase text-black/40">Stock: {p.stock}</span></div></div>))}</div>
               )}
-
               {stockEntry.productCode && (
-                <div className="space-y-4 animate-in slide-in-from-bottom-2">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-0.5">
-                      <Label className="text-[9px] font-black text-black ml-1 uppercase">Cantidad</Label>
-                      <Input type="number" autoFocus value={stockEntry.quantity} onChange={e => setStockEntry({...stockEntry, quantity: e.target.value})} className="h-10 text-lg font-black text-center text-primary rounded-xl border-primary/20" />
-                    </div>
-                    <div className="space-y-0.5">
-                      <Label className="text-[9px] font-black text-black ml-1 uppercase">Motivo</Label>
-                      <Input value={stockEntry.reason} onChange={e => setStockEntry({...stockEntry, reason: e.target.value})} className="h-10 text-[10px] font-black uppercase rounded-xl border-black/10" />
-                    </div>
-                  </div>
-                  
-                  <Button className="w-full h-14 text-lg font-black rounded-2xl bg-black text-white active:scale-95 transition-all shadow-xl" onClick={handleAddStock} disabled={!stockEntry.productCode || !stockEntry.quantity || saving}>
-                    {saving ? <Loader2 className="animate-spin" /> : <Save className="mr-2 w-4 h-4" />} CONFIRMAR INGRESO
-                  </Button>
-                </div>
-              )}
-
-              {!stockEntry.productCode && stockSearchQuery.length < 2 && (
-                <div className="py-12 text-center text-[10px] font-black uppercase text-black/20 tracking-widest">Ingrese término de búsqueda</div>
+                <div className="space-y-4 animate-in slide-in-from-bottom-2"><div className="grid grid-cols-2 gap-4"><div className="space-y-0.5"><Label className="text-[9px] font-black ml-1 uppercase">Cantidad</Label><Input type="number" value={stockEntry.quantity} onChange={e => setStockEntry({...stockEntry, quantity: e.target.value})} className="h-10 text-lg font-black text-center text-primary rounded-xl border-primary/20" /></div><div className="space-y-0.5"><Label className="text-[9px] font-black ml-1 uppercase">Motivo</Label><Input value={stockEntry.reason} onChange={e => setStockEntry({...stockEntry, reason: e.target.value})} className="h-10 text-[10px] font-black uppercase rounded-xl" /></div></div><Button className="w-full h-14 text-lg font-black rounded-2xl bg-black text-white" onClick={handleAddStock} disabled={!stockEntry.productCode || !stockEntry.quantity || saving}>{saving ? <Loader2 className="animate-spin" /> : "CONFIRMAR INGRESO"}</Button></div>
               )}
             </CardContent>
           </Card>

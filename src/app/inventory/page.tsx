@@ -15,133 +15,17 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion"
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
-import { Search, Edit2, X, Trash2, MoreVertical, Check, PackageSearch, Clock } from "lucide-react"
+import { Search, Edit2, X, Trash2, MoreVertical, Check, PackageSearch, Clock, Calendar } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useCollection, useFirestore } from "@/firebase"
-import { collection, query, orderBy, doc, deleteDoc, getDocs, where, writeBatch } from "firebase/firestore"
+import { collection, query, orderBy, doc, deleteDoc, getDocs,尊ere, writeBatch } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
-
-const ProductRow = ({ p, onEdit, onDelete }: { 
-  p: any, 
-  onEdit: (id: string) => void,
-  onDelete: (prod: {id: string, code: string}) => void
-}) => {
-  const [confirming, setConfirming] = React.useState(false);
-
-  const getThumbnailUrl = (url: string) => {
-    if (!url || typeof url !== 'string' || !url.startsWith('http')) return url;
-    const idMatch = url.match(/id=([^&]+)/);
-    return idMatch ? `https://drive.google.com/thumbnail?id=${idMatch[1]}&sz=300` : url;
-  };
-
-  return (
-    <TableRow key={p.id} className="group hover:bg-black/5 border-b border-black/5 last:border-0">
-      <TableCell className="p-4">
-        <div className="flex gap-4">
-          <div className="w-16 h-16 rounded-2xl border border-black/10 overflow-hidden bg-muted shrink-0 relative shadow-sm">
-            {p.images && p.images[0] ? (
-               <img src={getThumbnailUrl(p.images[0])} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-            ) : (
-              <PackageSearch className="w-full h-full p-4 opacity-10" />
-            )}
-          </div>
-          
-          <div className="flex-1 space-y-1 min-w-0">
-            {/* LÍNEA 1: CÓDIGO Y NOMBRE */}
-            <div className="flex items-center gap-2">
-              <span className="font-black text-[9px] bg-black text-white px-2 py-0.5 rounded-lg shrink-0">{p.code}</span>
-              <span className="font-black text-black text-sm uppercase truncate">{p.name}</span>
-            </div>
-
-            {/* LÍNEA 2: PRECIOS */}
-            <div className="text-[10px] font-black text-black/60 uppercase">
-              FARDO: <span className="text-black">S/{p.priceFardo}</span> · 
-              MAYOR: <span className="text-black ml-1">S/{p.priceMayor}</span> · 
-              <span className="text-primary ml-1">UNID: S/{p.priceUnidad}</span>
-            </div>
-
-            {/* LÍNEA 3: STOCK Y UBICACIÓN */}
-            <div className="flex items-center gap-3">
-              <div className={cn(
-                "font-black text-[10px] px-2 py-0.5 rounded-md border",
-                p.stock <= 0 ? "bg-destructive/10 text-destructive border-destructive/20" : 
-                p.stock < 10 ? "bg-orange-50 text-orange-600 border-orange-200" : 
-                "bg-green-50 text-green-600 border-green-200"
-              )}>
-                STOCK: {p.stock} UND
-              </div>
-              <span className="text-[8px] font-black text-black/30 uppercase tracking-widest truncate">
-                {p.collection} | {p.category}
-              </span>
-            </div>
-          </div>
-
-          <div className="shrink-0 flex items-center">
-            {confirming ? (
-              <div className="flex items-center gap-1">
-                <Button size="icon" variant="ghost" className="h-8 w-8 bg-destructive text-white rounded-xl" onClick={() => { onDelete({id: p.id, code: p.code}); setConfirming(false); }}><Check className="w-4 h-4" /></Button>
-                <Button size="icon" variant="ghost" className="h-8 w-8 bg-black/5 rounded-xl" onClick={() => setConfirming(false)}><X className="w-4 h-4" /></Button>
-              </div>
-            ) : (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-10 w-10 hover:bg-black/10 rounded-xl"><MoreVertical className="w-5 h-5 text-black" /></Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="rounded-2xl border-black/10 p-2 shadow-2xl">
-                  <DropdownMenuItem className="text-[10px] font-black uppercase cursor-pointer p-3 rounded-xl gap-2" onClick={() => onEdit(p.id)}><Edit2 className="w-3.5 h-3.5" /> Editar Prenda</DropdownMenuItem>
-                  <DropdownMenuItem className="text-[10px] font-black uppercase cursor-pointer p-3 rounded-xl gap-2 text-destructive hover:bg-destructive/10" onClick={() => setConfirming(true)}><Trash2 className="w-3.5 h-3.5" /> Dar de Baja</DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-          </div>
-        </div>
-      </TableCell>
-    </TableRow>
-  );
-};
-
-const MemoizedProductList = React.memo(({ groupedData, onEdit, onDelete }: any) => {
-  return (
-    <Accordion type="multiple" className="space-y-4">
-      {Object.entries(groupedData).map(([mainTitle, items]: [string, any]) => (
-        <AccordionItem key={mainTitle} value={mainTitle} className="border-none bg-white rounded-[2rem] shadow-sm px-6">
-          <AccordionTrigger className="hover:no-underline py-6">
-            <div className="text-sm font-black text-black uppercase tracking-[0.1em]">{mainTitle}</div>
-          </AccordionTrigger>
-          <AccordionContent className="pb-6 pt-0">
-            <div className="border rounded-[1.5rem] border-black/5 overflow-hidden">
-              <Table>
-                <TableBody>
-                  {items.map((p: any) => (
-                    <ProductRow 
-                      key={p.id} 
-                      p={p} 
-                      onEdit={onEdit} 
-                      onDelete={onDelete}
-                    />
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-      ))}
-    </Accordion>
-  )
-});
-MemoizedProductList.displayName = "MemoizedProductList";
 
 export default function InventoryPage() {
   const router = useRouter()
@@ -149,14 +33,6 @@ export default function InventoryPage() {
   const { toast } = useToast()
   const [searchQuery, setSearchQuery] = React.useState("")
   const [viewType, setViewType] = React.useState<"collection" | "category">("collection")
-
-  React.useEffect(() => {
-    const saved = localStorage.getItem('diva_settings')
-    if (saved) {
-      const parsed = JSON.parse(saved)
-      if (parsed.inventoryViewMode) setViewType(parsed.inventoryViewMode)
-    }
-  }, [])
 
   const productsRef = React.useMemo(() => db ? query(collection(db, "products"), orderBy("code", "asc")) : null, [db])
   const movementsRef = React.useMemo(() => db ? query(collection(db, "movements"), orderBy("timestamp", "desc")) : null, [db])
@@ -171,51 +47,48 @@ export default function InventoryPage() {
     )
   }, [products, searchQuery])
 
-  const groupedData = React.useMemo(() => {
+  // Agrupación de Kardex por Fecha
+  const groupedMovements = React.useMemo(() => {
     const groups: Record<string, any[]> = {}
-    filteredProducts.forEach(p => {
-      const main = viewType === "collection" ? (p.collection || "SIN COL") : (p.category || "SIN CAT")
-      if (!groups[main]) groups[main] = []
-      groups[main].push(p)
+    movements.forEach(m => {
+      const date = m.timestamp?.toDate ? m.timestamp.toDate() : new Date()
+      const dayLabel = date.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }).toUpperCase()
+      if (!groups[dayLabel]) groups[dayLabel] = []
+      groups[dayLabel].push(m)
     })
+    return Object.entries(groups)
+  }, [movements])
 
-    Object.keys(groups).forEach(key => {
-      groups[key].sort((a, b) => {
-        const subA = viewType === "collection" ? (a.category || "") : (a.collection || "")
-        const subB = viewType === "collection" ? (b.category || "") : (b.collection || "")
-        return subA.localeCompare(subB)
-      })
-    })
-
-    return groups
-  }, [filteredProducts, viewType])
-
-  const onEdit = React.useCallback((id: string) => router.push(`/registry?edit=${id}`), [router])
-  const onDelete = React.useCallback(async (prod: {id: string, code: string}) => {
+  const onEdit = (id: string) => router.push(`/registry?edit=${id}`)
+  
+  const onDelete = async (prod: {id: string, code: string}) => {
     if (!db) return
-    const pRef = doc(db, "products", prod.id)
-    await deleteDoc(pRef)
-    const mRef = collection(db, "movements")
-    const q = query(mRef, where("productCode", "==", prod.code))
-    const snap = await getDocs(q)
-    const batch = writeBatch(db)
-    snap.forEach(d => batch.delete(d.ref))
-    await batch.commit()
-    toast({ title: "BAJA PROCESADA", description: "PRENDA Y KARDEX ELIMINADOS." })
-  }, [db, toast])
+    try {
+      await deleteDoc(doc(db, "products", prod.id))
+      const mRef = collection(db, "movements")
+      const q = query(mRef, where("productCode", "==", prod.code))
+      const snap = await getDocs(q)
+      const batch = writeBatch(db)
+      snap.forEach(d => batch.delete(d.ref))
+      await batch.commit()
+      toast({ title: "BAJA PROCESADA" })
+    } catch (e) {
+      toast({ variant: "destructive", title: "ERROR AL ELIMINAR" })
+    }
+  }
 
   return (
-    <div className="space-y-6 pt-2 pb-20">
+    <div className="space-y-6 pt-2 pb-20 max-w-6xl mx-auto px-2 md:px-0">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
         <div>
-          <h1 className="text-3xl font-headline font-black text-black uppercase tracking-tight">Stock Actual</h1>
-          <p className="text-[10px] font-black text-primary uppercase tracking-[0.3em] ml-1 mt-1">Control de Inventario Diva Industrial</p>
+          <h1 className="text-3xl font-headline font-black text-black uppercase tracking-tight">Inventario Diva</h1>
+          <p className="text-[10px] font-black text-primary uppercase tracking-[0.3em] ml-1 mt-1">Control de Stock y Kardex Industrial</p>
         </div>
         <div className="relative w-full md:w-96">
           <Search className="absolute left-4 top-4 h-4 w-4 text-black/40" />
           <Input 
-            placeholder="BUSCAR PRENDA O DNI..." 
-            className="pl-12 h-12 rounded-[1.25rem] border-black/10 bg-white shadow-sm font-black text-xs uppercase"
+            placeholder="BUSCAR DNI O NOMBRE..." 
+            className="pl-12 h-12 rounded-2xl border-black/10 font-black text-xs uppercase shadow-sm"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
           />
@@ -223,55 +96,105 @@ export default function InventoryPage() {
       </div>
 
       <Tabs defaultValue="all" className="w-full">
-        <TabsList className="bg-black/5 p-1 rounded-2xl w-full justify-start overflow-hidden border mb-6">
-          <TabsTrigger value="all" className="rounded-xl px-10 data-[state=active]:bg-black data-[state=active]:text-white text-[10px] font-black uppercase">Inventario ({viewType.toUpperCase()})</TabsTrigger>
-          <TabsTrigger value="movements" className="rounded-xl px-10 data-[state=active]:bg-black data-[state=active]:text-white text-[10px] font-black uppercase">Kardex Maestro</TabsTrigger>
+        <TabsList className="bg-black/5 p-1 rounded-2xl w-full justify-start border mb-6">
+          <TabsTrigger value="all" className="rounded-xl px-10 data-[state=active]:bg-black data-[state=active]:text-white text-[10px] font-black uppercase">Stock Maestro</TabsTrigger>
+          <TabsTrigger value="movements" className="rounded-xl px-10 data-[state=active]:bg-black data-[state=active]:text-white text-[10px] font-black uppercase">Kardex Diario</TabsTrigger>
         </TabsList>
         
-        <TabsContent value="all" className="space-y-4">
-          <MemoizedProductList groupedData={groupedData} onEdit={onEdit} onDelete={onDelete} />
-        </TabsContent>
-
-        <TabsContent value="movements">
-          <div className="border rounded-[2.5rem] overflow-hidden bg-white shadow-sm overflow-x-auto">
+        <TabsContent value="all">
+          <div className="border rounded-[2rem] bg-white shadow-sm overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="bg-black/5 hover:bg-black/5 border-none">
-                  <TableHead className="font-black uppercase text-[9px] text-black pl-8 whitespace-nowrap"><div className="flex items-center gap-2"><Clock className="w-3 h-3" /> Fecha</div></TableHead>
-                  <TableHead className="font-black uppercase text-[9px] text-black text-center">DNI</TableHead>
-                  <TableHead className="font-black uppercase text-[9px] text-black">Operación</TableHead>
-                  <TableHead className="text-center font-black uppercase text-[9px] text-black">Cant</TableHead>
-                  <TableHead className="font-black uppercase text-[9px] text-black pr-8">Motivo</TableHead>
+                  <TableHead className="font-black uppercase text-[9px] text-black pl-8">Prenda / DNI</TableHead>
+                  <TableHead className="font-black uppercase text-[9px] text-black">Precios (F/M/U)</TableHead>
+                  <TableHead className="font-black uppercase text-[9px] text-black text-center">Stock</TableHead>
+                  <TableHead className="text-right pr-8"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {movements.map(m => (
-                  <TableRow key={m.id} className="hover:bg-black/5 transition-colors border-b last:border-0">
-                    <TableCell className="text-[9px] font-black text-black/60 pl-8 whitespace-nowrap">
-                      {m.timestamp?.toDate ? m.timestamp.toDate().toLocaleString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).toUpperCase() : "---"}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant="outline" className="font-black text-[8px] border-black/10 bg-black/5">{m.productCode}</Badge>
+                {filteredProducts.map(p => (
+                  <TableRow key={p.id} className="hover:bg-black/5 transition-colors border-b last:border-0">
+                    <TableCell className="pl-8 py-4">
+                      <div className="flex flex-col">
+                        <span className="font-black text-xs text-black uppercase truncate max-w-[200px]">{p.name}</span>
+                        <span className="font-black text-[9px] text-black/40 uppercase">{p.code} | {p.collection}</span>
+                      </div>
                     </TableCell>
                     <TableCell>
-                      {m.type === 'in' || m.type === 'return' ? (
-                        <span className="text-green-600 font-black text-[9px] uppercase bg-green-50 px-2 py-0.5 rounded-md border border-green-100">Entrada</span>
-                      ) : (
-                        <span className="text-destructive font-black text-[9px] uppercase bg-destructive/5 px-2 py-0.5 rounded-md border border-destructive/10">Salida</span>
-                      )}
+                      <div className="flex flex-col text-[10px] font-black uppercase">
+                        <span className="text-black/60">F: S/{p.priceFardo} · M: S/{p.priceMayor}</span>
+                        <span className="text-primary">U: S/{p.priceUnidad}</span>
+                      </div>
                     </TableCell>
-                    <TableCell className="text-center font-black text-black text-[10px]">{m.quantity}</TableCell>
-                    <TableCell className="text-[9px] font-black uppercase text-black/70 pr-8 truncate max-w-[150px]">{m.reason}</TableCell>
+                    <TableCell className="text-center">
+                      <div className={cn(
+                        "font-black text-[11px] px-2 py-0.5 rounded-lg inline-block",
+                        p.stock <= 0 ? "bg-destructive/10 text-destructive" : 
+                        p.stock < 10 ? "bg-orange-50 text-orange-600" : 
+                        "bg-green-50 text-green-600"
+                      )}>
+                        {p.stock} <span className="text-[8px]">UND</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right pr-8">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl"><MoreVertical className="w-4 h-4" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="rounded-2xl p-2 shadow-2xl">
+                          <DropdownMenuItem className="text-[10px] font-black uppercase gap-2 cursor-pointer p-3 rounded-xl" onClick={() => onEdit(p.id)}><Edit2 className="w-3.5 h-3.5" /> Editar</DropdownMenuItem>
+                          <DropdownMenuItem className="text-[10px] font-black uppercase gap-2 cursor-pointer p-3 rounded-xl text-destructive hover:bg-destructive/10" onClick={() => onDelete({id: p.id, code: p.code})}><Trash2 className="w-3.5 h-3.5" /> Eliminar</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
                   </TableRow>
                 ))}
-                {movements.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center py-20 text-[10px] font-black text-black/20 uppercase tracking-widest">Sin movimientos registrados</TableCell>
-                  </TableRow>
-                )}
               </TableBody>
             </Table>
           </div>
+        </TabsContent>
+
+        <TabsContent value="movements" className="space-y-6">
+          {groupedMovements.map(([date, items]) => (
+            <div key={date} className="space-y-3">
+              <div className="flex items-center gap-3 px-6 py-2 bg-black text-white rounded-xl shadow-md">
+                <Calendar className="w-4 h-4" />
+                <span className="text-[10px] font-black uppercase tracking-widest">{date}</span>
+              </div>
+              <div className="border rounded-[2rem] bg-white shadow-sm overflow-hidden">
+                <Table>
+                  <TableBody>
+                    {items.map(m => (
+                      <TableRow key={m.id} className="hover:bg-black/5 transition-colors border-b last:border-0">
+                        <TableCell className="pl-8 py-3">
+                          <div className="flex justify-between items-start">
+                            <div className="flex flex-col gap-0.5">
+                              <div className="flex items-center gap-2">
+                                {m.type === 'in' || m.type === 'return' ? (
+                                  <span className="text-[8px] font-black uppercase bg-green-100 text-green-700 px-1.5 rounded">Entrada</span>
+                                ) : (
+                                  <span className="text-[8px] font-black uppercase bg-red-100 text-red-700 px-1.5 rounded">Salida</span>
+                                )}
+                                <span className="font-black text-[11px] text-black">{m.quantity} UND.</span>
+                              </div>
+                              <span className="text-[9px] font-black text-black/40 uppercase">{m.reason} · DNI: {m.productCode}</span>
+                            </div>
+                            <span className="text-[8px] font-black text-black/20 pr-4">
+                              {m.timestamp?.toDate ? m.timestamp.toDate().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : "--:--"}
+                            </span>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          ))}
+          {movements.length === 0 && (
+            <div className="py-24 text-center text-[10px] font-black uppercase text-black/20 tracking-widest">Sin movimientos registrados</div>
+          )}
         </TabsContent>
       </Tabs>
     </div>
