@@ -115,23 +115,26 @@ export default function RegistryPage() {
         updatedAt: serverTimestamp()
       }
       
-      // Guardado en Firebase (Prioridad)
+      // GUARDAR EN FIREBASE (Prioridad absoluta)
       await setDoc(doc(db, "products", productCode), productData, { merge: true })
       
       toast({ title: editId ? "PRENDA ACTUALIZADA" : "PRENDA REGISTRADA" })
       
-      // Sincronización en segundo plano (No bloquea el guardado)
-      try {
-        const updatedProducts = await getDocs(query(collection(db, "products")))
-        const allProds = updatedProducts.docs.map(d => ({ id: d.id, ...d.data() }))
-        await syncCatalogToDrive(allProds)
-      } catch (syncErr) {
-        console.warn("Fallo sincronización Drive, se requiere manual:", syncErr)
-      }
+      // SINCRONIZACIÓN NO BLOQUEANTE (Si falla Drive, el producto ya está en Firebase)
+      setTimeout(async () => {
+        try {
+          const updatedSnap = await getDocs(query(collection(db, "products")))
+          const allProds = updatedSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+          await syncCatalogToDrive(allProds)
+        } catch (syncErr) {
+          console.warn("Fallo sincronización Drive, se requiere manual desde Inventario.")
+        }
+      }, 500)
       
       router.push('/inventory')
     } catch (e) { 
-      toast({ variant: "destructive", title: "Error en el Sistema", description: "No se pudo completar el guardado." }) 
+      console.error(e)
+      toast({ variant: "destructive", title: "Error en el Sistema", description: "No se pudo guardar en la base de datos." }) 
     }
     finally { setSaving(false) }
   }
@@ -148,12 +151,15 @@ export default function RegistryPage() {
       setStockEntry({ productCode: "", quantity: "", reason: "Reposición Industrial" })
       setStockSearchQuery("")
       
-      try {
-        const updatedProducts = await getDocs(query(collection(db, "products")))
-        const allProds = updatedProducts.docs.map(d => ({ id: d.id, ...d.data() }))
-        await syncCatalogToDrive(allProds)
-      } catch (e) {}
-    } catch (e) { toast({ variant: "destructive", title: "Error" }) }
+      // Sincronización en segundo plano
+      setTimeout(async () => {
+        try {
+          const updatedSnap = await getDocs(query(collection(db, "products")))
+          const allProds = updatedSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+          await syncCatalogToDrive(allProds)
+        } catch (e) {}
+      }, 500)
+    } catch (e) { toast({ variant: "destructive", title: "Error al actualizar stock" }) }
     finally { setSaving(false) }
   }
 
@@ -189,8 +195,20 @@ export default function RegistryPage() {
                       <Input value={form.name} onChange={e => setForm({...form, name: e.target.value.toUpperCase()})} className="h-12 border-black/10 rounded-xl font-black text-sm uppercase" />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1"><Label className="text-[9px] uppercase font-black ml-1 text-black/60">Categoría *</Label><Select value={form.category} onValueChange={v => setForm({...form, category: v})}><SelectTrigger className="h-12 rounded-xl font-black text-[10px]"><SelectValue placeholder="Elegir..." /></SelectTrigger><SelectContent>{categories.map(c => <SelectItem key={c.id} value={c.name} className="text-[10px] font-black">{c.name}</SelectItem>)}</SelectContent></Select></div>
-                      <div className="space-y-1"><Label className="text-[9px] uppercase font-black ml-1 text-black/60">Colección *</Label><Select value={form.collection} onValueChange={v => setForm({...form, collection: v})}><SelectTrigger className="h-12 rounded-xl font-black text-[10px]"><SelectValue placeholder="Elegir..." /></SelectTrigger><SelectContent>{collectionsData.map(c => <SelectItem key={c.id} value={c.name} className="text-[10px] font-black">{c.name}</SelectItem>)}</SelectContent></Select></div>
+                      <div className="space-y-1">
+                        <Label className="text-[9px] uppercase font-black ml-1 text-black/60">Categoría *</Label>
+                        <Select value={form.category} onValueChange={v => setForm({...form, category: v})}>
+                          <SelectTrigger className="h-12 rounded-xl font-black text-[10px]"><SelectValue placeholder="Elegir..." /></SelectTrigger>
+                          <SelectContent>{categories.map(c => <SelectItem key={c.id} value={c.name} className="text-[10px] font-black">{c.name}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[9px] uppercase font-black ml-1 text-black/60">Colección *</Label>
+                        <Select value={form.collection} onValueChange={v => setForm({...form, collection: v})}>
+                          <SelectTrigger className="h-12 rounded-xl font-black text-[10px]"><SelectValue placeholder="Elegir..." /></SelectTrigger>
+                          <SelectContent>{collectionsData.map(c => <SelectItem key={c.id} value={c.name} className="text-[10px] font-black">{c.name}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
