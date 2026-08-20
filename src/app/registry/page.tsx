@@ -115,25 +115,25 @@ export default function RegistryPage() {
         updatedAt: serverTimestamp()
       }
       
-      // GUARDAR EN FIREBASE (Prioridad absoluta)
+      // GUARDAR EN FIREBASE (Prioridad absoluta y bloqueante localmente)
       await setDoc(doc(db, "products", productCode), productData, { merge: true })
       
       toast({ title: editId ? "PRENDA ACTUALIZADA" : "PRENDA REGISTRADA" })
       
-      // SINCRONIZACIÓN NO BLOQUEANTE EN Drive
+      // SINCRONIZACIÓN NO BLOQUEANTE EN Drive para evitar errores de red al guardar
       setTimeout(async () => {
         try {
           const updatedSnap = await getDocs(query(collection(db, "products")))
           const allProds = updatedSnap.docs.map(d => ({ id: d.id, ...d.data() }))
           await syncCatalogToDrive(allProds)
         } catch (syncErr) {
-          console.warn("Sincronización manual necesaria después.");
+          console.warn("Sincronización en la nube falló. Use el botón 'Sincronizar Nube' en el Inventario.");
         }
       }, 500)
       
       router.push('/inventory')
     } catch (e) { 
-      toast({ variant: "destructive", title: "Error al guardar localmente" }) 
+      toast({ variant: "destructive", title: "Error al guardar en base de datos" }) 
     }
     finally { setSaving(false) }
   }
