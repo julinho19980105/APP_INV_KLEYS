@@ -26,9 +26,20 @@ import { cn } from "@/lib/utils"
 // Helper to transform Drive URLs to thumbnails
 function getDriveThumb(url: string, size: number = 400) {
   if (!url || !url.includes('drive.google.com')) return url;
-  const match = url.match(/[?&]id=([^&]+)/);
-  if (match && match[1]) {
-    return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w${size}`;
+  
+  let fileId = '';
+  const idMatch = url.match(/[?&]id=([^&]+)/);
+  if (idMatch && idMatch[1]) {
+    fileId = idMatch[1];
+  } else {
+    const dMatch = url.match(/\/d\/([^/]+)/);
+    if (dMatch && dMatch[1]) {
+      fileId = dMatch[1];
+    }
+  }
+
+  if (fileId) {
+    return `https://drive.google.com/thumbnail?id=${fileId}&sz=w${size}`;
   }
   return url;
 }
@@ -198,7 +209,7 @@ export default function RegistryPage() {
                 <CardContent className="pt-3 grid grid-cols-2 gap-2 px-6 pb-3">
                   {localImagePreviews.map((img, idx) => (
                     <div key={idx} className="relative aspect-square rounded-xl overflow-hidden border">
-                      <img src={getDriveThumb(img, 400)} className="w-full h-full object-cover" />
+                      <img src={getDriveThumb(img, 400)} className="w-full h-full object-cover" alt="Vista previa" />
                       <button onClick={() => setLocalImagePreviews(localImagePreviews.filter((_, i) => i !== idx))} className="absolute top-1 right-1 p-1 bg-destructive rounded-full text-white shadow-lg"><X className="w-3 h-3" /></button>
                     </div>
                   ))}

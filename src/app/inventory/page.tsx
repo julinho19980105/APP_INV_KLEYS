@@ -23,7 +23,9 @@ import {
 import { 
   Dialog,
   DialogContent,
-  DialogClose
+  DialogClose,
+  DialogHeader,
+  DialogTitle
 } from "@/components/ui/dialog"
 import { Search, Edit2, Trash2, MoreVertical, Calendar, LayoutGrid, Layers, ImageIcon, X } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -35,9 +37,20 @@ import { syncCatalogToDrive } from "@/services/sheets-service"
 // Helper to transform Drive URLs to thumbnails
 function getDriveThumb(url: string, size: number = 400) {
   if (!url || !url.includes('drive.google.com')) return url;
-  const match = url.match(/[?&]id=([^&]+)/);
-  if (match && match[1]) {
-    return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w${size}`;
+  
+  let fileId = '';
+  const idMatch = url.match(/[?&]id=([^&]+)/);
+  if (idMatch && idMatch[1]) {
+    fileId = idMatch[1];
+  } else {
+    const dMatch = url.match(/\/d\/([^/]+)/);
+    if (dMatch && dMatch[1]) {
+      fileId = dMatch[1];
+    }
+  }
+
+  if (fileId) {
+    return `https://drive.google.com/thumbnail?id=${fileId}&sz=w${size}`;
   }
   return url;
 }
@@ -253,6 +266,9 @@ export default function InventoryPage() {
       {/* Zoom Modal */}
       <Dialog open={!!zoomImage} onOpenChange={() => setZoomImage(null)}>
         <DialogContent className="max-w-[95vw] md:max-w-4xl p-0 border-none bg-transparent shadow-none">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Vista de imagen de producto</DialogTitle>
+          </DialogHeader>
           <div className="relative w-full aspect-square md:aspect-video flex items-center justify-center bg-black/90 rounded-[2rem] overflow-hidden">
             <button 
               onClick={() => setZoomImage(null)}
