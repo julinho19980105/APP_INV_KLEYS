@@ -1,17 +1,8 @@
-/**
- * INSTRUCCIONES ACTUALIZADAS PARA GOOGLE APPS SCRIPT (script.google.com):
- * 
- * 1. Crea un nuevo proyecto en Apps Script.
- * 2. Pega el código que te proporcioné anteriormente.
- * 3. Asegúrate de que el folderId sea: "1eiNwGNeMfRcP7yd6-XkhLLzTCoxC4uOT"
- * 4. Despliega como "Aplicación Web".
- *    - Ejecutar como: YO (tu cuenta).
- *    - Quién tiene acceso: CUALQUIERA (Anyone).
- * 5. Copia la URL del despliegue en src/lib/api-config.ts.
- */
-
 import { API_CONFIG } from '@/lib/api-config';
 
+/**
+ * Sube una imagen al Drive usando el script original de imágenes.
+ */
 export async function uploadImageToDrive(base64Data: string, fileName: string): Promise<string> {
   if (!API_CONFIG.WEB_APP_URL || !base64Data || base64Data.startsWith('http')) return base64Data;
   
@@ -35,24 +26,27 @@ export async function uploadImageToDrive(base64Data: string, fileName: string): 
     const result = await response.json();
     return result.success ? result.url : base64Data;
   } catch (error) {
-    console.error("Error al subir a Drive:", error);
+    console.error("Error al subir imagen:", error);
     return base64Data;
   }
 }
 
+/**
+ * Sincroniza el catálogo con el NUEVO Sheet de Inventario y actualiza el JSON.
+ */
 export async function syncCatalogToDrive(products: any[]): Promise<void> {
-  if (!API_CONFIG.WEB_APP_URL || !Array.isArray(products)) return;
+  if (!API_CONFIG.INVENTORY_SHEET_URL || !Array.isArray(products)) return;
   
   try {
+    // Solo enviamos productos con stock > 0
     const cleanCatalog = products
       .filter(p => (Number(p.stock) || 0) > 0)
       .map(p => {
-        // Enviar todos los datos excepto stock y marcas de tiempo internas
-        const { stock, updatedAt, id, ...rest } = p;
+        const { updatedAt, id, ...rest } = p;
         return rest;
       });
 
-    const response = await fetch(API_CONFIG.WEB_APP_URL, {
+    const response = await fetch(API_CONFIG.INVENTORY_SHEET_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({
@@ -63,18 +57,21 @@ export async function syncCatalogToDrive(products: any[]): Promise<void> {
     
     const result = await response.json();
     if (!result.success) {
-      throw new Error(result.error || "Error en Drive");
+      throw new Error(result.error || "Error en el script del Sheet");
     }
   } catch (error) {
-    console.error("Error al sincronizar con Drive:", error);
+    console.error("Error al sincronizar inventario:", error);
     throw error;
   }
 }
 
+/**
+ * Obtiene el catálogo desde el script del Sheet de Inventario (que lee el JSON).
+ */
 export async function getCatalogFromDrive(): Promise<any[]> {
-  if (!API_CONFIG.WEB_APP_URL) return [];
+  if (!API_CONFIG.INVENTORY_SHEET_URL) return [];
   try {
-    const response = await fetch(API_CONFIG.WEB_APP_URL, {
+    const response = await fetch(API_CONFIG.INVENTORY_SHEET_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ action: "getCatalog" })

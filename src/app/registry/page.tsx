@@ -120,21 +120,20 @@ export default function RegistryPage() {
       
       toast({ title: editId ? "PRENDA ACTUALIZADA" : "PRENDA REGISTRADA" })
       
-      // SINCRONIZACIÓN NO BLOQUEANTE (Si falla Drive, el producto ya está en Firebase)
+      // SINCRONIZACIÓN NO BLOQUEANTE EN Drive
       setTimeout(async () => {
         try {
           const updatedSnap = await getDocs(query(collection(db, "products")))
           const allProds = updatedSnap.docs.map(d => ({ id: d.id, ...d.data() }))
           await syncCatalogToDrive(allProds)
         } catch (syncErr) {
-          console.warn("Fallo sincronización Drive, se requiere manual desde Inventario.")
+          console.warn("Sincronización manual necesaria después.");
         }
       }, 500)
       
       router.push('/inventory')
     } catch (e) { 
-      console.error(e)
-      toast({ variant: "destructive", title: "Error en el Sistema", description: "No se pudo guardar en la base de datos." }) 
+      toast({ variant: "destructive", title: "Error al guardar localmente" }) 
     }
     finally { setSaving(false) }
   }
@@ -151,7 +150,6 @@ export default function RegistryPage() {
       setStockEntry({ productCode: "", quantity: "", reason: "Reposición Industrial" })
       setStockSearchQuery("")
       
-      // Sincronización en segundo plano
       setTimeout(async () => {
         try {
           const updatedSnap = await getDocs(query(collection(db, "products")))
