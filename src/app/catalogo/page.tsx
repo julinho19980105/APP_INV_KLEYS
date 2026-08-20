@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -66,7 +65,7 @@ export default function CatalogoPage() {
     const filteredProducts = products.filter(p => p[type] === filterName)
     
     if (filteredProducts.length === 0) {
-      toast({ variant: "destructive", title: "Sin productos", description: "No hay modelos disponibles." })
+      toast({ variant: "destructive", title: "Sin productos", description: "No hay modelos disponibles con stock." })
       return
     }
 
@@ -259,22 +258,33 @@ export default function CatalogoPage() {
             window.addEventListener('load', () => {
               const images = Array.from(document.querySelectorAll('img'));
               if (images.length === 0) { window.print(); return; }
+              
+              console.log('Total imágenes encontradas:', images.length);
+              
               const loadPromises = images.map(img => {
                 return new Promise((resolve) => {
-                  if (img.complete) resolve();
-                  else {
-                    img.onload = () => resolve();
+                  if (img.complete) {
+                    console.log('Imagen ya cargada:', img.src);
+                    resolve();
+                  } else {
+                    img.onload = () => {
+                      console.log('Cargada correctamente:', img.src);
+                      resolve();
+                    };
                     img.onerror = () => {
+                      console.error('ERROR CARGA IMAGEN:', img.src);
                       const err = document.createElement('div');
-                      err.style.cssText = 'color:red; font-size:7pt; font-weight:900; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.8);';
-                      err.innerText = 'ERROR CARGA';
+                      err.style.cssText = 'color:red; font-size:7pt; font-weight:900; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.8); text-align:center; padding:5px;';
+                      err.innerText = 'ERROR CARGA: ' + img.src;
                       img.parentNode.appendChild(err);
                       resolve();
                     };
                   }
                 });
               });
+              
               Promise.all(loadPromises).then(() => {
+                console.log('Todas las imágenes procesadas. Iniciando impresión...');
                 setTimeout(() => { window.print(); }, 800);
               });
             });

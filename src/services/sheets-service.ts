@@ -1,16 +1,17 @@
-
 /**
  * INSTRUCCIONES PARA GOOGLE APPS SCRIPT (script.google.com):
  * 
- * 1. Pega este código en Código.gs:
+ * 1. Crea un nuevo proyecto en Google Apps Script.
+ * 2. Pega este código y reemplaza "TU_ID_DE_CARPETA" con el ID de tu carpeta de Drive.
+ * 3. Despliega como "Aplicación Web" (Configurar: Ejecutar como: Yo, Acceso: Cualquiera).
+ * 4. Copia la URL del despliegue en src/lib/api-config.ts.
  * 
  * function doPost(e) {
  *   try {
  *     var data = JSON.parse(e.postData.contents);
- *     var folderId = "1eiNwGNeMfRcP7yd6-XkhLLzTCoxC4uOT";
+ *     var folderId = "1eiNwGNeMfRcP7yd6-XkhLLzTCoxC4uOT"; // Asegúrate que este sea tu ID
  *     var folder = DriveApp.getFolderById(folderId);
  *     
- *     // ACCIÓN: SUBIR IMAGEN
  *     if (data.action === "uploadImage") {
  *       var contentType = data.mimeType || "image/jpeg";
  *       var base64 = data.base64.split(",")[1];
@@ -24,7 +25,6 @@
  *       })).setMimeType(ContentService.MimeType.JSON);
  *     }
  *
- *     // ACCIÓN: ACTUALIZAR CATALOGO JSON
  *     if (data.action === "updateCatalog") {
  *       var files = folder.getFilesByName("catalog.json");
  *       var file;
@@ -39,7 +39,6 @@
  *         .setMimeType(ContentService.MimeType.JSON);
  *     }
  *
- *     // ACCIÓN: OBTENER CATALOGO JSON
  *     if (data.action === "getCatalog") {
  *       var files = folder.getFilesByName("catalog.json");
  *       if (files.hasNext()) {
@@ -48,12 +47,9 @@
  *       }
  *       return ContentService.createTextOutput("[]").setMimeType(ContentService.MimeType.JSON);
  *     }
- *
  *   } catch (err) {
- *     return ContentService.createTextOutput(JSON.stringify({ 
- *       success: false, 
- *       error: err.toString() 
- *     })).setMimeType(ContentService.MimeType.JSON);
+ *     return ContentService.createTextOutput(JSON.stringify({ success: false, error: err.toString() }))
+ *       .setMimeType(ContentService.MimeType.JSON);
  *   }
  * }
  */
@@ -84,18 +80,20 @@ export async function uploadImageToDrive(base64Data: string, fileName: string): 
 export async function syncCatalogToDrive(products: any[]): Promise<void> {
   if (!API_CONFIG.WEB_APP_URL) return;
   try {
-    // Filtrar solo productos con stock y eliminar el campo stock del JSON
+    // Solo productos con stock y sin el campo stock para el catálogo comercial
     const cleanCatalog = products
       .filter(p => p.stock > 0)
       .map(({ stock, updatedAt, ...rest }) => rest);
 
-    await fetch(API_CONFIG.WEB_APP_URL, {
+    const response = await fetch(API_CONFIG.WEB_APP_URL, {
       method: 'POST',
       body: JSON.stringify({
         action: "updateCatalog",
         catalog: cleanCatalog
       })
     });
+    const result = await response.json();
+    if (!result.success) console.error("Error Apps Script:", result.error);
   } catch (error) {
     console.error("Error al sincronizar catálogo con Drive:", error);
   }
