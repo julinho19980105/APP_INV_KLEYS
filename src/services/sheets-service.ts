@@ -17,7 +17,6 @@ import { API_CONFIG } from '@/lib/api-config';
  * 
  *     if (data.action === "updateCatalog") {
  *       sheet.clear();
- *       // Encabezados con 4 columnas de fotos individuales
  *       var headers = ["CÓDIGO", "NOMBRE", "CATEGORÍA", "COLECCIÓN", "P. FARDO", "P. MAYOR", "P. UNIDAD", "FOTO 1", "FOTO 2", "FOTO 3", "FOTO 4", "DESCRIPCIÓN"];
  *       sheet.appendRow(headers);
  *       
@@ -35,10 +34,10 @@ import { API_CONFIG } from '@/lib/api-config';
  *             p.priceFardo || 0, 
  *             p.priceMayor || 0, 
  *             p.priceUnidad || 0, 
- *             imgs[0] || "", // FOTO 1
- *             imgs[1] || "", // FOTO 2
- *             imgs[2] || "", // FOTO 3
- *             imgs[3] || "", // FOTO 4
+ *             imgs[0] || "", 
+ *             imgs[1] || "", 
+ *             imgs[2] || "", 
+ *             imgs[3] || "", 
  *             p.description || ""
  *           ];
  *         });
@@ -47,7 +46,7 @@ import { API_CONFIG } from '@/lib/api-config';
  *         }
  *       }
  *       sheet.setFrozenRows(1);
- *       for (var i = 8; i <= 11; i++) { sheet.setColumnWidth(i, 200); }
+ *       for (var i = 8; i <= 11; i++) { sheet.setColumnWidth(i, 250); }
  *       sheet.setColumnWidth(12, 350);
  *       
  *       var jsonName = "catalog.json";
@@ -83,12 +82,14 @@ export async function uploadImageToDrive(base64Data: string, fileName: string): 
       if (match) mimeType = match[1];
     }
 
+    const cleanBase64 = base64Data.includes(',') ? base64Data.split(',')[1] : base64Data;
+
     const response = await fetch(API_CONFIG.WEB_APP_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({
         action: "uploadImage",
-        base64: base64Data,
+        base64: cleanBase64,
         name: fileName,
         mimeType: mimeType
       })
@@ -108,7 +109,6 @@ export async function syncCatalogToDrive(products: any[]): Promise<void> {
     const cleanCatalog = products
       .filter(p => (Number(p.stock) || 0) > 0)
       .map(p => {
-        // Eliminamos campos internos y el STOCK para el Sheet público
         const { updatedAt, id, stock, ...rest } = p;
         return rest;
       });

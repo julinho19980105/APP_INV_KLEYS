@@ -20,7 +20,6 @@ import { useToast } from "@/hooks/use-toast"
 import { useFirestore, useDoc, useCollection } from "@/firebase"
 import { doc, setDoc, collection, query, orderBy, serverTimestamp, updateDoc, addDoc, increment, getDocs, limit } from "firebase/firestore"
 import { uploadImageToDrive, syncCatalogToDrive } from "@/services/sheets-service"
-import { cn } from "@/lib/utils"
 
 function getDriveThumb(url: string, size: number = 400) {
   if (!url || !url.includes('drive.google.com')) return url;
@@ -52,15 +51,19 @@ export default function RegistryPage() {
   const docRef = React.useMemo(() => (db && editId) ? doc(db, "products", editId) : null, [db, editId])
   const { data: editingProduct } = useDoc(docRef)
   
-  const categoriesQuery = React.useMemo(() => db ? query(collection(db, "categories"), orderBy("name")) : null, [db])
-  const collectionsQuery = React.useMemo(() => db ? query(collection(db, "collections"), orderBy("name")) : null, [db])
   const productsQuery = React.useMemo(() => db ? query(collection(db, "products"), orderBy("code")) : null, [db])
-  
-  const { data: categories = [] } = useCollection(categoriesQuery)
-  const { data: collectionsData = [] } = useCollection(collectionsQuery)
   const { data: allProducts = [] } = useCollection(productsQuery)
 
-  const [form, setForm] = React.useState({ name: "", category: "", collection: "", description: "", stock: "", priceFardo: "", priceMayor: "", priceUnidad: "" })
+  const [form, setForm] = React.useState({ 
+    name: "", 
+    category: "GENERAL", 
+    collection: "GENERAL", 
+    description: "", 
+    stock: "", 
+    priceFardo: "", 
+    priceMayor: "", 
+    priceUnidad: "" 
+  })
   const [localImagePreviews, setLocalImagePreviews] = React.useState<string[]>([])
   const [stockSearchQuery, setStockSearchQuery] = React.useState("")
   const [stockEntry, setStockEntry] = React.useState({ productCode: "", quantity: "", reason: "Reposición Industrial" })
@@ -83,8 +86,8 @@ export default function RegistryPage() {
     if (editingProduct) {
       setForm({
         name: editingProduct.name || "",
-        category: editingProduct.category || "",
-        collection: editingProduct.collection || "",
+        category: editingProduct.category || "GENERAL",
+        collection: editingProduct.collection || "GENERAL",
         description: editingProduct.description || "",
         stock: editingProduct.stock?.toString() || "",
         priceFardo: editingProduct.priceFardo?.toString() || "",
@@ -115,12 +118,9 @@ export default function RegistryPage() {
         updatedAt: serverTimestamp()
       }
       
-      // GUARDAR EN FIREBASE (Prioridad absoluta y bloqueante localmente)
       await setDoc(doc(db, "products", productCode), productData, { merge: true })
-      
       toast({ title: editId ? "PRENDA ACTUALIZADA" : "PRENDA REGISTRADA" })
       
-      // SINCRONIZACIÓN NO BLOQUEANTE EN Drive para evitar errores de red al guardar
       setTimeout(async () => {
         try {
           const updatedSnap = await getDocs(query(collection(db, "products")))
@@ -143,20 +143,21 @@ export default function RegistryPage() {
     setSaving(true)
     try {
       const qty = Number(stockEntry.quantity)
-      await updateDoc(doc(db, "products", stockEntry.productCode), { stock: increment(qty), updatedAt: serverTimestamp() })
-      await addDoc(collection(db, "movements"), { productCode: stockEntry.productCode, type: "in", quantity: qty, reason: stockEntry.reason.toUpperCase(), timestamp: serverTimestamp() })
+      await updateDoc(doc(db, "products", stockEntry.productCode), { 
+        stock: increment(qty), 
+        updatedAt: serverTimestamp() 
+      })
+      await addDoc(collection(db, "movements"), { 
+        productCode: stockEntry.productCode, 
+        type: "in", 
+        quantity: qty, 
+        reason: stockEntry.reason.toUpperCase(), 
+        timestamp: serverTimestamp() 
+      })
       
       toast({ title: "Stock Actualizado" })
       setStockEntry({ productCode: "", quantity: "", reason: "Reposición Industrial" })
       setStockSearchQuery("")
-      
-      setTimeout(async () => {
-        try {
-          const updatedSnap = await getDocs(query(collection(db, "products")))
-          const allProds = updatedSnap.docs.map(d => ({ id: d.id, ...d.data() }))
-          await syncCatalogToDrive(allProds)
-        } catch (e) {}
-      }, 500)
     } catch (e) { toast({ variant: "destructive", title: "Error al actualizar stock" }) }
     finally { setSaving(false) }
   }
@@ -195,17 +196,11 @@ export default function RegistryPage() {
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1">
                         <Label className="text-[9px] uppercase font-black ml-1 text-black/60">Categoría *</Label>
-                        <Select value={form.category} onValueChange={v => setForm({...form, category: v})}>
-                          <SelectTrigger className="h-12 rounded-xl font-black text-[10px]"><SelectValue placeholder="Elegir..." /></SelectTrigger>
-                          <SelectContent>{categories.map(c => <SelectItem key={c.id} value={c.name} className="text-[10px] font-black">{c.name}</SelectItem>)}</SelectContent>
-                        </Select>
+                        <Input value={form.category} onChange={e => setForm({...form, category: e.target.value.toUpperCase()})} className="h-12 border-black/10 rounded-xl font-black text-[10px] uppercase" />
                       </div>
                       <div className="space-y-1">
                         <Label className="text-[9px] uppercase font-black ml-1 text-black/60">Colección *</Label>
-                        <Select value={form.collection} onValueChange={v => setForm({...form, collection: v})}>
-                          <SelectTrigger className="h-12 rounded-xl font-black text-[10px]"><SelectValue placeholder="Elegir..." /></SelectTrigger>
-                          <SelectContent>{collectionsData.map(c => <SelectItem key={c.id} value={c.name} className="text-[10px] font-black">{c.name}</SelectItem>)}</SelectContent>
-                        </Select>
+                        <Input value={form.collection} onChange={e => setForm({...form, collection: e.target.value.toUpperCase()})} className="h-12 border-black/10 rounded-xl font-black text-[10px] uppercase" />
                       </div>
                     </div>
                   </div>
@@ -228,10 +223,10 @@ export default function RegistryPage() {
                   {localImagePreviews.map((img, idx) => (
                     <div key={idx} className="relative aspect-square rounded-xl overflow-hidden border">
                       <img src={getDriveThumb(img, 400)} className="w-full h-full object-cover" alt="Previa" />
-                      <button onClick={() => setLocalImagePreviews(localImagePreviews.filter((_, i) => i !== idx))} className="absolute top-1 right-1 p-1 bg-destructive rounded-full text-white"><X className="w-3 h-3" /></button>
+                      <button onClick={() => setLocalImagePreviews(localImagePreviews.filter((_, i) => i !== idx))} className="absolute top-1 right-1 p-1 bg-destructive rounded-full text-white shadow-md"><X className="w-3 h-3" /></button>
                     </div>
                   ))}
-                  <button onClick={() => fileInputRef.current?.click()} className="aspect-square rounded-xl border-2 border-dashed border-black/10 flex flex-col items-center justify-center gap-1 bg-black/5">
+                  <button onClick={() => fileInputRef.current?.click()} className="aspect-square rounded-xl border-2 border-dashed border-black/10 flex flex-col items-center justify-center gap-1 bg-black/5 hover:bg-black/10 transition-colors">
                     <ImagePlus className="w-6 h-6" style={{ color: brandColor }} />
                     <span className="text-[8px] font-black uppercase opacity-40">Subir Foto</span>
                   </button>
@@ -254,7 +249,7 @@ export default function RegistryPage() {
                     <X className="w-6 h-6" />
                   </Button>
                 )}
-                <Button className="flex-1 h-16 rounded-2xl bg-black text-white font-black text-base shadow-xl" onClick={handleSave} disabled={saving}>
+                <Button className="flex-1 h-16 rounded-2xl bg-black text-white font-black text-base shadow-xl active:scale-95 transition-all" onClick={handleSave} disabled={saving}>
                   {saving ? <Loader2 className="animate-spin" /> : <Save className="mr-3 w-5 h-5" />} {editId ? "ACTUALIZAR" : "GUARDAR"}
                 </Button>
               </div>
