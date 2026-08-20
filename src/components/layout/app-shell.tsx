@@ -10,7 +10,8 @@ import {
   Truck, 
   Settings,
   Sparkles,
-  ShoppingBag
+  ShoppingBag,
+  BookOpen
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -38,6 +39,7 @@ const navItems = [
   { name: "Registrar", href: "/registry", icon: PlusCircle },
   { name: "Clientes", href: "/customers", icon: Users },
   { name: "Logística", href: "/shipping", icon: Truck },
+  { name: "Catálogo", href: "/catalogo", icon: BookOpen },
   { name: "Ajustes", href: "/settings", icon: Settings },
 ]
 
