@@ -13,21 +13,11 @@ import {
   Search, 
   Save, 
   Loader2, 
-  UserPlus, 
   PackageSearch,
-  Edit2,
-  ChevronDown,
   X,
-  Check,
   Calculator,
   ImageIcon
 } from "lucide-react"
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
-} from "@/components/ui/dropdown-menu"
 import {
   Dialog,
   DialogContent,
@@ -35,7 +25,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
-import { cn } from "@/lib/utils"
 import { useFirestore, useCollection, useDoc } from "@/firebase"
 import { 
   collection, 
@@ -87,25 +76,16 @@ const EMPTY_ENTRY: QuoteItem = {
   manualNote: ""
 }
 
-// Helper to transform Drive URLs to thumbnails
 function getDriveThumb(url: string, size: number = 400) {
   if (!url || !url.includes('drive.google.com')) return url;
-  
   let fileId = '';
   const idMatch = url.match(/[?&]id=([^&]+)/);
-  if (idMatch && idMatch[1]) {
-    fileId = idMatch[1];
-  } else {
+  if (idMatch && idMatch[1]) fileId = idMatch[1];
+  else {
     const dMatch = url.match(/\/d\/([^/]+)/);
-    if (dMatch && dMatch[1]) {
-      fileId = dMatch[1];
-    }
+    if (dMatch && dMatch[1]) fileId = dMatch[1];
   }
-
-  if (fileId) {
-    return `https://drive.google.com/thumbnail?id=${fileId}&sz=w${size}`;
-  }
-  return url;
+  return fileId ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w${size}` : url;
 }
 
 export default function QuotesPage() {
@@ -202,12 +182,6 @@ export default function QuotesPage() {
     setProductQuery("")
   }
 
-  const addCurrentToList = () => {
-    if (!currentEntry.name || !currentEntry.price || !currentEntry.quantity) return
-    setItems([...items, { ...currentEntry }])
-    setCurrentEntry(EMPTY_ENTRY)
-  }
-
   const handleApplyCalc = () => {
     const u = Number(calcData.unidades || 0)
     const s = Number(calcData.series || 0)
@@ -245,7 +219,6 @@ export default function QuotesPage() {
 
       await setDoc(doc(db, "quotes", quoteId), quoteData)
 
-      // Actualizar stock y kardex
       for (const item of items) {
         if (item.isRegistered && item.productId !== "MANUAL") {
           await updateDoc(doc(db, "products", item.productId), {
@@ -262,7 +235,6 @@ export default function QuotesPage() {
         }
       }
 
-      // Sincronizar con Drive
       const updatedProducts = await getDocs(query(collection(db, "products")))
       const allProds = updatedProducts.docs.map(d => ({ id: d.id, ...d.data() }))
       await syncCatalogToDrive(allProds)
@@ -342,7 +314,6 @@ export default function QuotesPage() {
                       <div className="font-black text-[10px] text-black uppercase group-hover:text-primary transition-colors">{p.name}</div>
                       <div className="text-[7px] font-black text-black/40 uppercase">{p.code}</div>
                     </button>
-                    <Plus className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: brandColor }} />
                   </div>
                 ))}
                 <button 
@@ -403,11 +374,7 @@ export default function QuotesPage() {
                       <div className="flex gap-1">
                         <Input type="number" className="h-10 text-xs font-black rounded-xl" style={{ borderColor: brandColor }} value={currentEntry.quantity} onChange={e => setCurrentEntry({...currentEntry, quantity: e.target.value})} />
                         <Button variant="outline" size="icon" className="h-10 w-10 shrink-0 rounded-xl" onClick={() => {
-                          setCalcData({ 
-                            unidades: currentEntry.calcUnidades || "", 
-                            series: currentEntry.calcSeries || "", 
-                            libres: currentEntry.calcLibres || "" 
-                          });
+                          setCalcData({ unidades: currentEntry.calcUnidades || "", series: currentEntry.calcSeries || "", libres: currentEntry.calcLibres || "" });
                           setIsCalcOpen(true);
                         }}>
                           <Calculator className="w-4 h-4" style={{ color: brandColor }} />
@@ -430,7 +397,11 @@ export default function QuotesPage() {
               <Button variant="outline" className="h-12 rounded-2xl font-black text-xs uppercase border-black/10 text-black/40" onClick={() => setCurrentEntry(EMPTY_ENTRY)}>
                 <Trash2 className="w-4 h-4 mr-2" /> LIMPIAR
               </Button>
-              <Button className="h-12 bg-black text-white rounded-2xl font-black text-xs uppercase" onClick={addCurrentToList}>
+              <Button className="h-12 bg-black text-white rounded-2xl font-black text-xs uppercase" onClick={() => {
+                if (!currentEntry.name || !currentEntry.price || !currentEntry.quantity) return
+                setItems([...items, { ...currentEntry }])
+                setCurrentEntry(EMPTY_ENTRY)
+              }}>
                 <Plus className="w-4 h-4 mr-2" /> AGREGAR A LISTA
               </Button>
             </div>
@@ -462,10 +433,7 @@ export default function QuotesPage() {
                     <span className="opacity-30">×</span>
                     <span>S/ {item.price}</span>
                     {Number(item.discount) > 0 && (
-                      <>
-                        <span className="opacity-30">|</span>
-                        <span className="text-red-600 font-black">DESC. - S/ {item.discount}</span>
-                      </>
+                      <><span className="opacity-30">|</span><span className="text-red-600 font-black">DESC. - S/ {item.discount}</span></>
                     )}
                   </div>
                 </div>
@@ -498,12 +466,10 @@ export default function QuotesPage() {
               <div className="space-y-1"><Label className="text-[9px] font-black uppercase text-black/60">N° Series</Label><Input type="number" value={calcData.series} onChange={e => setCalcData({...calcData, series: e.target.value})} className="h-10 text-xs font-black text-center" /></div>
             </div>
             <div className="space-y-1"><Label className="text-[9px] font-black uppercase text-black/60">+ Unid Libres</Label><Input type="number" value={calcData.libres} onChange={e => setCalcData({...calcData, libres: e.target.value})} className="h-10 text-xs font-black text-center" /></div>
-            
             <div className="bg-black/5 p-4 rounded-xl text-center">
               <div className="text-[8px] font-black uppercase text-black/40 mb-1">Total Calculado</div>
               <div className="text-2xl font-black text-black">{(Number(calcData.unidades) * Number(calcData.series)) + Number(calcData.libres)} UND</div>
             </div>
-
             <div className="grid grid-cols-2 gap-2">
               <Button variant="outline" className="rounded-xl font-black text-[9px] uppercase" onClick={() => setIsCalcOpen(false)}>CANCELAR</Button>
               <Button className="bg-black text-white rounded-xl font-black text-[9px] uppercase" onClick={handleApplyCalc}>CONFIRMAR</Button>
@@ -512,12 +478,11 @@ export default function QuotesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Zoom Modal Accesible */}
       <Dialog open={!!zoomImage} onOpenChange={() => setZoomImage(null)}>
         <DialogContent className="max-w-[90vw] md:max-w-4xl p-0 border-none bg-transparent shadow-none">
           <DialogHeader className="sr-only"><DialogTitle>Vista de Prenda</DialogTitle></DialogHeader>
           <div className="relative w-full aspect-square md:aspect-video flex items-center justify-center bg-black/90 rounded-[2rem] overflow-hidden">
-            <button onClick={() => setZoomImage(null)} className="absolute top-6 right-6 z-50 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full"><X className="w-6 h-6" /></button>
+            <button onClick={() => setZoomImage(null)} className="absolute top-6 right-6 z-50 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all"><X className="w-6 h-6" /></button>
             {zoomImage && <img src={getDriveThumb(zoomImage, 2000)} className="max-w-full max-h-full object-contain" alt="Zoom" />}
           </div>
         </DialogContent>

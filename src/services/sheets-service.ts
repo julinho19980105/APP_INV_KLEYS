@@ -8,16 +8,21 @@
  * 
  * function doPost(e) {
  *   try {
+ *     if (!e || !e.postData || !e.postData.contents) {
+ *        throw new Error("No se recibieron datos en la petición");
+ *     }
  *     var data = JSON.parse(e.postData.contents);
  *     var folderId = "1eiNwGNeMfRcP7yd6-XkhLLzTCoxC4uOT"; 
  *     var folder = DriveApp.getFolderById(folderId);
  *     
  *     if (data.action === "uploadImage") {
  *       if (!data.base64) throw new Error("Base64 no recibido");
- *       var parts = data.base64.split(",");
- *       var base64 = parts.length > 1 ? parts[1] : parts[0];
- *       var decode = Utilities.base64Decode(base64);
- *       var blob = Utilities.newBlob(decode, data.mimeType || "image/jpeg", data.name);
+ *       var base64Content = data.base64;
+ *       if (base64Content.indexOf(",") > -1) {
+ *         base64Content = base64Content.split(",")[1];
+ *       }
+ *       var decode = Utilities.base64Decode(base64Content);
+ *       var blob = Utilities.newBlob(decode, data.mimeType || "image/jpeg", data.name || "prenda_" + Date.now());
  *       var file = folder.createFile(blob);
  *       file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
  *       return ContentService.createTextOutput(JSON.stringify({ 
@@ -27,7 +32,7 @@
  *     }
  *
  *     if (data.action === "updateCatalog") {
- *       // 1. ACTUALIZAR JSON (Para Aplicaciones)
+ *       // 1. ACTUALIZAR JSON (Para Aplicaciones Externas)
  *       var jsonFiles = folder.getFilesByName("catalog.json");
  *       if (jsonFiles.hasNext()) {
  *         jsonFiles.next().setContent(JSON.stringify(data.catalog));
@@ -36,7 +41,7 @@
  *               .setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
  *       }
  *
- *       // 2. ACTUALIZAR GOOGLE SHEET (Gestión de Inventario Industrial)
+ *       // 2. ACTUALIZAR GOOGLE SHEET (Inventario Maestro Activo)
  *       var ssFiles = folder.getFilesByName("Inventario_Diva_Industrial");
  *       var ss;
  *       if (ssFiles.hasNext()) {
@@ -71,6 +76,7 @@
  *       }
  *       sheet.setColumnWidth(8, 400); 
  *       sheet.setColumnWidth(9, 300);
+ *       sheet.setFrozenRows(1);
  *
  *       return ContentService.createTextOutput(JSON.stringify({ success: true }))
  *         .setMimeType(ContentService.MimeType.JSON);
@@ -97,9 +103,15 @@
 import { API_CONFIG } from '@/lib/api-config';
 
 export async function uploadImageToDrive(base64Data: string, fileName: string): Promise<string> {
-  if (!API_CONFIG.WEB_APP_URL || !base64Data) return base64Data;
+  if (!API_CONFIG.WEB_APP_URL || !base64Data || base64Data.startsWith('http')) return base64Data;
+  
   try {
-    const mimeType = base64Data.includes(';') ? base64Data.split(';')[0].split(':')[1] : 'image/jpeg';
+    let mimeType = 'image/jpeg';
+    if (base64Data.startsWith('data:')) {
+      const match = base64Data.match(/data:([^;]+);/);
+      if (match) mimeType = match[1];
+    }
+
     const response = await fetch(API_CONFIG.WEB_APP_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -120,12 +132,15 @@ export async function uploadImageToDrive(base64Data: string, fileName: string): 
 
 export async function syncCatalogToDrive(products: any[]): Promise<void> {
   if (!API_CONFIG.WEB_APP_URL || !Array.isArray(products)) return;
+  
   try {
-    // Filtrar solo productos con stock > 0 y limpiar campos innecesarios
-    // La columna stock NO se incluye en el envío para cumplir con el requisito del Sheet
+    // Filtrar solo productos con stock > 0 y limpiar campos para el Sheet (sin stock ni metadatos internos)
     const cleanCatalog = products
       .filter(p => (Number(p.stock) || 0) > 0)
-      .map(({ stock, updatedAt, id, ...rest }) => rest);
+      .map(p => {
+        const { stock, updatedAt, id, ...rest } = p;
+        return rest;
+      });
 
     const response = await fetch(API_CONFIG.WEB_APP_URL, {
       method: 'POST',
@@ -135,6 +150,7 @@ export async function syncCatalogToDrive(products: any[]): Promise<void> {
         catalog: cleanCatalog
       })
     });
+    
     const result = await response.json();
     if (!result.success) {
       throw new Error(result.error || "Error desconocido en Apps Script");
