@@ -1,3 +1,4 @@
+
 import { API_CONFIG } from '@/lib/api-config';
 
 /**
@@ -33,15 +34,17 @@ export async function uploadImageToDrive(base64Data: string, fileName: string): 
 
 /**
  * Sincroniza el catálogo con el NUEVO Sheet de Inventario y actualiza el JSON.
+ * Los datos se envían filtrados (solo stock > 0) y sin columna de cantidad.
+ * El script del Sheet distribuye las fotos en 4 columnas independientes.
  */
 export async function syncCatalogToDrive(products: any[]): Promise<void> {
   if (!API_CONFIG.INVENTORY_SHEET_URL || !Array.isArray(products)) return;
   
   try {
-    // Solo enviamos productos con stock > 0
     const cleanCatalog = products
       .filter(p => (Number(p.stock) || 0) > 0)
       .map(p => {
+        // Enviamos el objeto completo, el script se encarga de mapear las 4 fotos
         const { updatedAt, id, ...rest } = p;
         return rest;
       });
