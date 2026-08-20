@@ -39,9 +39,8 @@ export default function CatalogoPage() {
   }
 
   const handleDownloadPDF = async (type: 'category' | 'collection', filterName: string) => {
-    toast({ title: "Generando Catálogo PDF...", description: "Preparando páginas A4..." })
+    toast({ title: "Generando Catálogo PDF...", description: "Preparando páginas A4 industriales..." })
     
-    // Filtrar productos con stock > 0
     const filteredProducts = allProducts.filter(p => p[type] === filterName)
     
     if (filteredProducts.length === 0) {
@@ -49,13 +48,11 @@ export default function CatalogoPage() {
       return
     }
 
-    // Ordenar: Si es categoría, ordenar por colección. Si es colección, por categoría.
     const sortedProducts = [...filteredProducts].sort((a, b) => {
       const field = type === 'category' ? 'collection' : 'category'
       return (a[field] || "").localeCompare(b[field] || "")
     })
 
-    // Generar HTML del PDF
     const printWindow = window.open('', '_blank')
     if (!printWindow) return
 
@@ -65,14 +62,20 @@ export default function CatalogoPage() {
           <div class="collection">COLECCIÓN: ${p.collection || 'GENERAL'}</div>
           <div class="category">CATEGORÍA: ${p.category || 'GENERAL'}</div>
         </div>
-        <div class="photos ${p.images?.length >= 3 ? 'three' : p.images?.length === 1 ? 'one' : ''}">
+        
+        <div class="photos ${p.images?.length >= 3 ? 'three' : p.images?.length === 2 ? 'two' : 'one'}">
           ${(p.images || []).slice(0, 3).map(img => `
             <div class="photo-frame">
-              <img src="${img}" alt="Producto">
+              <img src="${img}" alt="Producto" onerror="this.style.display='none'">
             </div>
           `).join('')}
-          ${(!p.images || p.images.length === 0) ? '<div class="photo-frame"><div style="opacity:0.1;font-weight:900;font-size:40px">SIN IMAGEN</div></div>' : ''}
+          ${(!p.images || p.images.length === 0) ? `
+            <div class="photo-frame">
+              <div class="no-image">SIN IMAGEN DISPONIBLE</div>
+            </div>
+          ` : ''}
         </div>
+
         <div class="info">
           <div class="details">
             <div class="product-title">
@@ -80,10 +83,10 @@ export default function CatalogoPage() {
               <div class="product-code">${p.code}</div>
             </div>
             <div class="detail-line"><span class="detail-label">ESTADO:</span> DISPONIBLE</div>
-            <div class="extra-text">${p.description || 'Sin descripción adicional.'}</div>
+            <div class="extra-text">${p.description || 'Sin descripción adicional disponible.'}</div>
           </div>
           <div class="prices">
-            <div class="price-title">PRECIOS</div>
+            <div class="price-title">PRECIOS INDUSTRIALES</div>
             <div class="price-row"><span>FARDO</span><span class="price-value">S/ ${p.priceFardo || 0}</span></div>
             <div class="price-row"><span>MAYOR</span><span class="price-value">S/ ${p.priceMayor || 0}</span></div>
             <div class="price-row"><span>UNIDAD</span><span class="price-value">S/ ${p.priceUnidad || 0}</span></div>
@@ -98,39 +101,155 @@ export default function CatalogoPage() {
           <title>Catálogo ${companyName}</title>
           <style>
             @page { size: A4 portrait; margin: 0; }
-            body { margin: 0; background: #eee; font-family: sans-serif; }
-            .page { width: 210mm; height: 297mm; margin: 0 auto; padding: 8mm; background: #fff; display: flex; flex-direction: column; overflow: hidden; page-break-after: always; }
-            .header { height: 13mm; display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #ddd; position: relative; }
-            .collection, .category { font-size: 8pt; font-weight: 700; text-transform: uppercase; }
-            .photos { width: 100%; height: 184mm; margin-top: 5mm; display: flex; gap: 4mm; }
-            .photo-frame { flex: 1; position: relative; border: 1.5px dashed #ccc; border-radius: 5mm; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-            .photo-frame img { width: 100%; height: 100%; object-fit: contain; }
-            .photos.one .photo-frame:nth-child(n+2) { display: none; }
-            .photos.three { display: grid; grid-template-columns: 1.2fr .8fr; grid-template-rows: 1fr 1fr; }
+            body { margin: 0; background: #f0f0f0; font-family: 'Segoe UI', Arial, sans-serif; }
+            .page { 
+              width: 210mm; 
+              height: 297mm; 
+              margin: 0 auto; 
+              padding: 10mm; 
+              background: #fff; 
+              display: flex; 
+              flex-direction: column; 
+              page-break-after: always;
+              position: relative;
+            }
+            .header { 
+              height: 15mm; 
+              display: flex; 
+              align-items: center; 
+              justify-content: space-between; 
+              border-bottom: 2px solid ${brandColor}33; 
+              margin-bottom: 5mm;
+            }
+            .collection, .category { 
+              font-size: 8pt; 
+              font-weight: 800; 
+              text-transform: uppercase; 
+              color: #444;
+            }
+            
+            .photos { 
+              width: 100%; 
+              height: 190mm; 
+              display: flex; 
+              gap: 4mm;
+            }
+            .photo-frame { 
+              flex: 1; 
+              position: relative; 
+              border: 1px solid #eee; 
+              border-radius: 4mm; 
+              display: flex; 
+              align-items: center; 
+              justify-content: center; 
+              overflow: hidden;
+              background: #fafafa;
+            }
+            .photo-frame img { 
+              max-width: 100%; 
+              max-height: 100%; 
+              object-fit: contain; 
+            }
+            .no-image { opacity: 0.2; font-weight: 900; font-size: 24pt; text-align: center; }
+
+            .photos.two .photo-frame { width: 50%; }
+            .photos.three { display: grid; grid-template-columns: 1.3fr 0.7fr; grid-template-rows: 1fr 1fr; }
             .photos.three .photo-frame:first-child { grid-row: 1 / 3; }
-            .info { width: 100%; min-height: 51mm; margin-top: 5mm; border: 1.5px solid #ddd; border-radius: 4mm; display: grid; grid-template-columns: 1.25fr .75fr; overflow: hidden; }
-            .details { padding: 4mm 5mm; border-right: 1px solid #eee; display: flex; flex-direction: column; justify-content: center; }
-            .product-title { display: flex; align-items: baseline; gap: 3mm; margin-bottom: 2mm; }
-            .product-name { font-size: 12pt; font-weight: 900; text-transform: uppercase; }
-            .product-code { font-size: 8pt; font-weight: 700; color: ${brandColor}; }
-            .detail-line { font-size: 8pt; margin-bottom: 1mm; }
-            .detail-label { font-weight: 800; }
-            .extra-text { margin-top: 2mm; padding-top: 2mm; border-top: 1px solid #eee; font-size: 8pt; color: #666; }
-            .prices { padding: 4mm; display: flex; flex-direction: column; justify-content: center; gap: 2mm; }
-            .price-title { font-size: 7pt; font-weight: 900; color: ${brandColor}; text-transform: uppercase; }
-            .price-row { display: flex; justify-content: space-between; align-items: center; padding: 2mm; background: #f9f9f9; border-left: 3px solid ${brandColor}; font-size: 8pt; font-weight: 700; }
-            .price-value { font-size: 11pt; font-weight: 900; }
-            @media print { body { background: #fff; } .page { margin: 0; box-shadow: none; } }
+
+            .info { 
+              width: 100%; 
+              height: 55mm; 
+              margin-top: auto; 
+              border: 2px solid #eee; 
+              border-radius: 5mm; 
+              display: grid; 
+              grid-template-columns: 1.3fr 0.7fr; 
+              overflow: hidden;
+              background: #fff;
+            }
+            .details { 
+              padding: 6mm; 
+              border-right: 1px solid #eee; 
+              display: flex; 
+              flex-direction: column; 
+              justify-content: center; 
+            }
+            .product-title { 
+              display: flex; 
+              align-items: baseline; 
+              gap: 4mm; 
+              margin-bottom: 3mm; 
+            }
+            .product-name { 
+              font-size: 14pt; 
+              font-weight: 900; 
+              text-transform: uppercase; 
+              color: #000;
+            }
+            .product-code { 
+              font-size: 9pt; 
+              font-weight: 700; 
+              color: ${brandColor}; 
+            }
+            .detail-line { font-size: 9pt; margin-bottom: 2mm; color: #555; }
+            .detail-label { font-weight: 900; color: #000; }
+            .extra-text { 
+              margin-top: 2mm; 
+              padding-top: 3mm; 
+              border-top: 1px solid #eee; 
+              font-size: 8pt; 
+              color: #777; 
+              line-height: 1.4;
+            }
+            .prices { 
+              padding: 6mm; 
+              background: #fafafa;
+              display: flex; 
+              flex-direction: column; 
+              justify-content: center; 
+              gap: 2mm; 
+            }
+            .price-title { 
+              font-size: 7pt; 
+              font-weight: 900; 
+              color: ${brandColor}; 
+              text-transform: uppercase; 
+              letter-spacing: 1px;
+              margin-bottom: 1mm;
+            }
+            .price-row { 
+              display: flex; 
+              justify-content: space-between; 
+              align-items: center; 
+              padding: 2mm 3mm; 
+              background: #fff; 
+              border-left: 4px solid ${brandColor}; 
+              border-radius: 2mm;
+              font-size: 8pt; 
+              font-weight: 700; 
+              box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            }
+            .price-value { font-size: 12pt; font-weight: 900; color: #000; }
+            
+            @media print { 
+              body { background: #fff; } 
+              .page { margin: 0; border: none; }
+            }
           </style>
         </head>
-        <body>${pagesHtml}</body>
+        <body>
+          ${pagesHtml}
+          <script>
+            window.onload = () => {
+              setTimeout(() => {
+                window.print();
+              }, 1000);
+            };
+          </script>
+        </body>
       </html>
     `)
     printWindow.document.close()
-    setTimeout(() => {
-      printWindow.focus()
-      printWindow.print()
-    }, 500)
   }
 
   if (loadingCats || loadingCols) return <div className="flex items-center justify-center min-h-[60vh]"><Loader2 className="w-10 h-10 animate-spin" style={{ color: brandColor }} /></div>
