@@ -12,13 +12,14 @@ import {
   Trash2, 
   Plus, 
   Search, 
-  ShoppingCart, 
   Save, 
   Loader2, 
   UserPlus, 
   PackageSearch,
   Edit2,
-  ChevronDown
+  ChevronDown,
+  X,
+  Check
 } from "lucide-react"
 import { 
   DropdownMenu, 
@@ -307,7 +308,7 @@ export default function QuotesPage() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 pb-24 pt-2">
+    <div className="max-w-6xl mx-auto space-y-6 pb-24 pt-2 px-2 md:px-0">
       <div className="flex justify-between items-end border-b-2 border-black pb-4">
         <div>
           <h1 className="text-4xl font-headline font-black text-black uppercase tracking-tight">COTIZACIÓN</h1>
@@ -382,12 +383,12 @@ export default function QuotesPage() {
             </Badge>
           )}
         </div>
-        <CardContent className="p-8 space-y-6">
-          <div className="flex items-center gap-8">
-            <div className="w-16 h-16 rounded-2xl overflow-hidden border shrink-0 bg-muted shadow-md">
-              {currentEntry.img ? <img src={getThumbnailUrl(currentEntry.img)} className="w-full h-full object-cover" /> : <PackageSearch className="w-full h-full p-4 opacity-10" />}
+        <CardContent className="p-4 md:p-8 space-y-6">
+          <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
+            <div className="w-20 h-20 rounded-2xl overflow-hidden border shrink-0 bg-muted shadow-md mx-auto md:mx-0">
+              {currentEntry.img ? <img src={getThumbnailUrl(currentEntry.img)} className="w-full h-full object-cover" /> : <PackageSearch className="w-full h-full p-5 opacity-10" />}
             </div>
-            <div className="flex-1 grid grid-cols-3 gap-6">
+            <div className="flex-1 w-full grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
               <div className="space-y-1">
                 <Label className="text-[8px] font-black uppercase text-black/40 ml-1">PRECIO UNITARIO</Label>
                 <div className="flex gap-2">
@@ -445,7 +446,7 @@ export default function QuotesPage() {
             />
           </div>
 
-          <div className="flex justify-between items-center pt-4 border-t border-black/5">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4 pt-4 border-t border-black/5">
             <div className="flex items-center gap-4">
               <span className="text-xs font-black uppercase text-black/40">SUBTOTAL LÍNEA:</span>
               <span className="font-headline font-black text-2xl text-black">
@@ -453,7 +454,7 @@ export default function QuotesPage() {
               </span>
             </div>
             <Button 
-              className="h-12 px-10 bg-black text-white rounded-2xl font-black text-xs uppercase shadow-lg active:scale-95 transition-all" 
+              className="w-full md:w-auto h-12 px-10 bg-black text-white rounded-2xl font-black text-xs uppercase shadow-lg active:scale-95 transition-all" 
               onClick={addCurrentToList}
               disabled={!currentEntry.name}
             >
@@ -463,68 +464,72 @@ export default function QuotesPage() {
         </CardContent>
       </Card>
 
-      <Card className="rounded-[2.5rem] border shadow-sm bg-white overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="bg-black/5 border-b">
-                <th className="p-4 text-[9px] font-black uppercase text-black pl-8">Prenda</th>
-                <th className="p-4 text-[9px] font-black uppercase text-black">Código</th>
-                <th className="p-4 text-[9px] font-black uppercase text-black text-center">Cant</th>
-                <th className="p-4 text-[9px] font-black uppercase text-black">Precio</th>
-                <th className="p-4 text-[9px] font-black uppercase text-black">Dscto</th>
-                <th className="p-4 text-[9px] font-black uppercase text-black">Subtotal</th>
-                <th className="p-4 text-right pr-8">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-black/5">
-              {items.map((item) => (
-                <tr key={item.id} className="hover:bg-black/[0.01] transition-colors group">
-                  <td className="p-4 pl-8">
-                    <div className="font-black text-[11px] text-black uppercase">{item.name}</div>
-                    <div className="text-[8px] font-black uppercase text-black/40 truncate max-w-[200px]">{item.description || "Sin notas"}</div>
-                  </td>
-                  <td className="p-4">
-                    <Badge variant="outline" className={cn("text-[8px] font-black border-black/10", !item.isRegistered && "bg-orange-50 text-orange-600 border-orange-200")}>
-                      {item.isRegistered ? item.productId : "MANUAL"}
-                    </Badge>
-                  </td>
-                  <td className="p-4 text-center font-black text-xs">{item.quantity}</td>
-                  <td className="p-4 font-black text-[10px]">S/ {Number(item.price).toFixed(2)}</td>
-                  <td className="p-4 font-black text-[10px] text-orange-600">S/ {Number(item.discount).toFixed(2)}</td>
-                  <td className="p-4 font-black text-xs">S/ {((Number(item.price) * Number(item.quantity)) - Number(item.discount)).toFixed(2)}</td>
-                  <td className="p-4 text-right pr-8">
-                    <div className="flex justify-end gap-2">
-                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-black/5" onClick={() => { setCurrentEntry(item); setItems(items.filter(i => i.id !== item.id)); }}>
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </Button>
-                      {confirmDeleteId === item.id ? (
-                        <div className="flex gap-1">
-                          <button onClick={() => { setItems(items.filter(i => i.id !== item.id)); setConfirmDeleteId(null); }} className="h-8 px-3 bg-destructive text-white rounded-lg text-[8px] font-black uppercase">SÍ</button>
-                          <button onClick={() => setConfirmDeleteId(null)} className="h-8 px-3 bg-black/5 text-black rounded-lg text-[8px] font-black uppercase">NO</button>
-                        </div>
-                      ) : (
-                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-black/20 hover:text-destructive" onClick={() => setConfirmDeleteId(item.id)}>
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
-                      )}
+      <Card className="rounded-[2rem] border shadow-sm bg-white overflow-hidden">
+        <div className="bg-black/5 border-b py-3 px-6">
+          <span className="text-[10px] font-black uppercase text-black tracking-widest">LISTA DE PRODUCTOS</span>
+        </div>
+        <div className="divide-y divide-black/5">
+          {items.map((item) => (
+            <div key={item.id} className="p-4 md:px-8 hover:bg-black/[0.01] transition-colors group relative">
+              <div className="flex justify-between items-start mb-1">
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <span className="font-black text-[12px] text-black uppercase truncate">{item.name}</span>
+                  <Badge variant="outline" className={cn("text-[8px] font-black border-black/10 shrink-0", !item.isRegistered && "bg-orange-50 text-orange-600 border-orange-200")}>
+                    {item.isRegistered ? item.productId : "MANUAL"}
+                  </Badge>
+                </div>
+                <div className="font-headline font-black text-sm text-black ml-4 shrink-0">
+                  S/ {((Number(item.price) * Number(item.quantity)) - Number(item.discount)).toFixed(2)}
+                </div>
+              </div>
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+                <div className="text-[9px] font-black uppercase text-black/50 space-x-2">
+                  <span className="text-black/70">{item.description || "Sin notas"}</span>
+                  <span className="text-black/20">|</span>
+                  <span className="text-primary">{item.quantity} UND</span>
+                  <span>×</span>
+                  <span>S/ {Number(item.price).toFixed(2)}</span>
+                  {Number(item.discount) > 0 && (
+                    <>
+                      <span className="text-black/20">|</span>
+                      <span className="text-destructive">- S/ {Number(item.discount).toFixed(2)} DESC</span>
+                    </>
+                  )}
+                </div>
+                <div className="flex justify-end gap-2 shrink-0">
+                  <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg hover:bg-black/5" onClick={() => { setCurrentEntry(item); setItems(items.filter(i => i.id !== item.id)); }}>
+                    <Edit2 className="w-3 h-3" />
+                  </Button>
+                  {confirmDeleteId === item.id ? (
+                    <div className="flex gap-1">
+                      <button onClick={() => { setItems(items.filter(i => i.id !== item.id)); setConfirmDeleteId(null); }} className="h-7 px-2 bg-destructive text-white rounded-lg text-[8px] font-black uppercase">SÍ</button>
+                      <button onClick={() => setConfirmDeleteId(null)} className="h-7 px-2 bg-black/5 text-black rounded-lg text-[8px] font-black uppercase">NO</button>
                     </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  ) : (
+                    <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg text-black/20 hover:text-destructive" onClick={() => setConfirmDeleteId(item.id)}>
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+          {items.length === 0 && (
+            <div className="py-20 text-center text-[10px] font-black uppercase text-black/20 tracking-[0.2em]">
+              Sin productos agregados
+            </div>
+          )}
         </div>
       </Card>
 
-      <div className="flex justify-between items-end border-b-4 border-black pb-6 pt-6">
-        <div className="space-y-1">
+      <div className="flex flex-col md:flex-row justify-between items-end border-b-4 border-black pb-6 pt-6 gap-6">
+        <div className="w-full md:w-auto space-y-1">
           <div className="text-[10px] font-black uppercase text-black/40 tracking-widest">CANTIDAD TOTAL</div>
           <div className="font-headline font-black text-4xl text-black">{totalQuantity} <span className="text-sm">UND</span></div>
         </div>
-        <div className="text-right space-y-1">
+        <div className="w-full md:w-auto text-left md:text-right space-y-1">
           <div className="text-[10px] font-black uppercase text-black/40 tracking-widest">MONTO TOTAL NETO</div>
-          <div className="font-headline font-black text-6xl text-black tracking-tighter" style={{ fontSize: '1.3em' }}>S/ {finalTotal.toFixed(2)}</div>
+          <div className="font-headline font-black text-5xl md:text-6xl text-black tracking-tighter">S/ {finalTotal.toFixed(2)}</div>
         </div>
       </div>
 
