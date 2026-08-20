@@ -179,11 +179,8 @@ export default function SalesPage() {
       
       sale.items.forEach((i: any, idx: number) => {
         const subtotal = `S/ ${(Number(i.quantity) * Number(i.price) - Number(i.discount)).toFixed(2)}`;
-        // Línea 1: N - Nombre [Subtotal Derecha]
         t += padLine(`${idx + 1}- ${sanitize(i.name)}`, subtotal, charLimit) + "\n"
-        // Línea 2: Cálculo
-        t += `   ${i.quantity} x S/ ${Number(i.price).toFixed(2)} (-S/ ${Number(i.discount).toFixed(2)})\n`
-        // Línea 3: Descripción
+        t += `   ${i.quantity} x S/ ${Number(i.price).toFixed(2)}${Number(i.discount) > 0 ? ` (-S/ ${Number(i.discount).toFixed(2)})` : ''}\n`
         if (i.description) {
           t += `   ${sanitize(i.description).substring(0, charLimit - 3)}\n`
         }
@@ -198,7 +195,6 @@ export default function SalesPage() {
       t += "Gracias por su Compra\n"
       t += "\n\n\n\n\x1D\x56\x42\x00" // Cut
 
-      // Chunked Writing to avoid MTU limits
       const encoder = new TextEncoder()
       const data = encoder.encode(t)
       const chunkSize = 20
@@ -223,13 +219,14 @@ export default function SalesPage() {
           const dataUrl = await toJpeg(receiptRef.current, { quality: 0.95, backgroundColor: '#ffffff' })
           const blob = await (await fetch(dataUrl)).blob()
           const file = new File([blob], `Boleta_${sale.id}.jpg`, { type: 'image/jpeg' })
-          if (navigator.share) {
+          if (navigator.share && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
             await navigator.share({ files: [file], title: `Boleta ${sale.id}` })
           } else {
             const link = document.createElement('a')
             link.download = `Boleta_${sale.id}.jpg`
             link.href = dataUrl
             link.click()
+            toast({ title: "IMAGEN DESCARGADA", description: "LISTO PARA COMPARTIR." })
           }
         } catch (err) {
           toast({ variant: "destructive", title: "ERROR AL GENERAR IMAGEN" })
@@ -239,7 +236,7 @@ export default function SalesPage() {
   }
 
   const brandColor = companySettings?.brandColor || "#FF3399";
-  const companyName = companySettings?.companyName || "StiloStack";
+  const companyName = companySettings?.companyName || "Diva Industrial";
 
   return (
     <div className="space-y-6 pt-2 pb-20 max-w-4xl mx-auto px-2 md:px-0">
@@ -362,67 +359,88 @@ export default function SalesPage() {
         ))}
       </div>
 
-      {/* Hidden Receipt for Image Generation */}
+      {/* Hidden Receipt for Image Generation - High Quality Industrial Design */}
       <div className="fixed -left-[3000px] top-0">
         {activeReceipt && (
-          <div ref={receiptRef} className="w-[1000px] p-16 bg-white flex flex-col gap-10" style={{ borderTop: `25px solid ${brandColor}` }}>
+          <div ref={receiptRef} className="w-[1000px] p-16 bg-white flex flex-col gap-10" style={{ borderTop: `30px solid ${brandColor}` }}>
             <div className="flex justify-between items-start">
-              <div className="space-y-3">
-                <h2 className="text-7xl font-headline font-black uppercase tracking-tighter">{companyName}</h2>
-                <p className="text-xl font-black uppercase tracking-[0.4em] opacity-40">BOLETA INTERNA - DIVA</p>
+              <div className="space-y-4">
+                <h2 className="text-7xl font-headline font-black uppercase tracking-tighter leading-none">{companyName}</h2>
+                <div className="inline-block bg-black text-white px-6 py-2 rounded-xl text-xl font-black tracking-[0.4em]">BOLETA INTERNA</div>
               </div>
               <div className="text-right">
-                <div className="text-3xl font-black uppercase opacity-40">Serie B</div>
-                <div className="text-6xl font-headline font-black" style={{ color: brandColor }}>{activeReceipt.id}</div>
+                <div className="text-3xl font-black uppercase opacity-30 tracking-widest">Serie B</div>
+                <div className="text-7xl font-headline font-black" style={{ color: brandColor }}>{activeReceipt.id}</div>
               </div>
             </div>
-            <div className="h-px bg-black/10 w-full" />
+            
+            <div className="h-1 bg-black/5 w-full" />
+            
             <div className="grid grid-cols-2 gap-16">
-              <div>
-                <div className="text-sm font-black uppercase opacity-40 mb-3">Cliente:</div>
-                <div className="text-4xl font-black uppercase">{activeReceipt.customerName}</div>
+              <div className="space-y-2">
+                <div className="text-sm font-black uppercase opacity-40">Cliente Diva:</div>
+                <div className="text-4xl font-black uppercase leading-tight">{activeReceipt.customerName}</div>
               </div>
-              <div className="text-right">
-                <div className="text-sm font-black uppercase opacity-40 mb-3">Fecha:</div>
-                <div className="text-4xl font-black uppercase">{activeReceipt.createdAt?.toDate ? activeReceipt.createdAt.toDate().toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' }).toUpperCase() : ""}</div>
+              <div className="text-right space-y-2">
+                <div className="text-sm font-black uppercase opacity-40">Fecha de Emisión:</div>
+                <div className="text-4xl font-black uppercase">
+                  {activeReceipt.createdAt?.toDate 
+                    ? activeReceipt.createdAt.toDate().toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' }).toUpperCase() 
+                    : "---"}
+                </div>
               </div>
             </div>
+
             <table className="w-full mt-6">
               <thead>
                 <tr className="border-b-8 border-black text-left">
-                  <th className="py-6 text-2xl font-black uppercase">Prenda / DNI</th>
-                  <th className="py-6 text-2xl font-black uppercase text-center">Und</th>
-                  <th className="py-6 text-2xl font-black uppercase text-right">Precio</th>
-                  <th className="py-6 text-2xl font-black uppercase text-right">Total</th>
+                  <th className="py-8 text-2xl font-black uppercase">Detalle de Prenda</th>
+                  <th className="py-8 text-2xl font-black uppercase text-center">Cant</th>
+                  <th className="py-8 text-2xl font-black uppercase text-right">Unitario</th>
+                  <th className="py-8 text-2xl font-black uppercase text-right">Subtotal</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-black/5">
                 {activeReceipt.items.map((item: any, idx: number) => (
-                  <tr key={idx}>
-                    <td className="py-8">
+                  <tr key={idx} className="align-top">
+                    <td className="py-10">
                       <div className="text-3xl font-black uppercase">{idx + 1}- {item.name}</div>
-                      <div className="text-sm font-black uppercase opacity-40">{item.productId} | {item.description}</div>
+                      <div className="text-sm font-black uppercase opacity-40 mt-1">{item.productId} | {item.description || "SIN NOTAS"}</div>
+                      {Number(item.discount) > 0 && (
+                        <div className="text-sm font-black uppercase text-primary mt-2 flex items-center gap-2">
+                          <span className="bg-primary/10 px-2 py-0.5 rounded">Dscto: S/ {Number(item.discount).toFixed(2)}</span>
+                        </div>
+                      )}
                     </td>
-                    <td className="py-8 text-3xl font-black text-center">{item.quantity}</td>
-                    <td className="py-8 text-3xl font-black text-right">S/ {Number(item.price).toFixed(2)}</td>
-                    <td className="py-8 text-3xl font-black text-right">S/ {(Number(item.quantity) * Number(item.price) - Number(item.discount)).toFixed(2)}</td>
+                    <td className="py-10 text-3xl font-black text-center">{item.quantity}</td>
+                    <td className="py-10 text-3xl font-black text-right">S/ {Number(item.price).toFixed(2)}</td>
+                    <td className="py-10 text-3xl font-black text-right">
+                      S/ {(Number(item.quantity) * Number(item.price) - Number(item.discount)).toFixed(2)}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            <div className="mt-10 pt-10 border-t-8 border-black flex justify-between items-end">
-              <div className="space-y-1">
-                <div className="text-2xl font-black uppercase opacity-40">Cantidad Total:</div>
-                <div className="text-5xl font-black">{activeReceipt.items.reduce((acc: number, item: any) => acc + (Number(item.quantity) || 0), 0)} UND</div>
+
+            <div className="mt-12 pt-12 border-t-8 border-black flex justify-between items-end">
+              <div className="space-y-2">
+                <div className="text-2xl font-black uppercase opacity-40">Unidades Totales:</div>
+                <div className="text-6xl font-black">
+                  {activeReceipt.items.reduce((acc: number, item: any) => acc + (Number(item.quantity) || 0), 0)} UND
+                </div>
               </div>
-              <div className="text-right space-y-2">
+              <div className="text-right space-y-4">
                 <div className="text-3xl font-black uppercase opacity-40">Monto Total Neto</div>
-                <div className="text-8xl font-headline font-black tracking-tighter" style={{ color: brandColor }}>
+                <div className="text-9xl font-headline font-black tracking-tighter leading-none" style={{ color: brandColor }}>
                   S/ {Number(activeReceipt.total).toFixed(2)}
                 </div>
               </div>
             </div>
-            <div className="text-center mt-12 text-2xl font-black uppercase opacity-50">Gracias por su Compra</div>
+            
+            <div className="text-center mt-20">
+              <div className="h-px bg-black/10 w-48 mx-auto mb-6" />
+              <div className="text-3xl font-black uppercase opacity-40 tracking-[0.5em]">Gracias por su Compra</div>
+            </div>
           </div>
         )}
       </div>
