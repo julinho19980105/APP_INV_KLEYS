@@ -54,7 +54,6 @@ export default function RegistryPage() {
   const [stockSearchQuery, setStockSearchQuery] = React.useState("")
   const [stockEntry, setStockEntry] = React.useState({ productCode: "", quantity: "", reason: "Reposición Industrial" })
 
-  // Calcular siguiente ID P-001
   React.useEffect(() => {
     if (!db || editId) return
     const fetchNextId = async () => {

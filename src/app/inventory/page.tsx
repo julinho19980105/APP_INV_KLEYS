@@ -20,10 +20,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Search, Edit2, Trash2, MoreVertical, Calendar, LayoutGrid, Layers, Image as ImageIcon } from "lucide-react"
+import { Search, Edit2, Trash2, MoreVertical, Calendar, LayoutGrid, Layers, ImageIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useCollection, useFirestore, useDoc } from "@/firebase"
-import { collection, query, orderBy, doc, deleteDoc, serverTimestamp, getDocs } from "firebase/firestore"
+import { collection, query, orderBy, doc, deleteDoc, getDocs } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { syncCatalogToDrive } from "@/services/sheets-service"
 
@@ -132,10 +132,14 @@ export default function InventoryPage() {
                       <TableRow key={p.id} className="hover:bg-black/[0.02] transition-colors border-b last:border-0 h-16">
                         <TableCell className="pl-8 py-3">
                           <div className="flex items-center gap-4">
-                            <div className="flex gap-0.5 shrink-0">
-                              {(p.images || []).map((_: any, idx: number) => (
-                                <ImageIcon key={idx} className="w-4 h-4" style={{ color: brandColor }} />
-                              ))}
+                            <div className="flex gap-1 shrink-0">
+                              {(p.images || []).length > 0 ? (p.images || []).slice(0, 3).map((img: string, idx: number) => (
+                                <div key={idx} className="w-8 h-8 rounded-lg border overflow-hidden bg-black/5">
+                                  <img src={img} className="w-full h-full object-cover" alt="foto" />
+                                </div>
+                              )) : (
+                                <ImageIcon className="w-6 h-6 opacity-20" style={{ color: brandColor }} />
+                              )}
                             </div>
                             <div className="flex flex-col">
                               <span className="font-black text-[13px] text-black uppercase leading-none">{p.name}</span>
