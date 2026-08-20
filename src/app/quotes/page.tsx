@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -384,7 +383,6 @@ export default function QuotesPage() {
           )}
         </div>
         <CardContent className="p-4 md:p-8 space-y-6">
-          {/* Nombre del Producto Seleccionado Visible */}
           {currentEntry.name && (
             <div className="border-b pb-4 mb-2">
               <h2 className="text-lg font-black text-black uppercase tracking-tight">{currentEntry.name}</h2>
@@ -394,10 +392,10 @@ export default function QuotesPage() {
 
           <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
             <div className="w-20 h-20 rounded-2xl overflow-hidden border shrink-0 bg-muted shadow-md mx-auto md:mx-0">
-              {currentEntry.img ? <img src={getThumbnailUrl(currentEntry.img)} className="w-full h-full object-cover" /> : <PackageSearch className="w-full h-full p-5 opacity-10" />}
+              {currentEntry.img ? <img src={getThumbnailUrl(currentEntry.img)} className="w-full h-full object-cover" alt="" /> : <PackageSearch className="w-full h-full p-5 opacity-10" />}
             </div>
-            <div className="flex-1 w-full grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
-              <div className="space-y-1">
+            <div className="flex-1 w-full grid grid-cols-2 sm:grid-cols-3 gap-4 md:gap-6">
+              <div className="space-y-1 col-span-2 sm:col-span-1">
                 <Label className="text-[8px] font-black uppercase text-black/40 ml-1">PRECIO UNITARIO</Label>
                 <div className="flex gap-2">
                   <Input 
@@ -424,7 +422,7 @@ export default function QuotesPage() {
                   )}
                 </div>
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1 col-span-1">
                 <Label className="text-[8px] font-black uppercase text-black/40 ml-1">CANTIDAD</Label>
                 <Input 
                   type="number" 
@@ -433,8 +431,8 @@ export default function QuotesPage() {
                   onChange={e => setCurrentEntry({...currentEntry, quantity: e.target.value})} 
                 />
               </div>
-              <div className="space-y-1">
-                <Label className="text-[8px] font-black uppercase text-black/40 ml-1">DSCTO SUBTOTAL</Label>
+              <div className="space-y-1 col-span-1">
+                <Label className="text-[8px] font-black uppercase text-black/40 ml-1">DSCTO</Label>
                 <Input 
                   type="number" 
                   className="h-10 text-xs font-black border-orange-200 bg-orange-50 text-orange-600 rounded-xl" 
@@ -451,6 +449,7 @@ export default function QuotesPage() {
               className="h-10 text-[10px] font-black uppercase bg-black/5 border-none rounded-xl px-5"
               value={currentEntry.description}
               onChange={e => setCurrentEntry({...currentEntry, description: e.target.value})}
+              placeholder=""
             />
           </div>
 
@@ -492,7 +491,7 @@ export default function QuotesPage() {
               </div>
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                 <div className="text-[9px] font-black uppercase text-black/50 space-x-2">
-                  <span className="text-black/70">{item.description || "Sin notas"}</span>
+                  <span className="text-black/70">{item.description || ""}</span>
                   <span className="text-black/20">|</span>
                   <span className="text-primary">{item.quantity} UND</span>
                   <span>×</span>
