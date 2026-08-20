@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -80,7 +81,6 @@ export default function InventoryPage() {
   const brandColor = config?.brandColor || "#FF3399"
   const viewType = config?.inventoryViewMode || "collection"
   
-  // Convertir timestamp a Date de forma segura
   const lastDriveSync = React.useMemo(() => {
     if (!config?.lastDriveSync) return new Date(0);
     return config.lastDriveSync.toDate ? config.lastDriveSync.toDate() : new Date(config.lastDriveSync);
@@ -91,7 +91,6 @@ export default function InventoryPage() {
   const { data: products = [] } = useCollection(productsRef)
   const { data: movements = [] } = useCollection(movementsRef)
 
-  // Detect sync status: Red if there are changes after last sync
   const needsSync = React.useMemo(() => {
     if (products.length === 0) return false
     return products.some(p => {
@@ -134,16 +133,11 @@ export default function InventoryPage() {
     setSyncing(true)
     try {
       toast({ title: "Sincronizando...", description: "Actualizando Google Sheet y JSON..." })
-      
-      // Enviamos el catálogo completo (la función filtrará stock > 0 y limpiará columnas)
       await syncCatalogToDrive(products)
-      
-      // Actualizamos la marca de tiempo en la configuración global
       await updateDoc(doc(db, "config", "global"), {
         lastDriveSync: serverTimestamp()
       })
-      
-      toast({ title: "Nube Actualizada", description: "El Sheet de Inventario está al día." })
+      toast({ title: "Nube Actualizada", description: "El Sheet y JSON están al día." })
     } catch (e: any) {
       console.error(e)
       toast({ 
@@ -176,13 +170,13 @@ export default function InventoryPage() {
           </div>
           <Button 
             onClick={handleManualSync}
-            disabled={!needsSync || syncing}
+            disabled={syncing}
             variant="outline"
             className={cn(
               "h-12 px-4 rounded-xl font-black text-[9px] uppercase gap-2 transition-all border-2",
               needsSync 
                 ? "border-red-500 bg-red-50 text-red-600 hover:bg-red-100 hover:border-red-600 shadow-md animate-pulse" 
-                : "border-green-500 bg-green-50 text-green-600 opacity-60 cursor-default"
+                : "border-green-500 bg-green-50 text-green-600 hover:bg-green-100 hover:border-green-600"
             )}
           >
             {syncing ? (
@@ -192,7 +186,7 @@ export default function InventoryPage() {
             ) : (
               <CheckCircle2 className="w-4 h-4" />
             )}
-            {needsSync ? "Sincronizar Nube" : "Catálogo al Día"}
+            {syncing ? "Sincronizando..." : needsSync ? "Sincronizar Nube" : "Forzar Sincronización"}
           </Button>
         </div>
         <div className="relative w-full md:w-80">

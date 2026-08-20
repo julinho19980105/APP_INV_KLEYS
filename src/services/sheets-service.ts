@@ -2,12 +2,11 @@
 import { API_CONFIG } from '@/lib/api-config';
 
 /**
- * @fileOverview Servicio de sincronización con Google Drive y Sheets.
+ * @fileOverview Servicio de sincronización con Google Drive y Sheets (Versión Industrial).
  * 
- * INSTRUCCIONES PARA EL NUEVO GOOGLE SHEET:
- * 1. Crea un nuevo Google Sheet.
- * 2. Ve a Extensiones > Apps Script.
- * 3. Pega el siguiente código:
+ * INSTRUCCIONES PARA TU NUEVO GOOGLE SHEET (4 COLUMNAS DE FOTOS):
+ * 1. Crea un nuevo Google Sheet y ve a Extensiones > Apps Script.
+ * 2. Pega este código exacto:
  * 
  * function doPost(e) {
  *   var result = { success: false };
@@ -16,21 +15,17 @@ import { API_CONFIG } from '@/lib/api-config';
  *     var ss = SpreadsheetApp.getActiveSpreadsheet();
  *     var sheet = ss.getSheets()[0];
  *     
- *     // ID de la carpeta para el catalog.json del PDF
  *     var folderId = "1eiNwGNeMfRcP7yd6-XkhLLzTCoxC4uOT"; 
  *     var folder = DriveApp.getFolderById(folderId);
  * 
  *     if (data.action === "updateCatalog") {
  *       sheet.clear();
- *       // Encabezados industriales con 4 columnas de fotos
+ *       // Encabezados con 4 columnas de fotos individuales
  *       var headers = ["CÓDIGO", "NOMBRE", "CATEGORÍA", "COLECCIÓN", "P. FARDO", "P. MAYOR", "P. UNIDAD", "FOTO 1", "FOTO 2", "FOTO 3", "FOTO 4", "DESCRIPCIÓN"];
  *       sheet.appendRow(headers);
  *       
  *       var headerRange = sheet.getRange(1, 1, 1, headers.length);
- *       headerRange.setFontWeight("bold")
- *                  .setBackground("#000000")
- *                  .setFontColor("#FFFFFF")
- *                  .setHorizontalAlignment("center");
+ *       headerRange.setFontWeight("bold").setBackground("#000000").setFontColor("#FFFFFF").setHorizontalAlignment("center");
  * 
  *       if (data.catalog && Array.isArray(data.catalog)) {
  *         var rows = data.catalog.map(function(p) {
@@ -54,7 +49,6 @@ import { API_CONFIG } from '@/lib/api-config';
  *           sheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
  *         }
  *       }
- *       
  *       sheet.setFrozenRows(1);
  *       for (var i = 8; i <= 11; i++) { sheet.setColumnWidth(i, 200); }
  *       sheet.setColumnWidth(12, 350);
@@ -82,9 +76,6 @@ import { API_CONFIG } from '@/lib/api-config';
  * }
  */
 
-/**
- * Sube una imagen al Drive usando el script original de imágenes.
- */
 export async function uploadImageToDrive(base64Data: string, fileName: string): Promise<string> {
   if (!API_CONFIG.WEB_APP_URL || !base64Data || base64Data.startsWith('http')) return base64Data;
   
@@ -113,10 +104,6 @@ export async function uploadImageToDrive(base64Data: string, fileName: string): 
   }
 }
 
-/**
- * Sincroniza el catálogo con el Sheet de Inventario y el JSON.
- * Filtra productos con stock > 0 y envía el objeto para mapeo en 4 columnas de fotos.
- */
 export async function syncCatalogToDrive(products: any[]): Promise<void> {
   if (!API_CONFIG.INVENTORY_SHEET_URL || !Array.isArray(products)) return;
   
@@ -124,7 +111,6 @@ export async function syncCatalogToDrive(products: any[]): Promise<void> {
     const cleanCatalog = products
       .filter(p => (Number(p.stock) || 0) > 0)
       .map(p => {
-        // Quitamos campos internos de Firebase antes de enviar
         const { updatedAt, id, ...rest } = p;
         return rest;
       });
@@ -148,9 +134,6 @@ export async function syncCatalogToDrive(products: any[]): Promise<void> {
   }
 }
 
-/**
- * Obtiene el catálogo desde el script del Sheet (que lee el JSON).
- */
 export async function getCatalogFromDrive(): Promise<any[]> {
   if (!API_CONFIG.INVENTORY_SHEET_URL) return [];
   try {
