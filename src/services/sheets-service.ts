@@ -1,12 +1,9 @@
-
 import { API_CONFIG } from '@/lib/api-config';
 
 /**
- * @fileOverview Servicio de sincronización con Google Drive y Sheets (Versión Industrial).
+ * @fileOverview Servicio de sincronización con Google Drive y Sheets (Versión Industrial 4 Columnas).
  * 
- * INSTRUCCIONES PARA TU NUEVO GOOGLE SHEET (4 COLUMNAS DE FOTOS):
- * 1. Crea un nuevo Google Sheet y ve a Extensiones > Apps Script.
- * 2. Pega este código exacto:
+ * INSTRUCCIONES PARA TU GOOGLE SHEET (Copia este código en el Apps Script del Sheet):
  * 
  * function doPost(e) {
  *   var result = { success: false };
@@ -111,7 +108,8 @@ export async function syncCatalogToDrive(products: any[]): Promise<void> {
     const cleanCatalog = products
       .filter(p => (Number(p.stock) || 0) > 0)
       .map(p => {
-        const { updatedAt, id, ...rest } = p;
+        // Eliminamos campos internos y el STOCK para el Sheet público
+        const { updatedAt, id, stock, ...rest } = p;
         return rest;
       });
 
