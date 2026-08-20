@@ -18,7 +18,8 @@ import {
   Edit2,
   ChevronDown,
   X,
-  Check
+  Check,
+  Calculator
 } from "lucide-react"
 import { 
   DropdownMenu, 
@@ -26,6 +27,13 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { useFirestore, useCollection } from "@/firebase"
@@ -55,6 +63,11 @@ interface QuoteItem {
   img: string
   discount: string
   isRegistered: boolean
+  // Campos de calculadora para re-edición
+  calcUnidades?: string
+  calcSeries?: string
+  calcLibres?: string
+  manualNote?: string
 }
 
 const EMPTY_ENTRY: QuoteItem = {
@@ -67,7 +80,11 @@ const EMPTY_ENTRY: QuoteItem = {
   stock: 0,
   img: "",
   discount: "",
-  isRegistered: false
+  isRegistered: false,
+  calcUnidades: "",
+  calcSeries: "",
+  calcLibres: "",
+  manualNote: ""
 }
 
 export default function QuotesPage() {
@@ -87,6 +104,10 @@ export default function QuotesPage() {
   const [items, setItems] = React.useState<QuoteItem[]>([])
   const [originalItems, setOriginalItems] = React.useState<QuoteItem[]>([])
   const [confirmDeleteId, setConfirmDeleteId] = React.useState<string | null>(null)
+
+  // Estados para la calculadora
+  const [isCalcOpen, setIsCalcOpen] = React.useState(false)
+  const [calcData, setCalcData] = React.useState({ unidades: "", series: "", libres: "" })
 
   const productsRef = React.useMemo(() => db ? query(collection(db, "products"), orderBy("code")) : null, [db])
   const customersRef = React.useMemo(() => db ? query(collection(db, "customers"), orderBy("id")) : null, [db])
@@ -194,7 +215,11 @@ export default function QuotesPage() {
       stock: prod.stock || 0,
       img: prod.images?.[0] || "",
       discount: "",
-      isRegistered: true
+      isRegistered: true,
+      calcUnidades: "",
+      calcSeries: "",
+      calcLibres: "",
+      manualNote: ""
     })
     setProductQuery("")
   }
@@ -210,7 +235,11 @@ export default function QuotesPage() {
       stock: 99999,
       img: "",
       discount: "",
-      isRegistered: false
+      isRegistered: false,
+      calcUnidades: "",
+      calcSeries: "",
+      calcLibres: "",
+      manualNote: ""
     })
     setProductQuery("")
   }
@@ -265,7 +294,16 @@ export default function QuotesPage() {
         id: quoteId,
         customerName: finalCustomerName,
         customerId: selectedCustomer?.id || "GENERIC",
-        items: items.map(i => ({...i, quantity: Number(i.quantity || 0), price: Number(i.price || 0), discount: Number(i.discount || 0)})),
+        items: items.map(i => ({
+          productId: i.productId,
+          name: i.name,
+          description: i.description,
+          quantity: Number(i.quantity || 0),
+          price: Number(i.price || 0),
+          discount: Number(i.discount || 0),
+          img: i.img || "",
+          isRegistered: i.isRegistered
+        })),
         total: finalTotal,
         status: 'active',
         createdAt: serverTimestamp()
@@ -294,6 +332,37 @@ export default function QuotesPage() {
     }
   }
 
+  // Lógica de Calculadora
+  const handleOpenCalc = () => {
+    setCalcData({
+      unidades: currentEntry.calcUnidades || "",
+      series: currentEntry.calcSeries || "",
+      libres: currentEntry.calcLibres || ""
+    })
+    setIsCalcOpen(true)
+  }
+
+  const handleApplyCalc = () => {
+    const u = Number(calcData.unidades || 0)
+    const s = Number(calcData.series || 0)
+    const l = Number(calcData.libres || 0)
+    const total = (u * s) + l
+    
+    let autoDesc = `${u} UNID X ${s} SERIES`
+    if (l > 0) autoDesc += ` + ${l}`
+    autoDesc += ". "
+
+    setCurrentEntry({
+      ...currentEntry,
+      quantity: total.toString(),
+      description: autoDesc + (currentEntry.manualNote || ""),
+      calcUnidades: calcData.unidades,
+      calcSeries: calcData.series,
+      calcLibres: calcData.libres
+    })
+    setIsCalcOpen(false)
+  }
+
   const totalQuantity = items.reduce((acc, item) => acc + Number(item.quantity || 0), 0)
   const finalTotal = items.reduce((acc, item) => {
     const lineSub = Number(item.quantity || 0) * Number(item.price || 0)
@@ -313,6 +382,16 @@ export default function QuotesPage() {
           <h1 className="text-4xl font-headline font-black text-black uppercase tracking-tight">COTIZACIÓN</h1>
           <Badge variant="outline" className="text-[9px] font-black border-black/20 uppercase tracking-[0.2em] px-3 mt-1">SERIE {quoteId}</Badge>
         </div>
+        {editId && (
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-10 w-10 text-destructive hover:bg-destructive/10 rounded-xl"
+            onClick={() => router.push('/sales')}
+          >
+            <X className="w-6 h-6" />
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -394,8 +473,8 @@ export default function QuotesPage() {
             <div className="w-20 h-20 rounded-2xl overflow-hidden border shrink-0 bg-muted shadow-md mx-auto md:mx-0">
               {currentEntry.img ? <img src={getThumbnailUrl(currentEntry.img)} className="w-full h-full object-cover" alt="" /> : <PackageSearch className="w-full h-full p-5 opacity-10" />}
             </div>
-            <div className="flex-1 w-full grid grid-cols-2 sm:grid-cols-3 gap-4 md:gap-6">
-              <div className="space-y-1 col-span-2 sm:col-span-1">
+            <div className="flex-1 w-full grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+              <div className="space-y-1">
                 <Label className="text-[8px] font-black uppercase text-black/40 ml-1">PRECIO UNITARIO</Label>
                 <div className="flex gap-2">
                   <Input 
@@ -422,23 +501,36 @@ export default function QuotesPage() {
                   )}
                 </div>
               </div>
-              <div className="space-y-1 col-span-1">
-                <Label className="text-[8px] font-black uppercase text-black/40 ml-1">CANTIDAD</Label>
-                <Input 
-                  type="number" 
-                  className="h-10 text-xs font-black border-primary/30 bg-primary/5 text-primary rounded-xl" 
-                  value={currentEntry.quantity} 
-                  onChange={e => setCurrentEntry({...currentEntry, quantity: e.target.value})} 
-                />
-              </div>
-              <div className="space-y-1 col-span-1">
-                <Label className="text-[8px] font-black uppercase text-black/40 ml-1">DSCTO</Label>
-                <Input 
-                  type="number" 
-                  className="h-10 text-xs font-black border-orange-200 bg-orange-50 text-orange-600 rounded-xl" 
-                  value={currentEntry.discount} 
-                  onChange={e => setCurrentEntry({...currentEntry, discount: e.target.value})} 
-                />
+              <div className="grid grid-cols-2 gap-4 md:col-span-2">
+                <div className="space-y-1">
+                  <Label className="text-[8px] font-black uppercase text-black/40 ml-1">CANTIDAD</Label>
+                  <div className="flex gap-2">
+                    <Input 
+                      type="number" 
+                      className="h-10 text-xs font-black border-primary/30 bg-primary/5 text-primary rounded-xl" 
+                      value={currentEntry.quantity} 
+                      onChange={e => setCurrentEntry({...currentEntry, quantity: e.target.value})} 
+                    />
+                    <Button 
+                      variant="outline" 
+                      size="icon" 
+                      className="h-10 w-10 shrink-0 border-primary/20 bg-primary/5 text-primary rounded-xl"
+                      onClick={handleOpenCalc}
+                      disabled={!currentEntry.name}
+                    >
+                      <Calculator className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[8px] font-black uppercase text-black/40 ml-1">DSCTO</Label>
+                  <Input 
+                    type="number" 
+                    className="h-10 text-xs font-black border-orange-200 bg-orange-50 text-orange-600 rounded-xl" 
+                    value={currentEntry.discount} 
+                    onChange={e => setCurrentEntry({...currentEntry, discount: e.target.value})} 
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -448,7 +540,13 @@ export default function QuotesPage() {
             <Input 
               className="h-10 text-[10px] font-black uppercase bg-black/5 border-none rounded-xl px-5"
               value={currentEntry.description}
-              onChange={e => setCurrentEntry({...currentEntry, description: e.target.value})}
+              onChange={e => {
+                const val = e.target.value
+                // Intentamos separar la nota manual de lo automático si existe el punto final
+                const splitIndex = val.indexOf('. ')
+                const manual = splitIndex > -1 ? val.substring(splitIndex + 2) : val
+                setCurrentEntry({...currentEntry, description: val, manualNote: manual})
+              }}
               placeholder=""
             />
           </div>
@@ -473,7 +571,7 @@ export default function QuotesPage() {
 
       <Card className="rounded-[2rem] border shadow-sm bg-white overflow-hidden">
         <div className="bg-black/5 border-b py-3 px-6">
-          <span className="text-[10px] font-black uppercase text-black tracking-widest">LISTA DE PRODUCTOS</span>
+          <span className="text-[10px] font-black uppercase text-black tracking-widest uppercase">LISTA DE PRODUCTOS</span>
         </div>
         <div className="divide-y divide-black/5">
           {items.map((item) => (
@@ -548,6 +646,70 @@ export default function QuotesPage() {
         {saving ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6" />}
         GUARDAR VENTA
       </Button>
+
+      {/* Modal de Calculadora Industrial */}
+      <Dialog open={isCalcOpen} onOpenChange={setIsCalcOpen}>
+        <DialogContent className="rounded-[2.5rem] border-none shadow-2xl max-w-xs">
+          <DialogHeader>
+            <DialogTitle className="text-xs font-black text-black uppercase tracking-widest flex items-center gap-2">
+              <Calculator className="w-4 h-4 text-primary" /> Calculadora de Series
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label className="text-[9px] font-black uppercase text-black/60 ml-1">Unid x Serie</Label>
+                <Input 
+                  type="number" 
+                  value={calcData.unidades} 
+                  onChange={e => setCalcData({...calcData, unidades: e.target.value})} 
+                  className="h-10 text-xs font-black rounded-xl border-black/10 text-center"
+                  autoFocus
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[9px] font-black uppercase text-black/60 ml-1">N° Series</Label>
+                <Input 
+                  type="number" 
+                  value={calcData.series} 
+                  onChange={e => setCalcData({...calcData, series: e.target.value})} 
+                  className="h-10 text-xs font-black rounded-xl border-black/10 text-center"
+                />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[9px] font-black uppercase text-black/60 ml-1">+ Unid Libres</Label>
+              <Input 
+                type="number" 
+                value={calcData.libres} 
+                onChange={e => setCalcData({...calcData, libres: e.target.value})} 
+                className="h-10 text-xs font-black rounded-xl border-black/10 text-center"
+              />
+            </div>
+            <div className="bg-black/5 p-4 rounded-2xl text-center">
+              <span className="text-[9px] font-black uppercase text-black/40 block mb-1">TOTAL CALCULADO</span>
+              <span className="font-headline font-black text-3xl text-primary">
+                {(Number(calcData.unidades || 0) * Number(calcData.series || 0)) + Number(calcData.libres || 0)} <span className="text-xs">UND</span>
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <Button 
+                variant="outline" 
+                className="h-12 rounded-xl font-black text-[10px] uppercase border-black/10"
+                onClick={() => setIsCalcOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                className="h-12 bg-black text-white rounded-xl font-black text-[10px] uppercase"
+                onClick={handleApplyCalc}
+              >
+                OK
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
