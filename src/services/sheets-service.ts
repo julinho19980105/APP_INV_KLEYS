@@ -2,7 +2,7 @@
  * INSTRUCCIONES PARA GOOGLE APPS SCRIPT (script.google.com):
  * 
  * 1. Crea un nuevo proyecto en Google Apps Script.
- * 2. Pega este código y reemplaza "TU_ID_DE_CARPETA" con el ID de tu carpeta de Drive.
+ * 2. Pega este código y reemplaza "1eiNwGNeMfRcP7yd6-XkhLLzTCoxC4uOT" con el ID de tu carpeta de Drive.
  * 3. Despliega como "Aplicación Web" (Configurar: Ejecutar como: Yo, Acceso: Cualquiera).
  * 4. Copia la URL del despliegue en src/lib/api-config.ts.
  * 
@@ -13,8 +13,10 @@
  *     var folder = DriveApp.getFolderById(folderId);
  *     
  *     if (data.action === "uploadImage") {
+ *       if (!data.base64 || typeof data.base64 !== 'string') throw new Error("Base64 de imagen no recibido.");
  *       var contentType = data.mimeType || "image/jpeg";
- *       var base64 = data.base64.split(",")[1];
+ *       var parts = data.base64.split(",");
+ *       var base64 = parts.length > 1 ? parts[1] : parts[0];
  *       var decode = Utilities.base64Decode(base64);
  *       var blob = Utilities.newBlob(decode, contentType, data.name);
  *       var file = folder.createFile(blob);
@@ -26,7 +28,7 @@
  *     }
  *
  *     if (data.action === "updateCatalog") {
- *       // 1. ACTUALIZAR JSON (Para Apps)
+ *       // 1. ACTUALIZAR JSON (Para Aplicaciones)
  *       var jsonFiles = folder.getFilesByName("catalog.json");
  *       if (jsonFiles.hasNext()) {
  *         jsonFiles.next().setContent(JSON.stringify(data.catalog));
@@ -35,7 +37,7 @@
  *               .setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
  *       }
  *
- *       // 2. ACTUALIZAR GOOGLE SHEET (Para Humanos)
+ *       // 2. ACTUALIZAR GOOGLE SHEET (Para Gestión Humana)
  *       var ssFiles = folder.getFilesByName("Inventario_Diva_Industrial");
  *       var ss;
  *       if (ssFiles.hasNext()) {
@@ -49,25 +51,27 @@
  *       var sheet = ss.getSheets()[0];
  *       sheet.clear();
  *       
- *       var headers = ["CÓDIGO", "NOMBRE", "CATEGORÍA", "COLECCIÓN", "P. FARDO", "P. MAYOR", "P. UNIDAD", "IMÁGENES (LINKS)", "DESCRIPCIÓN"];
+ *       var headers = ["CÓDIGO", "NOMBRE", "CATEGORÍA", "COLECCIÓN", "P. FARDO", "P. MAYOR", "P. UNIDAD", "IMÁGENES", "DESCRIPCIÓN"];
  *       sheet.appendRow(headers);
  *       sheet.getRange(1, 1, 1, headers.length).setFontWeight("bold").setBackground("#f3f3f3").setHorizontalAlignment("center");
  *
- *       data.catalog.forEach(function(p) {
- *         sheet.appendRow([
- *           p.code, 
- *           p.name, 
- *           p.category, 
- *           p.collection, 
- *           p.priceFardo, 
- *           p.priceMayor, 
- *           p.priceUnidad, 
- *           (p.images || []).join("\n"), 
- *           p.description
- *         ]);
- *       });
- *       sheet.setColumnWidth(8, 400); // Columna de imágenes más ancha
- *       sheet.setColumnWidth(9, 300); // Columna de descripción
+ *       if (data.catalog && Array.isArray(data.catalog)) {
+ *         data.catalog.forEach(function(p) {
+ *           sheet.appendRow([
+ *             p.code || "", 
+ *             p.name || "", 
+ *             p.category || "", 
+ *             p.collection || "", 
+ *             p.priceFardo || 0, 
+ *             p.priceMayor || 0, 
+ *             p.priceUnidad || 0, 
+ *             (p.images || []).join("\n"), 
+ *             p.description || ""
+ *           ]);
+ *         });
+ *       }
+ *       sheet.setColumnWidth(8, 400); 
+ *       sheet.setColumnWidth(9, 300);
  *
  *       return ContentService.createTextOutput(JSON.stringify({ success: true }))
  *         .setMimeType(ContentService.MimeType.JSON);
@@ -81,6 +85,9 @@
  *       }
  *       return ContentService.createTextOutput("[]").setMimeType(ContentService.MimeType.JSON);
  *     }
+ *     
+ *     return ContentService.createTextOutput(JSON.stringify({ success: false, error: "Acción no reconocida" }))
+ *       .setMimeType(ContentService.MimeType.JSON);
  *   } catch (err) {
  *     return ContentService.createTextOutput(JSON.stringify({ success: false, error: err.toString() }))
  *       .setMimeType(ContentService.MimeType.JSON);
@@ -91,11 +98,12 @@
 import { API_CONFIG } from '@/lib/api-config';
 
 export async function uploadImageToDrive(base64Data: string, fileName: string): Promise<string> {
-  if (!API_CONFIG.WEB_APP_URL) return base64Data;
+  if (!API_CONFIG.WEB_APP_URL || !base64Data) return base64Data;
   try {
-    const mimeType = base64Data.split(';')[0].split(':')[1] || 'image/jpeg';
+    const mimeType = base64Data.includes(';') ? base64Data.split(';')[0].split(':')[1] : 'image/jpeg';
     const response = await fetch(API_CONFIG.WEB_APP_URL, {
       method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({
         action: "uploadImage",
         base64: base64Data,
@@ -112,24 +120,29 @@ export async function uploadImageToDrive(base64Data: string, fileName: string): 
 }
 
 export async function syncCatalogToDrive(products: any[]): Promise<void> {
-  if (!API_CONFIG.WEB_APP_URL) return;
+  if (!API_CONFIG.WEB_APP_URL || !Array.isArray(products)) return;
   try {
-    // Filtrar solo productos con stock > 0 para el catálogo comercial y la hoja de cálculo
+    // Filtrar solo productos con stock > 0 y limpiar campos innecesarios
     const cleanCatalog = products
-      .filter(p => p.stock > 0)
+      .filter(p => (Number(p.stock) || 0) > 0)
       .map(({ stock, updatedAt, ...rest }) => rest);
 
     const response = await fetch(API_CONFIG.WEB_APP_URL, {
       method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({
         action: "updateCatalog",
         catalog: cleanCatalog
       })
     });
     const result = await response.json();
-    if (!result.success) console.error("Error Apps Script:", result.error);
+    if (!result.success) {
+      console.error("Error Apps Script:", result.error);
+      throw new Error(result.error);
+    }
   } catch (error) {
     console.error("Error al sincronizar catálogo con Drive:", error);
+    throw error;
   }
 }
 
@@ -138,9 +151,11 @@ export async function getCatalogFromDrive(): Promise<any[]> {
   try {
     const response = await fetch(API_CONFIG.WEB_APP_URL, {
       method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ action: "getCatalog" })
     });
-    return await response.json();
+    const result = await response.json();
+    return Array.isArray(result) ? result : [];
   } catch (error) {
     console.error("Error al obtener catálogo desde Drive:", error);
     return [];
