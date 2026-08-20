@@ -235,8 +235,8 @@ export default function SalesPage() {
     }, 400)
   }
 
-  const brandColor = companySettings?.brandColor || "#FF3399";
-  const companyName = companySettings?.companyName || "Diva Industrial";
+  const brandColor = companySettings?.brandColor || "#2563EB";
+  const companyName = companySettings?.companyName || "MODA KEYTI KIDS";
 
   return (
     <div className="space-y-6 pt-2 pb-20 max-w-4xl mx-auto px-2 md:px-0">
@@ -359,87 +359,138 @@ export default function SalesPage() {
         ))}
       </div>
 
-      {/* Hidden Receipt for Image Generation - High Quality Industrial Design */}
-      <div className="fixed -left-[3000px] top-0">
+      {/* Hidden Receipt for Image Generation - Estilo Keyti Kids Adaptado */}
+      <div className="fixed -left-[4000px] top-0">
         {activeReceipt && (
-          <div ref={receiptRef} className="w-[1000px] p-16 bg-white flex flex-col gap-10" style={{ borderTop: `30px solid ${brandColor}` }}>
-            <div className="flex justify-between items-start">
-              <div className="space-y-4">
-                <h2 className="text-7xl font-headline font-black uppercase tracking-tighter leading-none">{companyName}</h2>
-                <div className="inline-block bg-black text-white px-6 py-2 rounded-xl text-xl font-black tracking-[0.4em]">BOLETA INTERNA</div>
-              </div>
-              <div className="text-right">
-                <div className="text-3xl font-black uppercase opacity-30 tracking-widest">Serie B</div>
-                <div className="text-7xl font-headline font-black" style={{ color: brandColor }}>{activeReceipt.id}</div>
-              </div>
-            </div>
+          <div 
+            ref={receiptRef} 
+            className="boleta"
+            style={{
+              width: '560px',
+              backgroundColor: '#F4F5F7',
+              padding: '25px 12px',
+              fontFamily: 'Arial, "Segoe UI", sans-serif',
+              color: '#1F2937'
+            }}
+          >
+            <style dangerouslySetInnerHTML={{ __html: `
+              .boleta-inner {
+                width: 100%;
+                background: white;
+                border-radius: 12px;
+                overflow: hidden;
+                box-shadow: 0 8px 28px rgba(0,0,0,.10);
+              }
+              .cabecera-img {
+                background: ${brandColor};
+                color: white;
+                text-align: center;
+                padding: 22px 20px;
+              }
+              .empresa-img { font-size: 24px; font-weight: 800; letter-spacing: .5px; }
+              .num-boleta-img { margin-top: 6px; font-size: 12px; font-weight: 700; letter-spacing: 1px; }
+              .datos-img { padding: 16px 19px; }
+              .cliente-img { display: flex; align-items: center; gap: 7px; font-size: 14px; }
+              .cliente-label-img { font-size: 11px; font-weight: 800; color: #6B7280; }
+              .cliente-nombre-img { font-weight: 800; }
+              .cliente-codigo-img { font-size: 12px; font-weight: 700; color: ${brandColor}; }
+              .fecha-hora-img { display: flex; justify-content: space-between; margin-top: 10px; }
+              .fecha-hora-img span { font-size: 11px; color: #6B7280; }
+              .fecha-hora-img strong { margin-left: 4px; font-size: 12px; color: #1F2937; }
+              .linea-img { height: 1px; background: #E5E7EB; }
+              .linea-fuerte-img { height: 2px; background: #1F2937; }
+              .productos-img { padding: 5px 0 0; }
+              .prod-cabecera-img { display: flex; justify-content: space-between; padding: 7px 19px; font-size: 8px; font-weight: 800; color: #6B7280; text-transform: uppercase; letter-spacing: .8px; }
+              .producto-img { padding: 9px 19px; border-top: 1px solid #E5E7EB; }
+              .prod-principal-img { display: grid; grid-template-columns: 23px 1fr auto; gap: 8px; align-items: start; }
+              .num-circulo-img { width: 23px; height: 23px; display: flex; justify-content: center; align-items: center; border-radius: 5px; background: ${brandColor}; color: white; font-size: 10px; font-weight: 800; }
+              .nombre-img { padding-top: 2px; font-size: 13px; font-weight: 800; line-height: 1.3; }
+              .subtotal-img { text-align: right; white-space: nowrap; }
+              .sub-label-img { display: block; font-size: 8px; color: #6B7280; text-transform: uppercase; }
+              .sub-valor-img { display: block; margin-top: 1px; font-size: 15px; font-weight: 850; color: ${brandColor}; }
+              .op-img { margin-left: 31px; margin-top: 3px; font-size: 11px; font-weight: 600; color: #1F2937; }
+              .desc-img { margin-left: 5px; color: #DC2626; font-weight: 800; }
+              .det-desc-img { margin-left: 31px; margin-top: 2px; font-size: 10px; color: #6B7280; }
+              .totales-img { padding: 16px 19px 17px; }
+              .totales-grid-img { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+              .box-img { min-height: 82px; padding: 13px; border: 1px solid #E5E7EB; border-radius: 8px; background: white; }
+              .box-cant-img { border-top: 3px solid #1F2937; }
+              .box-money-img { border-top: 3px solid ${brandColor}; text-align: right; }
+              .box-label-img { font-size: 9px; font-weight: 800; text-transform: uppercase; color: #6B7280; }
+              .box-valor-img { margin-top: 6px; font-size: 24px; font-weight: 850; color: #1F2937; }
+              .box-money-img .box-valor-img { color: ${brandColor}; }
+              .agradecimiento-img { text-align: center; padding: 0 18px 22px; font-size: 11px; color: #6B7280; line-height: 1.5; }
+              .agradecimiento-img strong { color: #1F2937; }
+            ` }} />
             
-            <div className="h-1 bg-black/5 w-full" />
-            
-            <div className="grid grid-cols-2 gap-16">
-              <div className="space-y-2">
-                <div className="text-sm font-black uppercase opacity-40">Cliente Diva:</div>
-                <div className="text-4xl font-black uppercase leading-tight">{activeReceipt.customerName}</div>
+            <div className="boleta-inner">
+              <div className="cabecera-img">
+                <div className="empresa-img">{companyName}</div>
+                <div className="num-boleta-img">BOLETA INTERNA · {activeReceipt.id}</div>
               </div>
-              <div className="text-right space-y-2">
-                <div className="text-sm font-black uppercase opacity-40">Fecha de Emisión:</div>
-                <div className="text-4xl font-black uppercase">
-                  {activeReceipt.createdAt?.toDate 
-                    ? activeReceipt.createdAt.toDate().toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' }).toUpperCase() 
-                    : "---"}
+
+              <div className="datos-img">
+                <div className="cliente-img">
+                  <span className="cliente-label-img">CLIENTE:</span>
+                  <span className="cliente-nombre-img">{activeReceipt.customerName.split(' [')[0]}</span>
+                  <span className="cliente-codigo-img">· {activeReceipt.customerId}</span>
+                </div>
+                <div className="fecha-hora-img">
+                  <span>FECHA: <strong>{activeReceipt.createdAt?.toDate ? activeReceipt.createdAt.toDate().toLocaleDateString('es-ES') : ""}</strong></span>
+                  <span>HORA: <strong>{activeReceipt.createdAt?.toDate ? activeReceipt.createdAt.toDate().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : ""}</strong></span>
                 </div>
               </div>
-            </div>
 
-            <table className="w-full mt-6">
-              <thead>
-                <tr className="border-b-8 border-black text-left">
-                  <th className="py-8 text-2xl font-black uppercase">Detalle de Prenda</th>
-                  <th className="py-8 text-2xl font-black uppercase text-center">Cant</th>
-                  <th className="py-8 text-2xl font-black uppercase text-right">Unitario</th>
-                  <th className="py-8 text-2xl font-black uppercase text-right">Subtotal</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-black/5">
+              <div className="linea-fuerte-img"></div>
+
+              <div className="productos-img">
+                <div className="prod-cabecera-img">
+                  <span>DETALLE</span>
+                  <span>SUBTOTAL</span>
+                </div>
+
                 {activeReceipt.items.map((item: any, idx: number) => (
-                  <tr key={idx} className="align-top">
-                    <td className="py-10">
-                      <div className="text-3xl font-black uppercase">{idx + 1}- {item.name}</div>
-                      <div className="text-sm font-black uppercase opacity-40 mt-1">{item.productId} | {item.description || "SIN NOTAS"}</div>
+                  <div key={idx} className="producto-img">
+                    <div className="prod-principal-img">
+                      <div className="num-circulo-img">{idx + 1}</div>
+                      <div className="nombre-img">{item.name}</div>
+                      <div className="subtotal-img">
+                        <span className="sub-label-img">Subtotal</span>
+                        <span className="sub-valor-img">S/ {(Number(item.quantity) * Number(item.price) - Number(item.discount)).toFixed(2)}</span>
+                      </div>
+                    </div>
+                    <div className="op-img">
+                      {item.quantity} UND. × S/ {Number(item.price).toFixed(2)}
                       {Number(item.discount) > 0 && (
-                        <div className="text-sm font-black uppercase text-primary mt-2 flex items-center gap-2">
-                          <span className="bg-primary/10 px-2 py-0.5 rounded">Dscto: S/ {Number(item.discount).toFixed(2)}</span>
-                        </div>
+                        <span className="desc-img"> − DESC. S/ {Number(item.discount).toFixed(2)}</span>
                       )}
-                    </td>
-                    <td className="py-10 text-3xl font-black text-center">{item.quantity}</td>
-                    <td className="py-10 text-3xl font-black text-right">S/ {Number(item.price).toFixed(2)}</td>
-                    <td className="py-10 text-3xl font-black text-right">
-                      S/ {(Number(item.quantity) * Number(item.price) - Number(item.discount)).toFixed(2)}
-                    </td>
-                  </tr>
+                    </div>
+                    {item.description && <div className="det-desc-img">{item.description}</div>}
+                  </div>
                 ))}
-              </tbody>
-            </table>
+              </div>
 
-            <div className="mt-12 pt-12 border-t-8 border-black flex justify-between items-end">
-              <div className="space-y-2">
-                <div className="text-2xl font-black uppercase opacity-40">Unidades Totales:</div>
-                <div className="text-6xl font-black">
-                  {activeReceipt.items.reduce((acc: number, item: any) => acc + (Number(item.quantity) || 0), 0)} UND
+              <div className="linea-fuerte-img"></div>
+
+              <div className="totales-img">
+                <div className="totales-grid-img">
+                  <div className="box-img box-cant-img">
+                    <div className="box-label-img">Cantidad</div>
+                    <div className="box-valor-img">
+                      {activeReceipt.items.reduce((acc: number, i: any) => acc + Number(i.quantity), 0)} UND.
+                    </div>
+                  </div>
+                  <div className="box-img box-money-img">
+                    <div className="box-label-img">Total</div>
+                    <div className="box-valor-img">S/ {Number(activeReceipt.total).toFixed(2)}</div>
+                  </div>
                 </div>
               </div>
-              <div className="text-right space-y-4">
-                <div className="text-3xl font-black uppercase opacity-40">Monto Total Neto</div>
-                <div className="text-9xl font-headline font-black tracking-tighter leading-none" style={{ color: brandColor }}>
-                  S/ {Number(activeReceipt.total).toFixed(2)}
-                </div>
+
+              <div className="agradecimiento-img">
+                <strong>¡Gracias por su compra!</strong><br />
+                Agradecemos su preferencia y confianza.
               </div>
-            </div>
-            
-            <div className="text-center mt-20">
-              <div className="h-px bg-black/10 w-48 mx-auto mb-6" />
-              <div className="text-3xl font-black uppercase opacity-40 tracking-[0.5em]">Gracias por su Compra</div>
             </div>
           </div>
         )}
