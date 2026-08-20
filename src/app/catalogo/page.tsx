@@ -4,18 +4,18 @@
 import * as React from "react"
 import { 
   BookOpen, 
-  Image as ImageIcon, 
   LayoutGrid, 
   Layers, 
   Download, 
   Loader2,
-  Package
+  Package,
+  Sparkles
 } from "lucide-react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { useCollection, useFirestore, useDoc } from "@/firebase"
-import { collection, query, orderBy } from "firebase/firestore"
+import { collection, query, orderBy, doc } from "firebase/firestore"
 import { toJpeg } from 'html-to-image'
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
@@ -26,11 +26,26 @@ export default function CatalogoPage() {
   const catalogRef = React.useRef<HTMLDivElement>(null)
   const [exporting, setExporting] = React.useState(false)
 
-  // Queries para datos
-  const categoriesQuery = React.useMemo(() => db ? query(collection(db, "categories"), orderBy("name")) : null, [db])
-  const collectionsQuery = React.useMemo(() => db ? query(collection(db, "collections"), orderBy("name")) : null, [db])
-  const productsQuery = React.useMemo(() => db ? query(collection(db, "products")) : null, [db])
-  const configDocRef = React.useMemo(() => db ? doc(db, "config", "global") : null, [db])
+  // Queries para datos - Corregido para evitar FirebaseError
+  const categoriesQuery = React.useMemo(() => {
+    if (!db) return null;
+    return query(collection(db, "categories"), orderBy("name"));
+  }, [db]);
+
+  const collectionsQuery = React.useMemo(() => {
+    if (!db) return null;
+    return query(collection(db, "collections"), orderBy("name"));
+  }, [db]);
+
+  const productsQuery = React.useMemo(() => {
+    if (!db) return null;
+    return query(collection(db, "products"));
+  }, [db]);
+
+  const configDocRef = React.useMemo(() => {
+    if (!db) return null;
+    return doc(db, "config", "global");
+  }, [db]);
 
   const { data: categories = [], loading: loadingCats } = useCollection(categoriesQuery)
   const { data: collections = [], loading: loadingCols } = useCollection(collectionsQuery)
@@ -45,11 +60,11 @@ export default function CatalogoPage() {
         quality: 0.95, 
         backgroundColor: '#ffffff',
         style: {
-          padding: '20px',
+          padding: '40px',
         }
       })
       const link = document.createElement('a')
-      link.download = `Catálogo_Diva_${new Date().toLocaleDateString()}.jpg`
+      link.download = `PDF_Catálogo_Diva_${new Date().toLocaleDateString()}.jpg`
       link.href = dataUrl
       link.click()
       toast({ title: "CATÁLOGO EXPORTADO", description: "Imagen generada con éxito." })
@@ -84,7 +99,7 @@ export default function CatalogoPage() {
           </div>
           <div>
             <h1 className="text-3xl font-headline font-black text-black uppercase tracking-tight">PDF Catálogo</h1>
-            <p className="text-[10px] font-black text-primary uppercase tracking-[0.3em] ml-1 mt-1">Galería de Temporada Diva</p>
+            <p className="text-[10px] font-black text-primary uppercase tracking-[0.3em] ml-1 mt-1">Identidad de Temporada Diva</p>
           </div>
         </div>
         <Button 
@@ -97,9 +112,14 @@ export default function CatalogoPage() {
         </Button>
       </div>
 
-      <div ref={catalogRef} className="bg-white p-4 rounded-[2rem]">
+      <div ref={catalogRef} className="bg-white p-8 rounded-[2.5rem] border shadow-xl">
+        <div className="mb-10 text-center space-y-2">
+            <h2 className="text-4xl font-headline font-black uppercase text-black tracking-tighter">{companyName}</h2>
+            <div className="h-1 w-24 bg-primary mx-auto rounded-full" style={{ backgroundColor: brandColor }} />
+        </div>
+
         <Tabs defaultValue="categories" className="w-full">
-          <TabsList className="bg-black/5 p-1 rounded-2xl w-full md:w-auto border mb-6">
+          <TabsList className="bg-black/5 p-1 rounded-2xl w-full md:w-auto border mb-10">
             <TabsTrigger value="categories" className="rounded-xl px-12 data-[state=active]:bg-black data-[state=active]:text-white text-xs font-black uppercase">
               <Layers className="w-4 h-4 mr-2" /> Categorías
             </TabsTrigger>
@@ -109,22 +129,23 @@ export default function CatalogoPage() {
           </TabsList>
 
           <TabsContent value="categories">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {categories.map((cat) => {
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+              {categories.map((cat, idx) => {
                 const count = getProductCount('category', cat.name)
                 return (
                   <Card key={cat.id} className="group rounded-[2rem] border-2 border-black/5 hover:border-black transition-all shadow-sm overflow-hidden bg-white">
-                    <div className="h-3 w-full" style={{ backgroundColor: brandColor }} />
-                    <CardContent className="p-6 flex flex-col items-center text-center space-y-4">
-                      <div className="w-16 h-16 rounded-2xl bg-black/5 flex items-center justify-center group-hover:scale-110 transition-transform">
-                        <Layers className="w-8 h-8 text-black/20" />
+                    <CardContent className="p-8 flex flex-col items-center text-center space-y-6">
+                      <div className="relative">
+                        <div className="w-24 h-24 rounded-[2rem] bg-black flex items-center justify-center group-hover:scale-110 transition-transform shadow-xl">
+                          <Layers className="w-10 h-10 text-white" />
+                        </div>
+                        <span className="absolute -top-2 -right-2 w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center font-black text-xs border-4 border-white" style={{ backgroundColor: brandColor }}>
+                          {idx + 1}
+                        </span>
                       </div>
-                      <div>
-                        <h3 className="text-sm font-black text-black uppercase tracking-tighter">{cat.name}</h3>
-                        <p className="text-[10px] font-black text-primary uppercase mt-1 tracking-widest">{count} Prendas</p>
-                      </div>
-                      <div className="pt-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                         <span className="text-[8px] font-black uppercase text-black/40">Ver Detalle</span>
+                      <div className="space-y-2">
+                        <h3 className="text-lg font-black text-black uppercase tracking-tighter leading-tight">{cat.name}</h3>
+                        <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em]" style={{ color: brandColor }}>{count} Prendas en Stock</p>
                       </div>
                     </CardContent>
                   </Card>
@@ -140,22 +161,23 @@ export default function CatalogoPage() {
           </TabsContent>
 
           <TabsContent value="collections">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {collections.map((col) => {
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+              {collections.map((col, idx) => {
                 const count = getProductCount('collection', col.name)
                 return (
                   <Card key={col.id} className="group rounded-[2rem] border-2 border-black/5 hover:border-black transition-all shadow-sm overflow-hidden bg-white">
-                    <div className="h-3 w-full" style={{ backgroundColor: brandColor }} />
-                    <CardContent className="p-6 flex flex-col items-center text-center space-y-4">
-                      <div className="w-16 h-16 rounded-2xl bg-black/5 flex items-center justify-center group-hover:scale-110 transition-transform">
-                        <LayoutGrid className="w-8 h-8 text-black/20" />
+                    <CardContent className="p-8 flex flex-col items-center text-center space-y-6">
+                      <div className="relative">
+                        <div className="w-24 h-24 rounded-[2rem] bg-black flex items-center justify-center group-hover:scale-110 transition-transform shadow-xl">
+                          <LayoutGrid className="w-10 h-10 text-white" />
+                        </div>
+                        <span className="absolute -top-2 -right-2 w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center font-black text-xs border-4 border-white" style={{ backgroundColor: brandColor }}>
+                          {idx + 1}
+                        </span>
                       </div>
-                      <div>
-                        <h3 className="text-sm font-black text-black uppercase tracking-tighter">{col.name}</h3>
-                        <p className="text-[10px] font-black text-primary uppercase mt-1 tracking-widest">{count} Diseños</p>
-                      </div>
-                      <div className="pt-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                         <span className="text-[8px] font-black uppercase text-black/40">Explorar Temporada</span>
+                      <div className="space-y-2">
+                        <h3 className="text-lg font-black text-black uppercase tracking-tighter leading-tight">{col.name}</h3>
+                        <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em]" style={{ color: brandColor }}>{count} Diseños Activos</p>
                       </div>
                     </CardContent>
                   </Card>
@@ -170,12 +192,14 @@ export default function CatalogoPage() {
             </div>
           </TabsContent>
         </Tabs>
+
+        <div className="mt-20 pt-10 border-t border-black/5 text-center">
+            <div className="flex items-center justify-center gap-2 opacity-20">
+                <Sparkles className="w-4 h-4" />
+                <span className="text-[8px] font-black uppercase tracking-[0.5em]">Diva Industrial Ecosystem</span>
+            </div>
+        </div>
       </div>
     </div>
   )
-}
-
-function doc(db: any, arg1: string, arg2: string): any {
-  const { doc: firestoreDoc } = require("firebase/firestore");
-  return firestoreDoc(db, arg1, arg2);
 }
