@@ -33,8 +33,10 @@ export default function CatalogoPage() {
     setLoading(true)
     try {
       const data = await getCatalogFromDrive()
-      setProducts(data)
+      // Aseguramos que data sea siempre un array
+      setProducts(Array.isArray(data) ? data : [])
     } catch (e) {
+      setProducts([])
       toast({ variant: "destructive", title: "Error", description: "No se pudo conectar con el catálogo en Drive." })
     } finally {
       setLoading(false)
@@ -46,20 +48,25 @@ export default function CatalogoPage() {
   }, [loadCatalog])
 
   const categories = React.useMemo(() => {
+    if (!Array.isArray(products)) return []
     const names = Array.from(new Set(products.map(p => p.category))).filter(Boolean)
     return names.sort().map(name => ({ id: name, name }))
   }, [products])
 
   const collections = React.useMemo(() => {
+    if (!Array.isArray(products)) return []
     const names = Array.from(new Set(products.map(p => p.collection))).filter(Boolean)
     return names.sort().map(name => ({ id: name, name }))
   }, [products])
 
   const getCount = (type: 'category' | 'collection', name: string) => {
+    if (!Array.isArray(products)) return 0
     return products.filter(p => p[type] === name).length
   }
 
   const handleDownloadPDF = async (type: 'category' | 'collection', filterName: string) => {
+    if (!Array.isArray(products)) return
+
     toast({ title: "Generando Catálogo PDF...", description: "Cargando datos desde Drive..." })
     
     const filteredProducts = products.filter(p => p[type] === filterName)
@@ -80,9 +87,9 @@ export default function CatalogoPage() {
     const pagesHtml = sortedProducts.map(p => `
       <div class="page">
         <div class="header">
-          <div class="collection" style="color: ${brandColor}">COL: ${p.collection || 'GENERAL'}</div>
-          <div class="company-name-print">${companyName}</div>
-          <div class="category" style="color: ${brandColor}">CAT: ${p.category || 'GENERAL'}</div>
+          <div class="collection">COLECCIÓN: ${p.collection || 'GENERAL'}</div>
+          <div class="company-name-print" style="color: ${brandColor}">${companyName}</div>
+          <div class="category">CATEGORÍA: ${p.category || 'GENERAL'}</div>
         </div>
         
         <div class="photos ${p.images?.length >= 3 ? 'three' : p.images?.length === 2 ? 'two' : 'one'}">
@@ -93,12 +100,12 @@ export default function CatalogoPage() {
           `).join('')}
           ${(!p.images || p.images.length === 0) ? `
             <div class="photo-frame">
-              <div class="no-image">SIN IMAGEN</div>
+              <div class="no-image" style="opacity: 0.2; color: ${brandColor}">SIN IMAGEN</div>
             </div>
           ` : ''}
         </div>
 
-        <div class="info">
+        <div class="info" style="border-color: ${brandColor}33">
           <div class="details">
             <div class="product-title">
               <div class="product-name">${p.name}</div>
@@ -109,8 +116,8 @@ export default function CatalogoPage() {
           <div class="prices">
             <div class="price-title" style="color: ${brandColor}">TARIFARIO INDUSTRIAL</div>
             <div class="price-row" style="border-left-color: ${brandColor}"><span>FARDO</span><span class="price-value">S/ ${p.priceFardo || 0}</span></div>
-            <div class="price-row" style="border-left-color: ${brandColor}"><span>MAYOR</span><span class="price-value">S/ ${p.priceMayor || 0}</span></div>
-            <div class="price-row" style="border-left-color: ${brandColor}"><span>UNIDAD</span><span class="price-value">S/ ${p.priceUnidad || 0}</span></div>
+            <div class="price-row" style="border-left-color: ${brandColor}aa"><span>MAYOR</span><span class="price-value">S/ ${p.priceMayor || 0}</span></div>
+            <div class="price-row" style="border-left-color: ${brandColor}55"><span>UNIDAD</span><span class="price-value">S/ ${p.priceUnidad || 0}</span></div>
           </div>
         </div>
       </div>
@@ -146,13 +153,12 @@ export default function CatalogoPage() {
               font-size: 8pt; 
               font-weight: 900; 
               text-transform: uppercase; 
-              width: 30%;
+              width: 25%;
             }
             .category { text-align: right; }
             .company-name-print {
               font-size: 16pt;
               font-weight: 900;
-              color: ${brandColor};
               text-align: center;
               flex: 1;
               text-transform: uppercase;
@@ -182,7 +188,7 @@ export default function CatalogoPage() {
               max-height: 95%; 
               object-fit: contain; 
             }
-            .no-image { opacity: 0.2; font-weight: 900; font-size: 20pt; text-align: center; }
+            .no-image { font-weight: 900; font-size: 20pt; text-align: center; }
 
             .photos.two .photo-frame { width: 50%; }
             .photos.three { display: grid; grid-template-columns: 1.2fr 0.8fr; grid-template-rows: 1fr 1fr; }
@@ -192,7 +198,7 @@ export default function CatalogoPage() {
               width: 100%; 
               min-height: 55mm; 
               margin-top: auto;
-              border: 2.5px solid ${brandColor}22; 
+              border: 2px solid; 
               border-radius: 5mm; 
               display: grid; 
               grid-template-columns: 1.3fr 0.7fr; 
@@ -201,7 +207,7 @@ export default function CatalogoPage() {
             }
             .details { 
               padding: 6mm; 
-              border-right: 1.5px solid ${brandColor}11; 
+              border-right: 1px solid #eee; 
               display: flex; 
               flex-direction: column; 
               justify-content: center; 
@@ -257,25 +263,17 @@ export default function CatalogoPage() {
           <script>
             window.addEventListener('load', () => {
               const images = Array.from(document.querySelectorAll('img'));
-              if (images.length === 0) { window.print(); return; }
-              
-              console.log('Total imágenes encontradas:', images.length);
+              if (images.length === 0) { setTimeout(() => window.print(), 500); return; }
               
               const loadPromises = images.map(img => {
                 return new Promise((resolve) => {
-                  if (img.complete) {
-                    console.log('Imagen ya cargada:', img.src);
-                    resolve();
-                  } else {
-                    img.onload = () => {
-                      console.log('Cargada correctamente:', img.src);
-                      resolve();
-                    };
+                  if (img.complete) resolve();
+                  else {
+                    img.onload = () => resolve();
                     img.onerror = () => {
-                      console.error('ERROR CARGA IMAGEN:', img.src);
                       const err = document.createElement('div');
-                      err.style.cssText = 'color:red; font-size:7pt; font-weight:900; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.8); text-align:center; padding:5px;';
-                      err.innerText = 'ERROR CARGA: ' + img.src;
+                      err.style.cssText = 'color:red; font-size:7pt; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.8);';
+                      err.innerText = 'ERROR CARGA';
                       img.parentNode.appendChild(err);
                       resolve();
                     };
@@ -284,8 +282,7 @@ export default function CatalogoPage() {
               });
               
               Promise.all(loadPromises).then(() => {
-                console.log('Todas las imágenes procesadas. Iniciando impresión...');
-                setTimeout(() => { window.print(); }, 800);
+                setTimeout(() => { window.print(); }, 1000);
               });
             });
           </script>
@@ -311,8 +308,8 @@ export default function CatalogoPage() {
 
       <Tabs defaultValue="categories" className="w-full">
         <TabsList className="bg-black/5 p-1 rounded-2xl w-full md:w-auto border mb-10">
-          <TabsTrigger value="categories" className="rounded-xl px-12 data-[state=active]:bg-black data-[state=active]:text-white text-xs font-black uppercase"><Layers className="w-4 h-4 mr-2" /> Categorías</TabsTrigger>
-          <TabsTrigger value="collections" className="rounded-xl px-12 data-[state=active]:bg-black data-[state=active]:text-white text-xs font-black uppercase"><LayoutGrid className="w-4 h-4 mr-2" /> Colecciones</TabsTrigger>
+          <TabsTrigger value="categories" className="rounded-xl px-8 md:px-12 data-[state=active]:bg-black data-[state=active]:text-white text-xs font-black uppercase"><Layers className="w-4 h-4 mr-2" /> Categorías</TabsTrigger>
+          <TabsTrigger value="collections" className="rounded-xl px-8 md:px-12 data-[state=active]:bg-black data-[state=active]:text-white text-xs font-black uppercase"><LayoutGrid className="w-4 h-4 mr-2" /> Colecciones</TabsTrigger>
         </TabsList>
 
         <TabsContent value="categories">
