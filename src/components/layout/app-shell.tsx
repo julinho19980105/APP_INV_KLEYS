@@ -133,7 +133,7 @@ function AppSidebar({ pathname }: { pathname: string }) {
              <span className="text-[8px] font-black text-white">AD</span>
           </div>
           <div className="flex flex-col group-data-[collapsible=icon]:hidden">
-            <span className="text-[10px] font-black text-black uppercase tracking-tighter">ADMI</span>
+            <span className="text-[10px] font-black text-black uppercase tracking-tighter">ADMIN</span>
           </div>
         </div>
       </SidebarFooter>

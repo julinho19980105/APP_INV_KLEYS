@@ -20,10 +20,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Search, Edit2, Trash2, MoreVertical, Calendar, Package, Layers, LayoutGrid } from "lucide-react"
+import { Search, Edit2, Trash2, MoreVertical, Calendar, LayoutGrid, Layers } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useCollection, useFirestore, useDoc } from "@/firebase"
-import { collection, query, orderBy, doc, deleteDoc, getDocs, where, writeBatch } from "firebase/firestore"
+import { collection, query, orderBy, doc, deleteDoc, serverTimestamp } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 
 export default function InventoryPage() {
@@ -35,13 +35,12 @@ export default function InventoryPage() {
   const configDocRef = React.useMemo(() => db ? doc(db, "config", "global") : null, [db])
   const { data: config } = useDoc(configDocRef)
   const brandColor = config?.brandColor || "#FF3399"
+  const viewType = config?.inventoryViewMode || "collection"
   
   const productsRef = React.useMemo(() => db ? query(collection(db, "products"), orderBy("code", "asc")) : null, [db])
   const movementsRef = React.useMemo(() => db ? query(collection(db, "movements"), orderBy("timestamp", "desc")) : null, [db])
   const { data: products = [] } = useCollection(productsRef)
   const { data: movements = [] } = useCollection(movementsRef)
-
-  const viewType = config?.inventoryViewMode || "collection"
 
   const filteredProducts = React.useMemo(() => {
     const q = searchQuery.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
@@ -62,7 +61,7 @@ export default function InventoryPage() {
   }, [filteredProducts, viewType])
 
   const groupedMovements = React.useMemo(() => {
-    const groups: Record<string, any[]> = {}
+    const groups: Record<string, { label: string, items: any[] }> = {}
     movements.forEach(m => {
       const date = m.timestamp?.toDate ? m.timestamp.toDate() : new Date()
       const dayLabel = date.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }).toUpperCase()
@@ -72,19 +71,17 @@ export default function InventoryPage() {
     return Object.values(groups)
   }, [movements])
 
-  const onEdit = (id: string) => router.push(`/registry?edit=${id}`)
-  
-  const onDelete = async (prod: {id: string, code: string}) => {
+  const onDelete = async (id: string) => {
     if (!db) return
     try {
-      await deleteDoc(doc(db, "products", prod.id))
+      await deleteDoc(doc(db, "products", id))
       toast({ title: "BAJA PROCESADA" })
     } catch (e) { toast({ variant: "destructive", title: "ERROR AL ELIMINAR" }) }
   }
 
   return (
     <div className="space-y-6 pt-2 pb-20 max-w-full px-2 md:px-4">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b-2 border-black pb-4">
         <div>
           <h1 className="text-3xl font-headline font-black text-black uppercase tracking-tight">Almacén Diva</h1>
           <p className="text-[9px] font-black text-primary uppercase tracking-[0.2em] ml-1 mt-0.5">
@@ -92,10 +89,10 @@ export default function InventoryPage() {
           </p>
         </div>
         <div className="relative w-full md:w-80">
-          <Search className="absolute left-3.5 top-3.5 h-3.5 w-3.5" style={{ color: brandColor }} />
+          <Search className="absolute left-3 top-3 h-4 w-4" style={{ color: brandColor }} />
           <Input 
-            placeholder="BUSCAR DNI O PRENDA..." 
-            className="pl-10 h-10 rounded-xl border-black/10 font-black text-xs uppercase shadow-sm bg-white"
+            placeholder="BUSCAR PRENDA..." 
+            className="pl-10 h-10 rounded-xl border-black/10 font-black text-[10px] uppercase shadow-sm bg-white"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
           />
@@ -108,61 +105,58 @@ export default function InventoryPage() {
           <TabsTrigger value="movements" className="rounded-xl px-8 data-[state=active]:bg-black data-[state=active]:text-white text-[9px] font-black uppercase">Kardex Diario</TabsTrigger>
         </TabsList>
         
-        <TabsContent value="all" className="space-y-6">
+        <TabsContent value="all" className="space-y-8">
           {groupedProducts.map(([groupName, items]) => (
-            <div key={groupName} className="space-y-2">
+            <div key={groupName} className="space-y-3">
               <div className="flex items-center gap-2 px-4 py-1.5 bg-black/5 border rounded-xl w-fit">
-                {viewType === 'collection' ? 
-                  <LayoutGrid className="w-3.5 h-3.5" style={{ color: brandColor }} /> : 
-                  <Layers className="w-3.5 h-3.5" style={{ color: brandColor }} />
-                }
+                {viewType === 'collection' ? <LayoutGrid className="w-3.5 h-3.5" style={{ color: brandColor }} /> : <Layers className="w-3.5 h-3.5" style={{ color: brandColor }} />}
                 <span className="text-[10px] font-black uppercase tracking-widest">{groupName}</span>
               </div>
               
               <div className="border rounded-2xl bg-white shadow-sm overflow-x-auto scrollbar-hide">
-                <Table className="min-w-[700px]">
+                <Table className="min-w-[600px]">
                   <TableHeader>
                     <TableRow className="bg-black/5 hover:bg-black/5 border-none h-10">
                       <TableHead className="font-black uppercase text-[8px] text-black pl-6">Prenda / DNI</TableHead>
                       <TableHead className="font-black uppercase text-[8px] text-black">Precios (F / M / U)</TableHead>
-                      <TableHead className="font-black uppercase text-[8px] text-black text-center">Stock Disponible</TableHead>
+                      <TableHead className="font-black uppercase text-[8px] text-black text-center">Stock</TableHead>
                       <TableHead className="w-12 pr-6"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {items.map(p => (
-                      <TableRow key={p.id} className="hover:bg-black/5 transition-colors border-b last:border-0 h-14">
+                      <TableRow key={p.id} className="hover:bg-black/5 transition-colors border-b last:border-0 h-12">
                         <TableCell className="pl-6 py-2">
                           <div className="flex flex-col">
-                            <span className="font-black text-[11px] text-black uppercase truncate max-w-[200px] leading-tight">{p.name}</span>
+                            <span className="font-black text-[11px] text-black uppercase leading-tight truncate max-w-[180px]">{p.name}</span>
                             <span className="font-normal text-[8px] text-black/40 uppercase leading-tight">{p.code}</span>
                           </div>
                         </TableCell>
                         <TableCell className="py-2">
                           <div className="flex flex-col text-[9px] uppercase">
-                            <span className="font-normal text-black/60 leading-tight">F: S/{p.priceFardo} · M: S/{p.priceMayor}</span>
-                            <span className="font-black text-black leading-tight">U: S/{p.priceUnidad}</span>
+                            <span className="font-normal text-black/60 leading-tight">F: {p.priceFardo} · M: {p.priceMayor}</span>
+                            <span className="font-black text-black leading-tight">U: S/ {p.priceUnidad}</span>
                           </div>
                         </TableCell>
                         <TableCell className="text-center py-2">
                           <div className={cn(
-                            "font-black text-[10px] px-2 py-0.5 rounded-lg inline-flex flex-col items-center justify-center min-w-[60px]",
+                            "font-black text-[10px] px-2 py-0.5 rounded-lg inline-flex flex-col items-center justify-center min-w-[50px]",
                             p.stock <= 0 ? "bg-red-50 text-red-600" : "bg-green-50 text-green-700"
                           )}>
                             <span>{p.stock}</span>
-                            <span className="text-[7px] font-normal uppercase">Unidades</span>
+                            <span className="text-[7px] font-normal uppercase">UND</span>
                           </div>
                         </TableCell>
                         <TableCell className="text-right pr-6 py-2">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl"><MoreVertical className="w-3.5 h-3.5" /></Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl"><MoreVertical className="w-3.5 h-3.5" style={{ color: brandColor }} /></Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="rounded-2xl p-2 shadow-2xl border-black/10">
-                              <DropdownMenuItem className="text-[9px] font-black uppercase gap-2 cursor-pointer p-3 rounded-xl" onClick={() => onEdit(p.id)}>
+                              <DropdownMenuItem className="text-[9px] font-black uppercase gap-2 cursor-pointer p-3 rounded-xl" onClick={() => router.push(`/registry?edit=${p.id}`)}>
                                 <Edit2 className="w-3 h-3" style={{ color: brandColor }} /> Editar
                               </DropdownMenuItem>
-                              <DropdownMenuItem className="text-[9px] font-black uppercase gap-2 cursor-pointer p-3 rounded-xl text-destructive hover:bg-destructive/10" onClick={() => onDelete({id: p.id, code: p.code})}>
+                              <DropdownMenuItem className="text-[9px] font-black uppercase gap-2 cursor-pointer p-3 rounded-xl text-destructive" onClick={() => onDelete(p.id)}>
                                 <Trash2 className="w-3 h-3" /> Eliminar
                               </DropdownMenuItem>
                             </DropdownMenuContent>
@@ -199,9 +193,9 @@ export default function InventoryPage() {
                                 )}>
                                   {m.type === 'in' ? 'Entrada' : m.type === 'out' ? 'Salida' : 'Retorno'}
                                 </span>
-                                <span className="font-black text-[10px] text-black">{m.quantity} UND.</span>
+                                <span className="font-black text-[10px] text-black uppercase">{m.quantity} UND.</span>
                               </div>
-                              <span className="text-[8px] font-normal text-black/40 uppercase leading-tight truncate max-w-[250px]">
+                              <span className="text-[8px] font-normal text-black/40 uppercase leading-tight truncate max-w-[200px]">
                                 {m.reason} · {m.productCode}
                               </span>
                             </div>
