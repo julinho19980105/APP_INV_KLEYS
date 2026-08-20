@@ -9,7 +9,7 @@
  * function doPost(e) {
  *   try {
  *     var data = JSON.parse(e.postData.contents);
- *     var folderId = "1eiNwGNeMfRcP7yd6-XkhLLzTCoxC4uOT"; // Asegúrate que este sea tu ID
+ *     var folderId = "1eiNwGNeMfRcP7yd6-XkhLLzTCoxC4uOT"; 
  *     var folder = DriveApp.getFolderById(folderId);
  *     
  *     if (data.action === "uploadImage") {
@@ -26,15 +26,49 @@
  *     }
  *
  *     if (data.action === "updateCatalog") {
- *       var files = folder.getFilesByName("catalog.json");
- *       var file;
- *       if (files.hasNext()) {
- *         file = files.next();
- *         file.setContent(JSON.stringify(data.catalog));
+ *       // 1. ACTUALIZAR JSON (Para Apps)
+ *       var jsonFiles = folder.getFilesByName("catalog.json");
+ *       if (jsonFiles.hasNext()) {
+ *         jsonFiles.next().setContent(JSON.stringify(data.catalog));
  *       } else {
- *         file = folder.createFile("catalog.json", JSON.stringify(data.catalog), MimeType.PLAIN_TEXT);
+ *         folder.createFile("catalog.json", JSON.stringify(data.catalog), MimeType.PLAIN_TEXT)
+ *               .setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
  *       }
- *       file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+ *
+ *       // 2. ACTUALIZAR GOOGLE SHEET (Para Humanos)
+ *       var ssFiles = folder.getFilesByName("Inventario_Diva_Industrial");
+ *       var ss;
+ *       if (ssFiles.hasNext()) {
+ *         ss = SpreadsheetApp.open(ssFiles.next());
+ *       } else {
+ *         ss = SpreadsheetApp.create("Inventario_Diva_Industrial");
+ *         var ssFile = DriveApp.getFileById(ss.getId());
+ *         folder.addFile(ssFile);
+ *         DriveApp.getRootFolder().removeFile(ssFile);
+ *       }
+ *       var sheet = ss.getSheets()[0];
+ *       sheet.clear();
+ *       
+ *       var headers = ["CÓDIGO", "NOMBRE", "CATEGORÍA", "COLECCIÓN", "P. FARDO", "P. MAYOR", "P. UNIDAD", "IMÁGENES (LINKS)", "DESCRIPCIÓN"];
+ *       sheet.appendRow(headers);
+ *       sheet.getRange(1, 1, 1, headers.length).setFontWeight("bold").setBackground("#f3f3f3").setHorizontalAlignment("center");
+ *
+ *       data.catalog.forEach(function(p) {
+ *         sheet.appendRow([
+ *           p.code, 
+ *           p.name, 
+ *           p.category, 
+ *           p.collection, 
+ *           p.priceFardo, 
+ *           p.priceMayor, 
+ *           p.priceUnidad, 
+ *           (p.images || []).join("\n"), 
+ *           p.description
+ *         ]);
+ *       });
+ *       sheet.setColumnWidth(8, 400); // Columna de imágenes más ancha
+ *       sheet.setColumnWidth(9, 300); // Columna de descripción
+ *
  *       return ContentService.createTextOutput(JSON.stringify({ success: true }))
  *         .setMimeType(ContentService.MimeType.JSON);
  *     }
@@ -80,7 +114,7 @@ export async function uploadImageToDrive(base64Data: string, fileName: string): 
 export async function syncCatalogToDrive(products: any[]): Promise<void> {
   if (!API_CONFIG.WEB_APP_URL) return;
   try {
-    // Solo productos con stock y sin el campo stock para el catálogo comercial
+    // Filtrar solo productos con stock > 0 para el catálogo comercial y la hoja de cálculo
     const cleanCatalog = products
       .filter(p => p.stock > 0)
       .map(({ stock, updatedAt, ...rest }) => rest);
