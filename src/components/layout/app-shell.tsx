@@ -51,7 +51,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="flex min-h-screen w-full bg-background overflow-hidden">
         <AppSidebar pathname={pathname} />
         <SidebarInset className="flex-1 overflow-auto bg-background">
-          {/* Mobile Header Industrial */}
           <header className="md:hidden flex items-center justify-between p-4 bg-white border-b-2 border-black sticky top-0 z-50 shadow-sm">
             <div className="flex items-center gap-3">
               <SidebarTrigger className="h-10 w-10 border-2 border-black rounded-xl flex items-center justify-center bg-white text-black active:scale-95" />
@@ -75,7 +74,8 @@ function AppSidebar({ pathname }: { pathname: string }) {
 
   const settings = {
     companyName: companySettings?.companyName || "StiloStack",
-    companyLogo: companySettings?.companyLogo || ""
+    companyLogo: companySettings?.companyLogo || "",
+    brandColor: companySettings?.brandColor || "#FF3399"
   }
 
   return (
@@ -113,9 +113,12 @@ function AppSidebar({ pathname }: { pathname: string }) {
                 )}
               >
                 <Link href={item.href}>
-                  <item.icon className={cn("w-5 h-5", pathname === item.href ? "text-white" : "text-black")} />
+                  <item.icon 
+                    className={cn("w-5 h-5")} 
+                    style={{ color: pathname === item.href ? '#FFFFFF' : settings.brandColor }} 
+                  />
                   <span className="font-black uppercase flex items-center gap-2">
-                    <span className="opacity-30 text-[9px]">{index + 1}.</span>
+                    <span className="opacity-30 text-[9px] font-black">{index + 1}.</span>
                     {item.name}
                   </span>
                 </Link>

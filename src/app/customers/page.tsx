@@ -28,7 +28,7 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu"
-import { useCollection, useFirestore } from "@/firebase"
+import { useCollection, useFirestore, useDoc } from "@/firebase"
 import { collection, query, orderBy, serverTimestamp, setDoc, doc, limit, getDocs, deleteDoc } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
@@ -36,28 +36,28 @@ import { cn } from "@/lib/utils"
 export default function CustomersPage() {
   const db = useFirestore()
   const { toast } = useToast()
+  
+  const configDocRef = React.useMemo(() => db ? doc(db, "config", "global") : null, [db])
+  const { data: config } = useDoc(configDocRef)
+  const brandColor = config?.brandColor || "#FF3399"
+
   const [searchQuery, setSearchQuery] = React.useState("")
   const [saving, setSaving] = React.useState(false)
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
-
   const [newCustomer, setNewCustomer] = React.useState({ name: "", phone: "", location: "" })
 
   const customersRef = React.useMemo(() => 
     db ? query(collection(db, "customers"), orderBy("id", "asc")) : null
   , [db])
-  
   const { data: customers = [], loading } = useCollection(customersRef)
 
   const filteredCustomers = React.useMemo(() => {
-    const q = searchQuery.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-    return customers.filter(c => 
-      c.name?.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(q) || 
-      c.id?.toLowerCase().includes(q)
-    )
+    const q = searchQuery.toLowerCase()
+    return customers.filter(c => c.name?.toLowerCase().includes(q) || c.id?.toLowerCase().includes(q))
   }, [customers, searchQuery])
 
   const handleRegister = async () => {
-    if (!db || !newCustomer.name.trim()) return
+    if (!db || !newCustomer.name) return
     setSaving(true)
     try {
       const q = query(collection(db, "customers"), orderBy("id", "desc"), limit(1))
@@ -65,33 +65,14 @@ export default function CustomersPage() {
       let nextId = "CL-001"
       if (!snap.empty) {
         const lastId = snap.docs[0].id
-        const match = lastId.match(/\d+/)
-        const lastNum = match ? parseInt(match[0]) : 0
+        const lastNum = parseInt(lastId.split('-')[1]) || 0
         nextId = `CL-${(lastNum + 1).toString().padStart(3, '0')}`
       }
-
-      await setDoc(doc(db, "customers", nextId), {
-        id: nextId,
-        name: newCustomer.name.toUpperCase().trim(),
-        phone: newCustomer.phone.trim(),
-        location: newCustomer.location.toUpperCase().trim(),
-        createdAt: serverTimestamp()
-      })
-
-      toast({ title: "CLIENTE REGISTRADO" })
-      setNewCustomer({ name: "", phone: "", location: "" })
+      await setDoc(doc(db, "customers", nextId), { id: nextId, name: newCustomer.name.toUpperCase(), phone: newCustomer.phone, location: newCustomer.location, createdAt: serverTimestamp() })
+      toast({ title: "Cliente Registrado" })
       setIsDialogOpen(false)
-    } catch (e) {
-      toast({ variant: "destructive", title: "ERROR" })
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const handleDelete = async (id: string) => {
-    if (!db) return
-    await deleteDoc(doc(db, "customers", id))
-    toast({ title: "CLIENTE ELIMINADO" })
+    } catch (e) { toast({ variant: "destructive", title: "Error" }) }
+    finally { setSaving(false) }
   }
 
   return (
@@ -103,7 +84,7 @@ export default function CustomersPage() {
         </div>
         <div className="flex w-full md:w-auto gap-3">
           <div className="relative flex-1 md:w-64">
-            <Search className="absolute left-3.5 top-3.5 h-4 w-4 text-black/40" />
+            <Search className="absolute left-3.5 top-3.5 h-4 w-4" style={{ color: brandColor }} />
             <Input 
               placeholder="BUSCAR CLIENTE..." 
               className="pl-10 h-11 rounded-xl border-black/10 font-black text-xs uppercase"
@@ -113,16 +94,14 @@ export default function CustomersPage() {
           </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="h-11 bg-black text-white font-black rounded-xl px-6 shadow-lg active:scale-95 transition-all">
+              <Button className="h-11 bg-black text-white font-black rounded-xl px-6 shadow-lg">
                 <UserPlus className="w-4 h-4 mr-2" /> NUEVO
               </Button>
             </DialogTrigger>
             <DialogContent className="rounded-[2.5rem] border-none shadow-2xl max-w-md">
               <DialogHeader><DialogTitle className="text-sm font-black text-black uppercase tracking-widest">Alta de Cliente</DialogTitle></DialogHeader>
               <div className="space-y-4 pt-4">
-                <div className="space-y-1"><Label className="text-[9px] font-black uppercase text-black ml-1">Nombre Completo *</Label><Input value={newCustomer.name} onChange={e => setNewCustomer({...newCustomer, name: e.target.value})} className="h-10 text-xs font-black uppercase rounded-xl border-black/10" /></div>
-                <div className="space-y-1"><Label className="text-[9px] font-black uppercase text-black ml-1">Teléfono</Label><Input value={newCustomer.phone} onChange={e => setNewCustomer({...newCustomer, phone: e.target.value})} className="h-10 text-xs font-black rounded-xl border-black/10" /></div>
-                <div className="space-y-1"><Label className="text-[9px] font-black uppercase text-black ml-1">Ubicación</Label><Input value={newCustomer.location} onChange={e => setNewCustomer({...newCustomer, location: e.target.value})} className="h-10 text-xs font-black uppercase rounded-xl border-black/10" /></div>
+                <div className="space-y-1"><Label className="text-[9px] font-black uppercase text-black ml-1">Nombre Completo *</Label><Input value={newCustomer.name} onChange={e => setNewCustomer({...newCustomer, name: e.target.value})} className="h-10 text-xs font-black uppercase rounded-xl" /></div>
                 <Button className="w-full h-12 bg-black text-white font-black rounded-xl mt-2" onClick={handleRegister} disabled={saving || !newCustomer.name}>{saving ? <Loader2 className="animate-spin" /> : "REGISTRAR CLIENTE"}</Button>
               </div>
             </DialogContent>
@@ -133,39 +112,28 @@ export default function CustomersPage() {
       <Card className="rounded-[2rem] border shadow-sm overflow-hidden bg-white">
         <Table>
           <TableHeader>
-            <TableRow className="bg-black/5 hover:bg-black/5 border-none">
+            <TableRow className="bg-black/5 hover:bg-black/5 border-none h-10">
               <TableHead className="font-black text-[9px] uppercase text-black pl-8 w-24">ID</TableHead>
-              <TableHead className="font-black text-[9px] uppercase text-black">Cliente</TableHead>
+              <TableHead className="font-black text-[9px] uppercase text-black">Cliente Diva</TableHead>
               <TableHead className="text-right pr-8"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredCustomers.map(c => (
-              <TableRow key={c.id} className="hover:bg-black/5 transition-colors border-b last:border-0">
-                <TableCell className="pl-8 py-3 w-24">
-                  <span className="font-black text-[10px] bg-black text-white px-2 py-0.5 rounded-lg">{c.id}</span>
-                </TableCell>
-                <TableCell className="font-black text-[12px] text-black uppercase py-3 truncate max-w-[200px]">
-                  {c.name}
-                </TableCell>
-                <TableCell className="text-right pr-8 py-3">
+              <TableRow key={c.id} className="hover:bg-black/5 transition-colors border-b last:border-0 h-12">
+                <TableCell className="pl-8 py-0 w-24"><span className="font-black text-[10px] text-black/40">{c.id}</span></TableCell>
+                <TableCell className="py-0"><span className="font-black text-[11px] text-black uppercase">{c.name}</span></TableCell>
+                <TableCell className="text-right pr-8 py-0">
                   <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-black/10"><MoreVertical className="w-4 h-4 text-black" /></Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="rounded-2xl border-black/10 shadow-2xl p-2 w-32">
-                      <DropdownMenuItem className="text-[10px] font-black uppercase gap-2 cursor-pointer p-3 rounded-xl"><Edit2 className="w-3.5 h-3.5" /> Editar</DropdownMenuItem>
-                      <DropdownMenuItem className="text-[10px] font-black uppercase gap-2 cursor-pointer p-3 rounded-xl text-destructive hover:bg-destructive/10" onClick={() => handleDelete(c.id)}><Trash2 className="w-3.5 h-3.5" /> Eliminar</DropdownMenuItem>
+                    <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreVertical className="w-4 h-4" /></Button></DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="rounded-2xl border-black/10 p-2">
+                      <DropdownMenuItem className="text-[9px] font-black uppercase gap-2 p-3 rounded-xl"><Edit2 className="w-3.5 h-3.5" style={{ color: brandColor }} /> Editar</DropdownMenuItem>
+                      <DropdownMenuItem className="text-[9px] font-black uppercase gap-2 p-3 rounded-xl text-destructive" onClick={() => deleteDoc(doc(db, "customers", c.id))}><Trash2 className="w-3.5 h-3.5" /> Eliminar</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>
               </TableRow>
             ))}
-            {!loading && filteredCustomers.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={3} className="text-center py-20 text-[10px] font-black uppercase text-black/20 tracking-widest">Sin clientes</TableCell>
-              </TableRow>
-            )}
           </TableBody>
         </Table>
       </Card>
