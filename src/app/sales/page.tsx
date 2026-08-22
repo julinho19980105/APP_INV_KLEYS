@@ -116,26 +116,54 @@ export default function SalesPage() {
     return Object.values(groups)
   }, [filteredQuotes])
 
-  // Bluetooth Connection Logic
+  // Improved Bluetooth Connection Logic (BLE Focus)
   const connectPrinter = async () => {
     try {
       const device = await (navigator as any).bluetooth.requestDevice({
-        filters: [{ services: ['000018f0-0000-1000-8000-00805f9b34fb', '0000ff00-0000-1000-8000-00805f9b34fb'] }],
-        optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb', '0000ff00-0000-1000-8000-00805f9b34fb']
+        filters: [
+          { services: ['000018f0-0000-1000-8000-00805f9b34fb'] },
+          { services: ['0000ff00-0000-1000-8000-00805f9b34fb'] },
+          { namePrefix: 'Printer' },
+          { namePrefix: 'TP' },
+          { namePrefix: 'MTP' },
+          { namePrefix: 'Inner' }
+        ],
+        optionalServices: [
+          '000018f0-0000-1000-8000-00805f9b34fb',
+          '0000ff00-0000-1000-8000-00805f9b34fb',
+          '00001800-0000-1000-8000-00805f9b34fb',
+          '00001801-0000-1000-8000-00805f9b34fb',
+          '00004953-5343-4c45-4e49-585345525649' // Some thermal printers service
+        ]
       })
       
       const server = await device.gatt?.connect()
+      
+      // Buscamos exhaustivamente en todos los servicios primarios
       const services = await server?.getPrimaryServices()
       if (!services || services.length === 0) throw new Error("No se encontraron servicios de impresión")
       
-      const characteristics = await services[0].getCharacteristics()
-      const writeChar = characteristics.find((c: any) => c.properties.write || c.properties.writeWithoutResponse)
+      let foundCharacteristic = null
+      for (const service of services) {
+        try {
+          const characteristics = await service.getCharacteristics()
+          const writeChar = characteristics.find((c: any) => 
+            c.properties.write || c.properties.writeWithoutResponse
+          )
+          if (writeChar) {
+            foundCharacteristic = writeChar
+            break
+          }
+        } catch (e) {
+          continue // Algunos servicios pueden no ser accesibles
+        }
+      }
       
-      if (!writeChar) throw new Error("No se encontró característica de escritura")
+      if (!foundCharacteristic) throw new Error("No se encontró característica de escritura compatible")
       
       setBleDevice(device)
-      setPrintCharacteristic(writeChar)
-      toast({ title: "Impresora Conectada" })
+      setPrintCharacteristic(foundCharacteristic)
+      toast({ title: "Impresora Conectada Correctamente" })
       
       device.addEventListener('gattserverdisconnected', () => {
         setBleDevice(null)
@@ -144,7 +172,7 @@ export default function SalesPage() {
       })
     } catch (e) {
       console.error(e)
-      toast({ variant: "destructive", title: "Error al conectar impresora Bluetooth" })
+      toast({ variant: "destructive", title: "No se captó el dispositivo Bluetooth. Revisa que esté encendido y visible." })
     }
   }
 
@@ -172,7 +200,7 @@ export default function SalesPage() {
       right: new Uint8Array([0x1b, 0x61, 0x02]),
       boldOn: new Uint8Array([0x1b, 0x45, 0x01]),
       boldOff: new Uint8Array([0x1b, 0x45, 0x00]),
-      tripleSize: new Uint8Array([0x1d, 0x21, 0x22]), // Triple width & Triple height
+      tripleSize: new Uint8Array([0x1d, 0x21, 0x22]), 
       normalSize: new Uint8Array([0x1d, 0x21, 0x00]),
       feed: new Uint8Array([0x0a, 0x0a, 0x0a]),
       cut: new Uint8Array([0x1d, 0x56, 0x41, 0x03])
@@ -196,7 +224,6 @@ export default function SalesPage() {
         ...esc.left
       ])
 
-      // Seccion Cliente y Fecha (2 columnas)
       const dateStr = format(sale.createdAt?.toDate ? sale.createdAt.toDate() : new Date(), "dd/MM/yy HH:mm")
       const nameHeader = "NOMBRE".padEnd(charWidth / 2)
       const dateHeader = "FECHA".padStart(charWidth / 2)
@@ -218,7 +245,6 @@ export default function SalesPage() {
         const item = sale.items[i]
         const subtotal = (Number(item.price) * Number(item.quantity)) - (Number(item.discount) || 0)
         
-        // Formato Enumerado: 1- NOMBRE + DESCRIPCION
         const itemLine = `${i + 1}- ${item.name} ${item.description || ""}\n`
         const valuesLine = `    CANT: ${item.quantity}  P.U: S/ ${item.price}  SUB: S/ ${subtotal.toFixed(2)}\n`
         
@@ -333,7 +359,7 @@ export default function SalesPage() {
             onClick={connectPrinter}
           >
             {bleDevice ? <BluetoothConnected className="w-4 h-4" /> : <Bluetooth className="w-4 h-4" />}
-            {bleDevice ? "Impresora Lista" : "Conectar BLE"}
+            {bleDevice ? "Impresora Lista" : "Conectar Bluetooth"}
           </Button>
           <div className="relative flex-1 md:w-48">
             <Search className="absolute left-3 top-3 h-4 w-4" style={{ color: brandColor }} />
@@ -478,14 +504,14 @@ export default function SalesPage() {
         </Button>
       </div>
 
-      {/* Plantilla de Boleta Imagen (Diseño Industrial Mejorado) */}
+      {/* Blinded Receipt Image Template (Fixed Design) */}
       <div className="fixed -left-[8000px] top-0">
         {activeReceipt && (
           <div 
             ref={receiptRef} 
             className="bg-white p-12 w-[800px] text-black font-sans relative"
           >
-            {/* Cabecera con líneas dobles */}
+            {/* Cabecera con líneas dobles blindada */}
             <div className="border-t-[6px] mb-2" style={{ borderColor: brandColor }}></div>
             <div className="border-t-[6px] mb-6" style={{ borderColor: brandColor }}></div>
             
@@ -499,7 +525,6 @@ export default function SalesPage() {
             
             <div className="border-t-[6px] mb-10" style={{ borderColor: brandColor }}></div>
 
-            {/* Dos columnas de datos */}
             <div className="grid grid-cols-2 gap-12 mb-12 px-4">
               <div className="space-y-4">
                 <div className="text-xl font-black text-black/30 uppercase tracking-[0.2em]">NOMBRE</div>
@@ -556,7 +581,7 @@ export default function SalesPage() {
 
             <div className="border-t-[6px] mb-8" style={{ borderColor: brandColor }}></div>
 
-            {/* Totales Ajustados */}
+            {/* Totales Ajustados Blindados (Mitad del tamaño del título) */}
             <div className="flex justify-between items-center px-6 mb-8">
               <div className="flex flex-col items-start">
                 <div className="text-xl font-black uppercase text-black/30 tracking-widest">CANTIDAD TOTAL</div>
