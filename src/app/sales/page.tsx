@@ -173,7 +173,7 @@ export default function SalesPage() {
           <div className="relative flex-1 md:w-72">
             <Search className="absolute left-4 top-4 h-4 w-4" style={{ color: brandColor }} />
             <Input 
-              placeholder="BUSCAR BOLETA..." 
+              placeholder="" 
               className="pl-12 h-12 rounded-2xl border-primary/10 font-black text-xs uppercase bg-white shadow-sm focus:ring-primary"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}

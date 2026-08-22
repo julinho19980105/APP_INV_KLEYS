@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -272,7 +273,7 @@ export default function QuotesPage() {
           <Label className="text-[9px] uppercase text-black font-black ml-1">CLIENTE</Label>
           <div className="relative">
             <Input 
-              placeholder="NOMBRE O ID..." 
+              placeholder="" 
               className="h-11 text-xs font-black uppercase rounded-xl border-black/10 bg-white"
               value={selectedCustomer ? `${selectedCustomer.name} [${selectedCustomer.id}]` : customerQuery}
               onChange={e => { if (selectedCustomer) setSelectedCustomer(null); setCustomerQuery(e.target.value); }}
@@ -294,7 +295,7 @@ export default function QuotesPage() {
           <div className="relative">
             <Search className="absolute left-3 top-3.5 h-4 w-4" style={{ color: brandColor }} />
             <Input 
-              placeholder="DNI O NOMBRE..." 
+              placeholder="" 
               className="pl-9 h-11 rounded-xl border-black/10 font-black text-xs uppercase bg-white" 
               value={productQuery} 
               onChange={e => setProductQuery(e.target.value)} 
@@ -366,13 +367,13 @@ export default function QuotesPage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-1">
                     <Label className="text-[8px] font-black uppercase text-black/40 ml-1">PRECIO</Label>
-                    <Input type="number" className="h-10 text-xs font-black rounded-xl border-black/10" value={currentEntry.price} onChange={e => setCurrentEntry({...currentEntry, price: e.target.value})} />
+                    <Input type="number" className="h-10 text-xs font-black rounded-xl border-black/10" value={currentEntry.price} onChange={e => setCurrentEntry({...currentEntry, price: e.target.value})} placeholder="" />
                   </div>
                   <div className="grid grid-cols-2 gap-2 md:col-span-2">
                     <div className="space-y-1">
                       <Label className="text-[8px] font-black uppercase text-black/40 ml-1">CANTIDAD</Label>
                       <div className="flex gap-1">
-                        <Input type="number" className="h-10 text-xs font-black rounded-xl" style={{ borderColor: brandColor }} value={currentEntry.quantity} onChange={e => setCurrentEntry({...currentEntry, quantity: e.target.value})} />
+                        <Input type="number" className="h-10 text-xs font-black rounded-xl" style={{ borderColor: brandColor }} value={currentEntry.quantity} onChange={e => setCurrentEntry({...currentEntry, quantity: e.target.value})} placeholder="" />
                         <Button variant="outline" size="icon" className="h-10 w-10 shrink-0 rounded-xl" onClick={() => {
                           setCalcData({ unidades: currentEntry.calcUnidades || "", series: currentEntry.calcSeries || "", libres: currentEntry.calcLibres || "" });
                           setIsCalcOpen(true);
@@ -383,13 +384,13 @@ export default function QuotesPage() {
                     </div>
                     <div className="space-y-1">
                       <Label className="text-[8px] font-black uppercase text-black/40 ml-1">DSCTO</Label>
-                      <Input type="number" className="h-10 text-xs font-black border-orange-200 bg-orange-50 text-orange-600 rounded-xl" value={currentEntry.discount} onChange={e => setCurrentEntry({...currentEntry, discount: e.target.value})} />
+                      <Input type="number" className="h-10 text-xs font-black border-orange-200 bg-orange-50 text-orange-600 rounded-xl" value={currentEntry.discount} onChange={e => setCurrentEntry({...currentEntry, discount: e.target.value})} placeholder="" />
                     </div>
                   </div>
                 </div>
                 <div className="space-y-1">
                   <Label className="text-[8px] font-black uppercase text-black/40 ml-1">DESCRIPCIÓN / NOTAS</Label>
-                  <Input className="h-10 text-[10px] font-normal uppercase bg-black/5 border-none rounded-xl" value={currentEntry.description} onChange={e => setCurrentEntry({...currentEntry, description: e.target.value})} />
+                  <Input className="h-10 text-[10px] font-normal uppercase bg-black/5 border-none rounded-xl" value={currentEntry.description} onChange={e => setCurrentEntry({...currentEntry, description: e.target.value})} placeholder="" />
                 </div>
               </div>
             </div>
@@ -462,10 +463,10 @@ export default function QuotesPage() {
           <DialogHeader><DialogTitle className="text-xs font-black text-black uppercase tracking-widest">Calculadora de Series</DialogTitle></DialogHeader>
           <div className="space-y-4 pt-4">
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1"><Label className="text-[9px] font-black uppercase text-black/60">Unid x Serie</Label><Input type="number" value={calcData.unidades} onChange={e => setCalcData({...calcData, unidades: e.target.value})} className="h-10 text-xs font-black text-center" /></div>
-              <div className="space-y-1"><Label className="text-[9px] font-black uppercase text-black/60">N° Series</Label><Input type="number" value={calcData.series} onChange={e => setCalcData({...calcData, series: e.target.value})} className="h-10 text-xs font-black text-center" /></div>
+              <div className="space-y-1"><Label className="text-[9px] font-black uppercase text-black/60">Unid x Serie</Label><Input type="number" value={calcData.unidades} onChange={e => setCalcData({...calcData, unidades: e.target.value})} className="h-10 text-xs font-black text-center" placeholder="" /></div>
+              <div className="space-y-1"><Label className="text-[9px] font-black uppercase text-black/60">N° Series</Label><Input type="number" value={calcData.series} onChange={e => setCalcData({...calcData, series: e.target.value})} className="h-10 text-xs font-black text-center" placeholder="" /></div>
             </div>
-            <div className="space-y-1"><Label className="text-[9px] font-black uppercase text-black/60">+ Unid Libres</Label><Input type="number" value={calcData.libres} onChange={e => setCalcData({...calcData, libres: e.target.value})} className="h-10 text-xs font-black text-center" /></div>
+            <div className="space-y-1"><Label className="text-[9px] font-black uppercase text-black/60">+ Unid Libres</Label><Input type="number" value={calcData.libres} onChange={e => setCalcData({...calcData, libres: e.target.value})} className="h-10 text-xs font-black text-center" placeholder="" /></div>
             <div className="bg-black/5 p-4 rounded-xl text-center">
               <div className="text-[8px] font-black uppercase text-black/40 mb-1">Total Calculado</div>
               <div className="text-2xl font-black text-black">{(Number(calcData.unidades) * Number(calcData.series)) + Number(calcData.libres)} UND</div>

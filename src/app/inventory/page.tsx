@@ -74,7 +74,6 @@ export default function InventoryPage() {
   const configDocRef = React.useMemo(() => db ? doc(db, "config", "global") : null, [db])
   const { data: config } = useDoc(configDocRef)
   const brandColor = config?.brandColor || "#FF3399"
-  const viewType = config?.inventoryViewMode || "collection"
   
   const productsRef = React.useMemo(() => db ? query(collection(db, "products"), orderBy("code", "asc")) : null, [db])
   const movementsRef = React.useMemo(() => db ? query(collection(db, "movements"), orderBy("timestamp", "desc"), limit(100)) : null, [db])
@@ -137,7 +136,7 @@ export default function InventoryPage() {
           <div className="relative w-full md:w-80">
             <Search className="absolute left-4 top-4 h-4 w-4 text-primary/40" />
             <Input 
-              placeholder="BUSCAR PRENDA..." 
+              placeholder="" 
               className="pl-12 h-12 rounded-2xl border-primary/10 font-black text-xs uppercase shadow-sm bg-white focus:ring-primary"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}

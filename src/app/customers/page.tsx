@@ -87,7 +87,7 @@ export default function CustomersPage() {
           <div className="relative flex-1 md:w-64">
             <Search className="absolute left-3.5 top-3.5 h-4 w-4" style={{ color: brandColor }} />
             <Input 
-              placeholder="BUSCAR CLIENTE..." 
+              placeholder="" 
               className="pl-10 h-11 rounded-xl border-black/10 font-black text-xs uppercase"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
@@ -102,7 +102,7 @@ export default function CustomersPage() {
             <DialogContent className="rounded-[2.5rem] border-none shadow-2xl max-w-md">
               <DialogHeader><DialogTitle className="text-sm font-black text-black uppercase tracking-widest">Alta de Cliente</DialogTitle></DialogHeader>
               <div className="space-y-4 pt-4">
-                <div className="space-y-1"><Label className="text-[9px] font-black uppercase text-black ml-1">Nombre Completo *</Label><Input value={newCustomer.name} onChange={e => setNewCustomer({...newCustomer, name: e.target.value})} className="h-10 text-xs font-black uppercase rounded-xl" /></div>
+                <div className="space-y-1"><Label className="text-[9px] font-black uppercase text-black ml-1">Nombre Completo *</Label><Input value={newCustomer.name} onChange={e => setNewCustomer({...newCustomer, name: e.target.value})} className="h-10 text-xs font-black uppercase rounded-xl" placeholder="" /></div>
                 <Button className="w-full h-12 bg-black text-white font-black rounded-xl mt-2" onClick={handleRegister} disabled={saving || !newCustomer.name}>{saving ? <Loader2 className="animate-spin" /> : "REGISTRAR CLIENTE"}</Button>
               </div>
             </DialogContent>

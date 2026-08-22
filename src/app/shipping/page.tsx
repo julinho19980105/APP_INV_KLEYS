@@ -232,7 +232,7 @@ export default function ShippingPage() {
           <Search className="w-5 h-5 text-primary group-focus-within:text-white" />
         </div>
         <Input 
-          placeholder="AGREGAR CLIENTE AL LOTE..." 
+          placeholder="" 
           className="pl-20 h-20 rounded-[2.5rem] border-2 border-primary/10 font-black text-sm uppercase tracking-wide bg-white shadow-xl focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all"
           value={customerSearch}
           onChange={e => setCustomerSearch(e.target.value)}

@@ -76,8 +76,8 @@ export default function RegistryPage() {
   const [isRenameOpen, setIsRenameOpen] = React.useState(false)
   const [renameData, setRenameData] = React.useState({ type: "category", oldName: "", newName: "" })
 
-  const uniqueCategories = React.useMemo(() => Array.from(new Set(allProducts.map(p => (p.category || 'GENERAL').toUpperCase()).filter(Boolean))).sort(), [allProducts])
-  const uniqueCollections = React.useMemo(() => Array.from(new Set(allProducts.map(p => (p.collection || 'GENERAL').toUpperCase()).filter(Boolean))).sort(), [allProducts])
+  const uniqueCategories = React.useMemo(() => Array.from(new Set(allProducts.map(p => (p.category || '').toUpperCase()).filter(Boolean))).sort(), [allProducts])
+  const uniqueCollections = React.useMemo(() => Array.from(new Set(allProducts.map(p => (p.collection || '').toUpperCase()).filter(Boolean))).sort(), [allProducts])
 
   React.useEffect(() => {
     if (!db || editId) return
@@ -118,8 +118,8 @@ export default function RegistryPage() {
       const productData = {
         name: form.name.toUpperCase(),
         code: productCode,
-        category: (form.category || "GENERAL").toUpperCase(),
-        collection: (form.collection || "GENERAL").toUpperCase(),
+        category: (form.category || "").toUpperCase(),
+        collection: (form.collection || "").toUpperCase(),
         description: form.description,
         stock: Number(form.stock),
         priceFardo: Number(form.priceFardo || 0),
@@ -143,7 +143,7 @@ export default function RegistryPage() {
     setSaving(true)
     try {
       const batch = writeBatch(db)
-      const targetProducts = allProducts.filter(p => (p[renameData.type] || 'GENERAL').toUpperCase() === renameData.oldName.toUpperCase())
+      const targetProducts = allProducts.filter(p => (p[renameData.type] || '').toUpperCase() === renameData.oldName.toUpperCase())
       
       targetProducts.forEach(p => {
         const ref = doc(db, "products", p.id)
@@ -183,7 +183,7 @@ export default function RegistryPage() {
                   <Input 
                     value={form.name} 
                     onChange={e => setForm({...form, name: e.target.value})} 
-                    placeholder="ESCRIBIR NOMBRE..."
+                    placeholder=""
                     className="h-14 border-primary/10 rounded-2xl font-black text-base uppercase focus:ring-primary shadow-sm" 
                   />
                 </div>
@@ -194,7 +194,7 @@ export default function RegistryPage() {
                       <Label className="text-[11px] uppercase font-black text-primary tracking-widest">Categoría</Label>
                       <button 
                         className="text-primary/40 hover:text-primary transition-colors" 
-                        onClick={() => { setRenameData({ type: 'category', oldName: form.category || 'GENERAL', newName: "" }); setIsRenameOpen(true); }}
+                        onClick={() => { setRenameData({ type: 'category', oldName: form.category || '', newName: "" }); setIsRenameOpen(true); }}
                       >
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
@@ -203,7 +203,7 @@ export default function RegistryPage() {
                       <Input 
                         list="categories" 
                         value={form.category} 
-                        placeholder="GENERAL..."
+                        placeholder=""
                         onChange={e => setForm({...form, category: e.target.value.toUpperCase()})} 
                         className="h-14 border-primary/10 rounded-2xl font-black text-[12px] uppercase shadow-sm" 
                       />
@@ -218,7 +218,7 @@ export default function RegistryPage() {
                       <Label className="text-[11px] uppercase font-black text-primary tracking-widest">Colección</Label>
                       <button 
                         className="text-primary/40 hover:text-primary transition-colors" 
-                        onClick={() => { setRenameData({ type: 'collection', oldName: form.collection || 'GENERAL', newName: "" }); setIsRenameOpen(true); }}
+                        onClick={() => { setRenameData({ type: 'collection', oldName: form.collection || '', newName: "" }); setIsRenameOpen(true); }}
                       >
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
@@ -227,7 +227,7 @@ export default function RegistryPage() {
                       <Input 
                         list="collections" 
                         value={form.collection} 
-                        placeholder="GENERAL..."
+                        placeholder=""
                         onChange={e => setForm({...form, collection: e.target.value.toUpperCase()})} 
                         className="h-14 border-primary/10 rounded-2xl font-black text-[12px] uppercase shadow-sm" 
                       />
@@ -283,7 +283,7 @@ export default function RegistryPage() {
                 <Textarea 
                   value={form.description} 
                   onChange={e => setForm({...form, description: e.target.value})} 
-                  placeholder="MATERIAL, TEXTURA, AJUSTE, ETC..."
+                  placeholder=""
                   className="min-h-[120px] rounded-[2rem] bg-primary/5 p-6 text-sm font-medium border-none text-foreground focus:ring-primary shadow-inner" 
                 />
               </div>
@@ -348,14 +348,14 @@ export default function RegistryPage() {
           <div className="space-y-6 pt-4">
             <div className="bg-primary/5 p-6 rounded-2xl border border-primary/10 text-center">
               <span className="text-[10px] font-black uppercase text-primary/40 block mb-1">Actual</span>
-              <span className="text-xl font-headline font-black text-foreground uppercase">{renameData.oldName || 'GENERAL'}</span>
+              <span className="text-xl font-headline font-black text-foreground uppercase">{renameData.oldName || ''}</span>
             </div>
             <div className="space-y-2">
               <Label className="text-[10px] font-black uppercase text-primary/40 ml-1">Nuevo Nombre</Label>
               <Input 
                 value={renameData.newName} 
                 onChange={e => setRenameData({...renameData, newName: e.target.value.toUpperCase()})}
-                placeholder="ESCRIBIR NUEVO NOMBRE..."
+                placeholder=""
                 className="h-14 font-black uppercase text-center border-primary/10 rounded-2xl shadow-inner"
               />
             </div>
