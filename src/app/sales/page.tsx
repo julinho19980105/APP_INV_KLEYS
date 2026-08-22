@@ -161,11 +161,6 @@ export default function SalesPage() {
     }, 500)
   }
 
-  const totalDiscount = React.useMemo(() => {
-    if (!activeReceipt) return 0;
-    return (activeReceipt.items || []).reduce((acc: number, item: any) => acc + (Number(item.discount) || 0), 0);
-  }, [activeReceipt]);
-
   const totalUnits = React.useMemo(() => {
     if (!activeReceipt) return 0;
     return (activeReceipt.items || []).reduce((acc: number, item: any) => acc + (Number(item.quantity) || 0), 0);
@@ -373,6 +368,11 @@ export default function SalesPage() {
                       <td className="py-2">
                         <div className="font-bold text-black">{item.name}</div>
                         {item.description && <div className="text-[7px] text-black/40 italic leading-none mt-0.5">{item.description}</div>}
+                        {Number(item.discount) > 0 && (
+                          <div className="text-[7px] font-black text-destructive mt-0.5 uppercase tracking-tighter">
+                            DESC: -S/ {Number(item.discount).toFixed(1)}
+                          </div>
+                        )}
                       </td>
                       <td className="py-2 text-center">{Number(item.price).toFixed(1)}</td>
                       <td className="py-2 text-center font-black">{item.quantity}</td>
@@ -391,11 +391,6 @@ export default function SalesPage() {
                   TOTAL PRENDAS: {totalUnits}
                 </div>
                 <div className="text-right space-y-0.5">
-                  {totalDiscount > 0 && (
-                    <div className="text-[8px] font-bold text-destructive uppercase">
-                      DSCTO: -S/ {totalDiscount.toFixed(1)}
-                    </div>
-                  )}
                   <div className="text-[7px] font-black text-black/40 uppercase">TOTAL NETO:</div>
                   <div className="text-[18px] font-black leading-none" style={{ color: brandColor }}>
                     S/. {Number(activeReceipt.total).toFixed(1)}
