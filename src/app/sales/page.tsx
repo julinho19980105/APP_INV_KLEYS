@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -23,7 +24,9 @@ import {
   Image as ImageIcon,
   ShoppingBag,
   History,
-  Loader2
+  Loader2,
+  Users,
+  Plus
 } from "lucide-react"
 import { 
   DropdownMenu, 
@@ -144,7 +147,7 @@ export default function SalesPage() {
   }
 
   return (
-    <div className="space-y-6 pt-2 pb-20 max-w-4xl mx-auto px-2 md:px-0">
+    <div className="space-y-6 pt-2 pb-32 max-w-4xl mx-auto px-2 md:px-0">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 border-b border-primary/10 pb-6">
         <div className="flex items-center gap-4">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shadow-primary/20" style={{ backgroundColor: brandColor }}>
@@ -177,6 +180,14 @@ export default function SalesPage() {
               <SelectItem value="annulled" className="text-[9px] font-black uppercase">Anulados</SelectItem>
             </SelectContent>
           </Select>
+          <Button 
+            variant="outline"
+            className="h-10 px-4 rounded-xl border-primary/10 font-black text-[9px] uppercase gap-2 bg-white"
+            onClick={() => router.push('/customers')}
+          >
+            <Users className="w-3.5 h-3.5" style={{ color: brandColor }} />
+            Clientes
+          </Button>
         </div>
       </div>
 
@@ -273,6 +284,17 @@ export default function SalesPage() {
             </Button>
           </div>
         )}
+      </div>
+
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
+        <Button 
+          onClick={() => router.push('/quotes')}
+          className="h-20 w-20 rounded-full bg-primary shadow-2xl flex flex-col gap-1 items-center justify-center text-white active:scale-90 transition-transform"
+          style={{ backgroundColor: brandColor }}
+        >
+          <Plus className="w-8 h-8" />
+          <span className="text-[9px] font-black uppercase">COTIZACIÓN</span>
+        </Button>
       </div>
 
       <div className="fixed -left-[4000px] top-0">

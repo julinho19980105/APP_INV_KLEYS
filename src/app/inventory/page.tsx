@@ -46,7 +46,8 @@ import {
   Package,
   Eye,
   LayoutGrid,
-  History
+  History,
+  Plus
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useCollection, useFirestore, useDoc } from "@/firebase"
@@ -130,7 +131,7 @@ export default function InventoryPage() {
   }
 
   return (
-    <div className="space-y-4 pt-2 pb-24 px-2 md:px-4">
+    <div className="space-y-4 pt-2 pb-32 px-2 md:px-4">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-primary/10 pb-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-md shadow-primary/20" style={{ backgroundColor: brandColor }}>
@@ -271,6 +272,17 @@ export default function InventoryPage() {
             </TableBody>
           </Table>
         </div>
+      </div>
+
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
+        <Button 
+          onClick={() => router.push('/registry')}
+          className="h-20 w-20 rounded-full shadow-2xl flex flex-col gap-1 items-center justify-center text-white active:scale-90 transition-transform"
+          style={{ backgroundColor: brandColor }}
+        >
+          <Plus className="w-8 h-8" />
+          <span className="text-[9px] font-black uppercase">REGISTRO</span>
+        </Button>
       </div>
 
       <Dialog open={!!selectedProduct} onOpenChange={() => setSelectedProduct(null)}>

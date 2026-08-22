@@ -1,16 +1,14 @@
+
 "use client"
 
 import * as React from "react"
 import { 
   Package, 
-  PlusCircle, 
-  FileText, 
-  Users, 
-  Settings,
   ShoppingBag,
   BookOpen,
   Heart,
-  History
+  History,
+  Settings
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -33,11 +31,8 @@ import { doc } from "firebase/firestore"
 
 const navItems = [
   { name: "Ventas", href: "/sales", icon: ShoppingBag },
-  { name: "Cotización", href: "/quotes", icon: FileText },
   { name: "Inventario", href: "/inventory", icon: Package },
-  { name: "Registrar", href: "/registry", icon: PlusCircle },
   { name: "Movimientos", href: "/movements", icon: History },
-  { name: "Clientes", href: "/customers", icon: Users },
   { name: "Catálogo", href: "/catalogo", icon: BookOpen },
   { name: "Ajustes", href: "/settings", icon: Settings },
 ]
@@ -91,7 +86,9 @@ function AppSidebar({ pathname }: { pathname: string }) {
             {settings.companyLogo ? (
               <img src={settings.companyLogo} alt="Logo" className="w-full h-full object-cover" />
             ) : (
-              <Heart className="w-6 h-6 text-white fill-current" />
+              <div className="w-full h-full flex items-center justify-center">
+                <Package className="w-6 h-6 text-white" />
+              </div>
             )}
           </div>
           <span className="font-headline font-black text-2xl tracking-tighter text-foreground group-data-[collapsible=icon]:hidden uppercase truncate">
