@@ -3,7 +3,7 @@
   "entities": {
     "Product": {
       "title": "Producto",
-      "description": "Prenda de ropa en el inventario Diva",
+      "description": "Prenda de ropa en el inventario",
       "type": "object",
       "properties": {
         "code": { "type": "string", "description": "Código único del producto" },
@@ -22,7 +22,7 @@
     },
     "Customer": {
       "title": "Cliente",
-      "description": "Datos de cliente Diva",
+      "description": "Datos de cliente",
       "type": "object",
       "properties": {
         "id": { "type": "string", "description": "CL-001..." },
@@ -95,7 +95,7 @@
     },
     "AppConfig": {
       "title": "Configuración de Aplicación",
-      "description": "Configuración global de la identidad Diva",
+      "description": "Configuración global de la identidad",
       "type": "object",
       "properties": {
         "companyName": { "type": "string" },

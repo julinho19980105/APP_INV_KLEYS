@@ -57,16 +57,13 @@ export default function SalesPage() {
   const { data: companySettings } = useDoc(configDocRef)
   const brandColor = companySettings?.brandColor || "#FF3399"
 
-  // OPTIMIZACIÓN: Cargar solo el mes actual por defecto para ahorrar lecturas
   const quotesRef = React.useMemo(() => {
     if (!db) return null
     
     if (showHistorical) {
-      // Cargar historial completo (o últimos 200 para no morir en el intento)
       return query(collection(db, "quotes"), orderBy("createdAt", "desc"), limit(200))
     }
 
-    // Calcular inicio del mes actual
     const now = new Date()
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
     
@@ -79,7 +76,6 @@ export default function SalesPage() {
 
   const { data: quotes = [], loading } = useCollection(quotesRef)
 
-  // CÁLCULOS EN MEMORIA LOCAL (No consultan a Firebase)
   const currentMonthTotal = React.useMemo(() => {
     const now = new Date()
     const currentMonth = now.getMonth()
@@ -154,7 +150,7 @@ export default function SalesPage() {
             link.href = dataUrl
             link.click()
           }
-        } catch (err) { toast({ variant: "destructive", title: "ERROR AL GENERAR IMAGEN" }) }
+        } catch (err) { toast({ variant: "destructive", title: "ERROR" }) }
       }
     }, 400)
   }
@@ -201,7 +197,7 @@ export default function SalesPage() {
         {loading && (
           <div className="flex flex-col items-center justify-center py-20 gap-4 opacity-40">
             <Loader2 className="w-10 h-10 animate-spin text-primary" />
-            <span className="text-[10px] font-black uppercase tracking-widest">Consultando Firebase...</span>
+            <span className="text-[10px] font-black uppercase tracking-widest">Consultando...</span>
           </div>
         )}
 
@@ -242,7 +238,7 @@ export default function SalesPage() {
                           {s.customerName}
                         </span>
                         <span className="text-[10px] font-medium text-muted-foreground uppercase bg-secondary px-3 py-1 rounded-lg">
-                          {s.items?.reduce((acc: number, item: any) => acc + (Number(item.quantity) || 0), 0)} PRENDAS
+                          {s.items?.reduce((acc: number, item: any) => acc + (Number(item.quantity) || 0), 0)} UNID
                         </span>
                       </div>
                     </div>
@@ -266,13 +262,6 @@ export default function SalesPage() {
                             </DropdownMenuItem>
                             <DropdownMenuItem className="text-[12px] font-black uppercase gap-4 p-4 rounded-xl cursor-pointer hover:bg-primary/5" onClick={() => handleSendImage(s)}>
                               <ImageIcon className="w-4 h-4" style={{ color: brandColor }} /> Enviar Imagen
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="text-[12px] font-black uppercase gap-4 p-4 rounded-xl cursor-pointer hover:bg-primary/5" onClick={() => {
-                              const summary = `Venta ${s.id}\nCliente: ${s.customerName}\nTotal: S/ ${Number(s.total).toFixed(2)}`;
-                              navigator.clipboard.writeText(summary);
-                              toast({ title: "RESUMEN COPIADO" });
-                            }}>
-                              <FileText className="w-4 h-4" style={{ color: brandColor }} /> Enviar Texto
                             </DropdownMenuItem>
                             <DropdownMenuItem className="text-[12px] font-black uppercase gap-4 p-4 rounded-xl text-destructive cursor-pointer hover:bg-destructive/5" onClick={() => setConfirmAnnulId(s.id)}>
                               <Ban className="w-4 h-4" /> Anular Boleta
@@ -305,7 +294,7 @@ export default function SalesPage() {
         {activeReceipt && (
           <div ref={receiptRef} className="boleta" style={{ width: '560px', backgroundColor: '#ffffff', padding: '30px', fontFamily: 'Arial, sans-serif' }}>
             <div style={{ backgroundColor: brandColor, color: 'white', textAlign: 'center', padding: '30px', borderRadius: '20px' }}>
-              <div style={{ fontSize: '32px', fontWeight: 950, marginBottom: '5px' }}>{companySettings?.companyName || "DIVA BOUTIQUE"}</div>
+              <div style={{ fontSize: '32px', fontWeight: 950, marginBottom: '5px' }}>{companySettings?.companyName || "BOUTIQUE"}</div>
               <div style={{ fontSize: '14px', fontWeight: 700, letterSpacing: '2px' }}>BOLETA DE VENTA · {activeReceipt.id}</div>
             </div>
           </div>

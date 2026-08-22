@@ -22,8 +22,9 @@ export function useCollection(query: Query | null) {
         setLoading(false);
       },
       async (err) => {
+        // Obtenemos una representación legible si es posible, aunque el objeto Query es opaco
         const permissionError = new FirestorePermissionError({
-          path: 'collection_query',
+          path: 'coleccion_activa',
           operation: 'list'
         });
         errorEmitter.emit('permission-error', permissionError);

@@ -79,7 +79,6 @@ export default function InventoryPage() {
   
   const productsRef = React.useMemo(() => db ? query(collection(db, "products"), orderBy("code", "asc")) : null, [db])
   
-  // OPTIMIZACIÓN: Solo cargar los últimos 100 movimientos de stock
   const movementsRef = React.useMemo(() => db ? query(
     collection(db, "movements"), 
     orderBy("timestamp", "desc"),
@@ -130,14 +129,14 @@ export default function InventoryPage() {
     if (!db || syncing) return
     setSyncing(true)
     try {
-      toast({ title: "Sincronizando...", description: "Actualizando Google Sheets..." })
+      toast({ title: "Sincronizando...", description: "Actualizando Nube..." })
       await syncCatalogToDrive(products)
       await updateDoc(doc(db, "config", "global"), {
         lastDriveSync: serverTimestamp()
       })
-      toast({ title: "Nube Actualizada", description: "Sheets e Inventario al día." })
+      toast({ title: "Nube Actualizada", description: "Inventario al día." })
     } catch (e: any) {
-      toast({ variant: "destructive", title: "Error de Sincronización", description: e.message || "No se pudo actualizar Drive." })
+      toast({ variant: "destructive", title: "Error", description: e.message || "No se pudo actualizar." })
     } finally {
       setSyncing(false)
     }
@@ -161,7 +160,7 @@ export default function InventoryPage() {
           <div>
             <h1 className="text-4xl font-headline font-black text-foreground uppercase tracking-tight">Stock Maestro</h1>
             <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mt-1">
-              Vista por {viewType === 'collection' ? 'Colección' : 'Categoría'} · Diva Boutique
+              Vista por {viewType === 'collection' ? 'Colección' : 'Categoría'}
             </p>
           </div>
         </div>
@@ -194,7 +193,7 @@ export default function InventoryPage() {
       <Tabs defaultValue="all" className="w-full">
         <TabsList className="bg-secondary p-1 rounded-2xl w-full md:w-auto justify-start border-none mb-6">
           <TabsTrigger value="all" className="rounded-xl px-12 data-[state=active]:bg-primary data-[state=active]:text-white text-[11px] font-black uppercase tracking-widest">Almacén Central</TabsTrigger>
-          <TabsTrigger value="movements" className="rounded-xl px-12 data-[state=active]:bg-primary data-[state=active]:text-white text-[11px] font-black uppercase tracking-widest">Kardex de Stock (Recientes)</TabsTrigger>
+          <TabsTrigger value="movements" className="rounded-xl px-12 data-[state=active]:bg-primary data-[state=active]:text-white text-[11px] font-black uppercase tracking-widest">Kardex de Stock</TabsTrigger>
         </TabsList>
         
         <TabsContent value="all" className="space-y-12">
@@ -209,8 +208,8 @@ export default function InventoryPage() {
                 <Table className="min-w-[800px]">
                   <TableHeader>
                     <TableRow className="bg-secondary/50 hover:bg-secondary/50 border-none h-14">
-                      <TableHead className="font-black uppercase text-[10px] text-primary pl-10">Prenda Diva / DNI</TableHead>
-                      <TableHead className="font-black uppercase text-[10px] text-primary">Tarifario Industrial</TableHead>
+                      <TableHead className="font-black uppercase text-[10px] text-primary pl-10">Prenda / Código</TableHead>
+                      <TableHead className="font-black uppercase text-[10px] text-primary">Tarifario</TableHead>
                       <TableHead className="font-black uppercase text-[10px] text-primary text-center">Disponible</TableHead>
                       <TableHead className="w-20 pr-10"></TableHead>
                     </TableRow>
@@ -282,7 +281,7 @@ export default function InventoryPage() {
 
         <TabsContent value="movements" className="space-y-10">
           <div className="bg-primary/5 p-4 rounded-2xl border border-primary/10 flex items-center justify-center mb-6">
-            <span className="text-[10px] font-black uppercase text-primary tracking-widest">Mostrando últimos 100 movimientos (Ahorro de lecturas)</span>
+            <span className="text-[10px] font-black uppercase text-primary tracking-widest">Mostrando últimos 100 movimientos</span>
           </div>
           {groupedMovements.map(group => (
             <div key={group.label} className="space-y-4">

@@ -21,24 +21,24 @@ export default function SettingsPage() {
   const { data: dbConfig, loading } = useDoc(configDocRef)
 
   const [form, setForm] = React.useState({
-    companyName: "StiloStack",
+    companyName: "STILOSTACK",
     companyLogo: "",
     brandColor: "#FF3399",
     inventoryViewMode: "collection",
     printerWidth: "80",
-    catalogUrl: "https://script.google.com/macros/s/AKfycbwBpGRDSXd-Ujrp0erWr3G0LDDqCLwV7sXYhdpNY6qPN7WrFH1Sd4A9KNKXNomqjHT5/exec"
+    catalogUrl: ""
   })
   const [saving, setSaving] = React.useState(false)
 
   React.useEffect(() => {
     if (dbConfig) {
       setForm({
-        companyName: dbConfig.companyName || "StiloStack",
+        companyName: dbConfig.companyName || "STILOSTACK",
         companyLogo: dbConfig.companyLogo || "",
         brandColor: dbConfig.brandColor || "#FF3399",
         inventoryViewMode: dbConfig.inventoryViewMode || "collection",
         printerWidth: dbConfig.printerWidth || "80",
-        catalogUrl: dbConfig.catalogUrl || "https://script.google.com/macros/s/AKfycbwBpGRDSXd-Ujrp0erWr3G0LDDqCLwV7sXYhdpNY6qPN7WrFH1Sd4A9KNKXNomqjHT5/exec"
+        catalogUrl: dbConfig.catalogUrl || ""
       })
     }
   }, [dbConfig])
@@ -47,24 +47,13 @@ export default function SettingsPage() {
     if (!db) return
     setSaving(true)
     try {
-      if (form.companyLogo && form.companyLogo.length > 800000) {
-        toast({ 
-          variant: "destructive", 
-          title: "LOGO MUY PESADO", 
-          description: "POR FAVOR, USA UNA IMAGEN MÁS PEQUEÑA (< 800KB)." 
-        });
-        setSaving(false);
-        return;
-      }
-
       await setDoc(doc(db, "config", "global"), {
         ...form,
         updatedAt: serverTimestamp()
       })
-      
-      toast({ title: "CONFIGURACIÓN GUARDADA", description: "IDENTIDAD ACTUALIZADA EN NUBE." })
+      toast({ title: "CONFIGURACIÓN GUARDADA" })
     } catch (e) {
-      toast({ variant: "destructive", title: "ERROR AL GUARDAR EN NUBE" })
+      toast({ variant: "destructive", title: "ERROR" })
     } finally {
       setSaving(false)
     }
@@ -97,7 +86,7 @@ export default function SettingsPage() {
         </div>
         <div>
           <h1 className="text-3xl font-headline font-black text-black uppercase tracking-tight">Configuración</h1>
-          <p className="text-[10px] font-black text-primary uppercase tracking-[0.3em] ml-1 mt-1">Identidad Industrial Diva en Nube</p>
+          <p className="text-[10px] font-black text-primary uppercase tracking-[0.3em] ml-1 mt-1">Identidad Industrial en Nube</p>
         </div>
       </div>
 
@@ -151,7 +140,7 @@ export default function SettingsPage() {
                 ) : (
                   <div className="flex flex-col items-center gap-3 opacity-20">
                     <Upload className="w-12 h-12" />
-                    <span className="text-[10px] font-black uppercase tracking-widest">Subir logo industrial</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest">Subir logo</span>
                   </div>
                 )}
                 <input type="file" hidden ref={fileInputRef} onChange={handleFileChange} accept="image/*" />
@@ -178,11 +167,10 @@ export default function SettingsPage() {
                  placeholder="https://script.google.com/macros/s/..."
                  className="h-12 font-medium border-black/10 rounded-xl text-xs bg-black/5" 
                />
-               <p className="text-[8px] text-muted-foreground uppercase mt-1 px-1">Este link se usará para el visor de Catálogo Industrial.</p>
              </div>
 
              <div className="space-y-4">
-               <Label className="text-[9px] font-black uppercase text-black ml-1">Ancho de Ticket BLE</Label>
+               <Label className="text-[9px] font-black uppercase text-black ml-1">Ancho de Ticket</Label>
                <RadioGroup 
                  value={form.printerWidth} 
                  onValueChange={v => setForm({...form, printerWidth: v})}
@@ -190,33 +178,11 @@ export default function SettingsPage() {
                >
                  <div className="flex items-center space-x-3 bg-black/5 p-4 rounded-xl border-2 border-transparent has-[:checked]:border-primary transition-all">
                    <RadioGroupItem value="80" id="w-80" />
-                   <Label htmlFor="w-80" className="text-[10px] font-black uppercase cursor-pointer">80 mm (Industrial)</Label>
+                   <Label htmlFor="w-80" className="text-[10px] font-black uppercase cursor-pointer">80 mm</Label>
                  </div>
                  <div className="flex items-center space-x-3 bg-black/5 p-4 rounded-xl border-2 border-transparent has-[:checked]:border-primary transition-all">
                    <RadioGroupItem value="58" id="w-58" />
-                   <Label htmlFor="w-58" className="text-[10px] font-black uppercase cursor-pointer">58 mm (Estándar)</Label>
-                 </div>
-               </RadioGroup>
-             </div>
-
-             <div className="space-y-4">
-               <Label className="text-[9px] font-black uppercase text-black ml-1">Vista Inicial Almacén</Label>
-               <RadioGroup 
-                 value={form.inventoryViewMode} 
-                 onValueChange={v => setForm({...form, inventoryViewMode: v})}
-                 className="grid grid-cols-1 gap-4"
-               >
-                 <div className="flex items-center space-x-3 bg-black/5 p-4 rounded-xl border-2 border-transparent has-[:checked]:border-primary transition-all">
-                   <RadioGroupItem value="collection" id="v-collection" />
-                   <Label htmlFor="v-collection" className="text-[11px] font-black uppercase cursor-pointer flex items-center gap-3">
-                     <LayoutGrid className="w-4 h-4" /> Por Colección
-                   </Label>
-                 </div>
-                 <div className="flex items-center space-x-3 bg-black/5 p-4 rounded-xl border-2 border-transparent has-[:checked]:border-primary transition-all">
-                   <RadioGroupItem value="category" id="v-category" />
-                   <Label htmlFor="v-category" className="text-[11px] font-black uppercase cursor-pointer flex items-center gap-3">
-                     <Layers className="w-4 h-4" /> Por Categoría
-                   </Label>
+                   <Label htmlFor="w-58" className="text-[10px] font-black uppercase cursor-pointer">58 mm</Label>
                  </div>
                </RadioGroup>
              </div>
@@ -231,7 +197,7 @@ export default function SettingsPage() {
           className="h-16 w-full max-w-lg bg-black text-white font-black rounded-2xl shadow-2xl active:scale-95 transition-all text-base uppercase tracking-widest"
         >
           {saving ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6 mr-3" />} 
-          CONFIRMAR IDENTIDAD DIVA
+          CONFIRMAR IDENTIDAD
         </Button>
       </div>
     </div>

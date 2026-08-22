@@ -71,6 +71,7 @@ export default function CustomersPage() {
       await setDoc(doc(db, "customers", nextId), { id: nextId, name: newCustomer.name.toUpperCase(), phone: newCustomer.phone, location: newCustomer.location, createdAt: serverTimestamp() })
       toast({ title: "Cliente Registrado" })
       setIsDialogOpen(false)
+      setNewCustomer({ name: "", phone: "", location: "" })
     } catch (e) { toast({ variant: "destructive", title: "Error" }) }
     finally { setSaving(false) }
   }
@@ -80,7 +81,7 @@ export default function CustomersPage() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 border-b-2 border-black pb-4">
         <div>
           <h1 className="text-3xl font-headline font-black text-black uppercase tracking-tight">Cartera de Clientes</h1>
-          <p className="text-[10px] font-black text-primary uppercase tracking-[0.3em] ml-1 mt-1">Gestión Diva Industrial</p>
+          <p className="text-[10px] font-black text-primary uppercase tracking-[0.3em] ml-1 mt-1">Gestión Industrial</p>
         </div>
         <div className="flex w-full md:w-auto gap-3">
           <div className="relative flex-1 md:w-64">
@@ -114,7 +115,7 @@ export default function CustomersPage() {
           <TableHeader>
             <TableRow className="bg-black/5 hover:bg-black/5 border-none h-10">
               <TableHead className="font-black text-[9px] uppercase text-black pl-8 w-24">ID</TableHead>
-              <TableHead className="font-black text-[9px] uppercase text-black">Cliente Diva</TableHead>
+              <TableHead className="font-black text-[9px] uppercase text-black">Cliente</TableHead>
               <TableHead className="text-right pr-8"></TableHead>
             </TableRow>
           </TableHeader>

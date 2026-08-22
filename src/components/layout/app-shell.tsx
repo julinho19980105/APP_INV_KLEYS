@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -8,7 +9,6 @@ import {
   Users, 
   Truck, 
   Settings,
-  Sparkles,
   ShoppingBag,
   BookOpen,
   Heart
@@ -39,7 +39,7 @@ const navItems = [
   { name: "Registrar", href: "/registry", icon: PlusCircle },
   { name: "Clientes", href: "/customers", icon: Users },
   { name: "Logística", href: "/shipping", icon: Truck },
-  { name: "PDF Catálogo", href: "/catalogo", icon: BookOpen },
+  { name: "Catálogo", href: "/catalogo", icon: BookOpen },
   { name: "Ajustes", href: "/settings", icon: Settings },
 ]
 
@@ -54,7 +54,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <header className="md:hidden flex items-center justify-between p-4 bg-white border-b border-primary/20 sticky top-0 z-50 shadow-sm">
             <div className="flex items-center gap-3">
               <SidebarTrigger className="h-10 w-10 border border-primary/20 rounded-xl flex items-center justify-center bg-white text-primary active:scale-95" />
-              <span className="font-headline font-black text-xl tracking-tighter uppercase text-primary">Diva Boutique</span>
+              <span className="font-headline font-black text-xl tracking-tighter uppercase text-primary">Industrial</span>
             </div>
           </header>
           <main className="p-4 max-w-[1600px] mx-auto w-full pt-2">
@@ -73,7 +73,7 @@ function AppSidebar({ pathname }: { pathname: string }) {
   const { data: companySettings } = useDoc(configDocRef)
 
   const settings = {
-    companyName: companySettings?.companyName || "Diva Industrial",
+    companyName: companySettings?.companyName || "STILOSTACK",
     companyLogo: companySettings?.companyLogo || "",
     brandColor: companySettings?.brandColor || "#FF3399"
   }
@@ -138,8 +138,8 @@ function AppSidebar({ pathname }: { pathname: string }) {
              <span className="text-[8px] font-black text-white">AD</span>
           </div>
           <div className="flex flex-col group-data-[collapsible=icon]:hidden overflow-hidden">
-            <span className="text-[10px] font-black text-foreground uppercase tracking-tight">Administración</span>
-            <span className="text-[8px] text-muted-foreground uppercase">Diva Industrial</span>
+            <span className="text-[10px] font-black text-foreground uppercase tracking-tight">Panel de Control</span>
+            <span className="text-[8px] text-muted-foreground uppercase">Sistema Industrial</span>
           </div>
         </div>
       </SidebarFooter>

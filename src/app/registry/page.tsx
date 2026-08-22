@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -67,7 +68,10 @@ export default function RegistryPage() {
   })
   const [localImagePreviews, setLocalImagePreviews] = React.useState<string[]>([])
   const [stockSearchQuery, setStockSearchQuery] = React.useState("")
-  const [stockEntry, setStockEntry] = React.useState({ productCode: "", quantity: "", reason: "Reposición Diva" })
+  const [stockEntry, setStockEntry] = React.useState({ productCode: "", quantity: "", reason: "Reposición Industrial" })
+
+  const uniqueCategories = React.useMemo(() => Array.from(new Set(allProducts.map(p => p.category).filter(Boolean))), [allProducts])
+  const uniqueCollections = React.useMemo(() => Array.from(new Set(allProducts.map(p => p.collection).filter(Boolean))), [allProducts])
 
   React.useEffect(() => {
     if (!db || editId) return
@@ -108,8 +112,8 @@ export default function RegistryPage() {
       const productData = {
         name: form.name.toUpperCase(),
         code: productCode,
-        category: form.category,
-        collection: form.collection,
+        category: form.category.toUpperCase(),
+        collection: form.collection.toUpperCase(),
         description: form.description,
         stock: Number(form.stock),
         priceFardo: Number(form.priceFardo || 0),
@@ -147,7 +151,7 @@ export default function RegistryPage() {
       })
       
       toast({ title: "STOCK ACTUALIZADO" })
-      setStockEntry({ productCode: "", quantity: "", reason: "Reposición Diva" })
+      setStockEntry({ productCode: "", quantity: "", reason: "Reposición Industrial" })
       setStockSearchQuery("")
     } catch (e) { toast({ variant: "destructive", title: "Error al actualizar stock" }) }
     finally { setSaving(false) }
@@ -187,11 +191,17 @@ export default function RegistryPage() {
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label className="text-[10px] uppercase font-black ml-1 text-muted-foreground">Categoría *</Label>
-                        <Input value={form.category} onChange={e => setForm({...form, category: e.target.value.toUpperCase()})} className="h-12 border-primary/10 rounded-2xl font-black text-[11px] uppercase" />
+                        <Input list="categories" value={form.category} onChange={e => setForm({...form, category: e.target.value})} className="h-12 border-primary/10 rounded-2xl font-black text-[11px] uppercase" />
+                        <datalist id="categories">
+                          {uniqueCategories.map(cat => <option key={cat} value={cat} />)}
+                        </datalist>
                       </div>
                       <div className="space-y-2">
                         <Label className="text-[10px] uppercase font-black ml-1 text-muted-foreground">Colección *</Label>
-                        <Input value={form.collection} onChange={e => setForm({...form, collection: e.target.value.toUpperCase()})} className="h-12 border-primary/10 rounded-2xl font-black text-[11px] uppercase" />
+                        <Input list="collections" value={form.collection} onChange={e => setForm({...form, collection: e.target.value})} className="h-12 border-primary/10 rounded-2xl font-black text-[11px] uppercase" />
+                        <datalist id="collections">
+                          {uniqueCollections.map(col => <option key={col} value={col} />)}
+                        </datalist>
                       </div>
                     </div>
                   </div>
@@ -253,7 +263,7 @@ export default function RegistryPage() {
             <CardContent className="p-10 space-y-8">
               <div className="relative">
                 <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: brandColor }} />
-                <Input placeholder="BUSCAR POR NOMBRE O DNI..." value={stockSearchQuery} onChange={e => setStockSearchQuery(e.target.value)} className="pl-14 h-16 font-black uppercase rounded-3xl border-primary/10 shadow-sm focus:ring-primary" />
+                <Input placeholder="BUSCAR POR NOMBRE O CÓDIGO..." value={stockSearchQuery} onChange={e => setStockSearchQuery(e.target.value)} className="pl-14 h-16 font-black uppercase rounded-3xl border-primary/10 shadow-sm focus:ring-primary" />
               </div>
               <div className="space-y-4">
                 {filteredProductsForStock.map(p => (

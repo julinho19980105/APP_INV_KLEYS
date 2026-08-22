@@ -78,7 +78,6 @@ export default function ShippingPage() {
   const customersQuery = React.useMemo(() => db ? query(collection(db, "customers"), orderBy("id", "desc"), limit(50)) : null, [db])
   const { data: dbCustomers = [] } = useCollection(customersQuery)
 
-  // OPTIMIZACIÓN: Solo cargar boletas de los últimos 30 días para buscar en logística
   const recentDate = React.useMemo(() => {
     const d = new Date()
     d.setDate(d.getDate() - 30)
@@ -112,7 +111,7 @@ export default function ShippingPage() {
 
     const customerQuotes = activeQuotes.filter(q => q.customerId === customer.id && q.status === "active")
     if (customerQuotes.length === 0) {
-      toast({ title: "Sin boletas", description: "Este cliente no tiene boletas activas recientes para despacho." })
+      toast({ title: "Sin boletas", description: "No hay boletas activas recientes para este cliente." })
       return
     }
 
@@ -130,7 +129,7 @@ export default function ShippingPage() {
 
     const currentEntries = logData?.entries || []
     if (currentEntries.some((e: any) => e.customerId === customer.id)) {
-      toast({ title: "Ya en lista", description: "Este cliente ya está en el lote de hoy." })
+      toast({ title: "Ya en lista" })
       return
     }
 
@@ -146,7 +145,7 @@ export default function ShippingPage() {
 
     setCustomerSearch("")
     setIsSearchOpen(false)
-    toast({ title: "Cliente Añadido", description: "Boletas marcadas como ENVIADAS." })
+    toast({ title: "Cliente Añadido" })
   }
 
   const handleToggleQuote = async (customerId: string, quoteId: string) => {
@@ -172,11 +171,6 @@ export default function ShippingPage() {
 
     await updateDoc(logisticsDocRef, { entries: updatedEntries, updatedAt: serverTimestamp() })
     await updateDoc(doc(db, "quotes", quoteId), { status: nextStatus })
-    
-    toast({ 
-      title: "Estado Sincronizado", 
-      description: `Boleta ${quoteId} ahora está ${nextStatus === 'shipped' ? 'ENVIADA' : 'ACTIVA'}` 
-    })
   }
 
   const handleDeleteEntry = async () => {
@@ -193,7 +187,7 @@ export default function ShippingPage() {
     await updateDoc(logisticsDocRef, { entries: updatedEntries, updatedAt: serverTimestamp() })
     
     setDeleteConfirm(null)
-    toast({ title: "Registro Eliminado", description: "Las boletas han regresado a estado ACTIVO." })
+    toast({ title: "Registro Eliminado" })
   }
 
   return (
@@ -207,7 +201,7 @@ export default function ShippingPage() {
             <h1 className="text-4xl font-headline font-black text-foreground uppercase tracking-tight">Despacho Diario</h1>
             <div className="flex items-center gap-2 mt-1">
               <Clock className="w-3 h-3 text-primary/40" />
-              <span className="text-[10px] font-black text-primary/60 uppercase tracking-widest">Control Logístico Industrial</span>
+              <span className="text-[10px] font-black text-primary/60 uppercase tracking-widest">Control Logístico</span>
             </div>
           </div>
         </div>
@@ -248,7 +242,7 @@ export default function ShippingPage() {
         {isSearchOpen && (
           <div className="absolute z-50 w-full mt-4 bg-white border-2 border-primary/10 rounded-[2.5rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
             <div className="p-4 bg-primary/5 border-b border-primary/5 flex justify-between items-center">
-              <span className="text-[10px] font-black uppercase text-primary tracking-widest ml-4">Clientes Diva Recientes (Últimos 30 días)</span>
+              <span className="text-[10px] font-black uppercase text-primary tracking-widest ml-4">Clientes Recientes</span>
               <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => setIsSearchOpen(false)}><X className="w-4 h-4" /></Button>
             </div>
             <div className="max-h-[300px] overflow-y-auto scrollbar-hide">
@@ -270,7 +264,7 @@ export default function ShippingPage() {
                   <Plus className="w-5 h-5 text-primary opacity-0 group-hover:opacity-100 transition-all mr-2" />
                 </button>
               )) : (
-                <div className="p-10 text-center text-[10px] font-black uppercase text-primary/20 tracking-widest">Sin resultados coincidentes</div>
+                <div className="p-10 text-center text-[10px] font-black uppercase text-primary/20 tracking-widest">Sin resultados</div>
               )}
             </div>
           </div>
@@ -291,7 +285,7 @@ export default function ShippingPage() {
           {logEntries.length === 0 ? (
             <div className="p-24 flex flex-col items-center justify-center text-center space-y-4 opacity-20">
               <Truck className="w-20 h-20" />
-              <div className="font-black text-sm uppercase tracking-[0.2em]">Cargamento Vacío para esta Fecha</div>
+              <div className="font-black text-sm uppercase tracking-[0.2em]">Lote Vacío</div>
             </div>
           ) : (
             <Accordion type="single" collapsible className="w-full">
@@ -338,7 +332,7 @@ export default function ShippingPage() {
                           <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-center justify-between shadow-sm animate-pulse">
                             <div className="flex items-center gap-3">
                               <AlertCircle className="w-5 h-5 text-amber-600" />
-                              <span className="text-[11px] font-black text-amber-800 uppercase tracking-wide">¿Agregar Cotización Reciente Detectada?</span>
+                              <span className="text-[11px] font-black text-amber-800 uppercase tracking-wide">¿Agregar Cotización Reciente?</span>
                             </div>
                             <Button className="h-8 bg-amber-600 text-white rounded-xl text-[9px] font-black uppercase px-6" onClick={() => handleAddCustomer({ id: entry.customerId, name: entry.customerName })}>Actualizar</Button>
                           </div>
@@ -358,7 +352,7 @@ export default function ShippingPage() {
                                 />
                                 <div className="flex flex-col">
                                   <span className="font-black text-[13px] text-foreground tracking-tight">{q.quoteId}</span>
-                                  <span className="text-[9px] font-medium text-muted-foreground uppercase">Despacho de Hoy</span>
+                                  <span className="text-[9px] font-medium text-muted-foreground uppercase">Despacho</span>
                                 </div>
                               </div>
                               
@@ -394,28 +388,6 @@ export default function ShippingPage() {
         </CardContent>
       </Card>
 
-      <div className="pt-10 space-y-6">
-        <div className="flex items-center gap-3 ml-4">
-          <Clock className="w-5 h-5 text-primary/40" />
-          <h2 className="text-[12px] font-black uppercase text-foreground tracking-[0.2em]">Últimos Despachos Registrados</h2>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {recentLogs.filter(l => l.date !== dateKey).map(log => (
-            <Card key={log.id} className="rounded-[2rem] border border-primary/5 hover:border-primary/20 transition-all bg-white cursor-pointer group shadow-sm overflow-hidden" onClick={() => setDate(new Date(log.date + "T00:00:00"))}>
-              <div className="p-6 flex items-center justify-between">
-                <div>
-                  <div className="text-[10px] font-black text-primary uppercase tracking-widest mb-1">{format(new Date(log.date + "T00:00:00"), "EEEE dd MMM", { locale: es })}</div>
-                  <div className="font-headline font-black text-xl text-foreground group-hover:text-primary transition-colors">{log.entries?.length || 0} Clientes</div>
-                </div>
-                <div className="w-10 h-10 rounded-xl bg-primary/5 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all">
-                  <ChevronDown className="w-5 h-5 -rotate-90" />
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
-      </div>
-
       <Dialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
         <DialogContent className="rounded-[3rem] border-none shadow-2xl max-w-sm overflow-hidden p-0">
           <div className="bg-destructive/10 p-10 flex flex-col items-center text-center space-y-6">
@@ -423,8 +395,8 @@ export default function ShippingPage() {
               <AlertCircle className="w-10 h-10 text-destructive" />
             </div>
             <div className="space-y-2">
-              <h3 className="text-[12px] font-black uppercase text-destructive tracking-[0.2em]">¿Eliminar de Logística?</h3>
-              <p className="text-[14px] font-black text-foreground/80 uppercase leading-snug">Se quitará a <span className="text-destructive">{deleteConfirm?.name}</span> de la lista de hoy.</p>
+              <h3 className="text-[12px] font-black uppercase text-destructive tracking-[0.2em]">¿Eliminar del Lote?</h3>
+              <p className="text-[14px] font-black text-foreground/80 uppercase leading-snug">Se quitará a <span className="text-destructive">{deleteConfirm?.name}</span> de la lista.</p>
             </div>
             <div className="grid grid-cols-2 gap-3 w-full">
               <Button variant="outline" className="h-14 rounded-2xl font-black text-[10px] uppercase border-destructive/20 text-destructive hover:bg-destructive/5" onClick={() => setDeleteConfirm(null)}>Cancelar</Button>
