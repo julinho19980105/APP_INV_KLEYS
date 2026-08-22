@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -21,7 +22,7 @@ import {
   SelectValue 
 } from "@/components/ui/select"
 import { useCollection, useFirestore, useDoc } from "@/firebase"
-import { collection, query, orderBy, limit, where } from "firebase/firestore"
+import { collection, query, orderBy, limit, where, doc } from "firebase/firestore"
 import { cn } from "@/lib/utils"
 
 export default function MovementsPage() {
