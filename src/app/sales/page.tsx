@@ -25,7 +25,9 @@ import {
   Image as ImageIcon,
   Bluetooth,
   FileText,
-  ShoppingBag
+  ShoppingBag,
+  History,
+  Loader2
 } from "lucide-react"
 import { 
   DropdownMenu, 
@@ -34,7 +36,7 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu"
 import { useCollection, useFirestore, useDoc } from "@/firebase"
-import { collection, query, orderBy, doc, updateDoc, increment, addDoc, serverTimestamp } from "firebase/firestore"
+import { collection, query, orderBy, doc, updateDoc, increment, addDoc, serverTimestamp, where, limit } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { toJpeg } from 'html-to-image'
@@ -47,18 +49,37 @@ export default function SalesPage() {
   const [searchQuery, setSearchQuery] = React.useState("")
   const [statusFilter, setStatusFilter] = React.useState<string>("all")
   const [confirmAnnulId, setConfirmAnnulId] = React.useState<string | null>(null)
-  const [bleDevice, setBleDevice] = React.useState<BluetoothDevice | null>(null)
-  const [bleCharacteristic, setBleCharacteristic] = React.useState<BluetoothRemoteGATTCharacteristic | null>(null)
-  const receiptRef = React.useRef<HTMLDivElement>(null)
   const [activeReceipt, setActiveReceipt] = React.useState<any>(null)
+  const [showHistorical, setShowHistorical] = React.useState(false)
+  const receiptRef = React.useRef<HTMLDivElement>(null)
   
   const configDocRef = React.useMemo(() => db ? doc(db, "config", "global") : null, [db])
   const { data: companySettings } = useDoc(configDocRef)
   const brandColor = companySettings?.brandColor || "#FF3399"
 
-  const quotesRef = React.useMemo(() => db ? query(collection(db, "quotes"), orderBy("createdAt", "desc")) : null, [db])
-  const { data: quotes = [] } = useCollection(quotesRef)
+  // OPTIMIZACIÓN: Cargar solo el mes actual por defecto para ahorrar lecturas
+  const quotesRef = React.useMemo(() => {
+    if (!db) return null
+    
+    if (showHistorical) {
+      // Cargar historial completo (o últimos 200 para no morir en el intento)
+      return query(collection(db, "quotes"), orderBy("createdAt", "desc"), limit(200))
+    }
 
+    // Calcular inicio del mes actual
+    const now = new Date()
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+    
+    return query(
+      collection(db, "quotes"), 
+      where("createdAt", ">=", startOfMonth),
+      orderBy("createdAt", "desc")
+    )
+  }, [db, showHistorical])
+
+  const { data: quotes = [], loading } = useCollection(quotesRef)
+
+  // CÁLCULOS EN MEMORIA LOCAL (No consultan a Firebase)
   const currentMonthTotal = React.useMemo(() => {
     const now = new Date()
     const currentMonth = now.getMonth()
@@ -118,10 +139,6 @@ export default function SalesPage() {
     }
   }
 
-  const handlePrintBLE = async (sale: any) => {
-    toast({ title: "Conectando impresora..." })
-  }
-
   const handleSendImage = async (sale: any) => {
     setActiveReceipt(sale)
     setTimeout(async () => {
@@ -160,7 +177,7 @@ export default function SalesPage() {
           <div className="relative flex-1 md:w-72">
             <Search className="absolute left-4 top-4 h-4 w-4" style={{ color: brandColor }} />
             <Input 
-              placeholder="BUSCAR BOLETA O CLIENTE..." 
+              placeholder="BUSCAR BOLETA..." 
               className="pl-12 h-12 rounded-2xl border-primary/10 font-black text-xs uppercase bg-white shadow-sm focus:ring-primary"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
@@ -181,6 +198,13 @@ export default function SalesPage() {
       </div>
 
       <div className="space-y-10">
+        {loading && (
+          <div className="flex flex-col items-center justify-center py-20 gap-4 opacity-40">
+            <Loader2 className="w-10 h-10 animate-spin text-primary" />
+            <span className="text-[10px] font-black uppercase tracking-widest">Consultando Firebase...</span>
+          </div>
+        )}
+
         {groupedSales.map(group => (
           <div key={group.dateLabel} className="space-y-5">
             <div className="flex justify-between items-center px-8 py-4 text-white rounded-[1.5rem] shadow-lg shadow-primary/10" style={{ backgroundColor: brandColor }}>
@@ -240,10 +264,6 @@ export default function SalesPage() {
                             <DropdownMenuItem className="text-[12px] font-black uppercase gap-4 p-4 rounded-xl cursor-pointer hover:bg-primary/5" onClick={() => router.push(`/quotes?edit=${s.id}`)}>
                               <Edit2 className="w-4 h-4" style={{ color: brandColor }} /> Editar Venta
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="text-[12px] font-black uppercase gap-4 p-4 rounded-xl cursor-pointer hover:bg-primary/5" onClick={() => handlePrintBLE(s)}>
-                              {bleDevice ? <Printer className="w-4 h-4" style={{ color: brandColor }} /> : <Bluetooth className="w-4 h-4" style={{ color: brandColor }} />} 
-                              {bleDevice ? 'Imprimir Ticket' : 'Conectar Impresora'}
-                            </DropdownMenuItem>
                             <DropdownMenuItem className="text-[12px] font-black uppercase gap-4 p-4 rounded-xl cursor-pointer hover:bg-primary/5" onClick={() => handleSendImage(s)}>
                               <ImageIcon className="w-4 h-4" style={{ color: brandColor }} /> Enviar Imagen
                             </DropdownMenuItem>
@@ -267,6 +287,18 @@ export default function SalesPage() {
             </div>
           </div>
         ))}
+
+        {!loading && !showHistorical && (
+          <div className="flex justify-center pt-10 pb-20">
+            <Button 
+              variant="outline" 
+              className="h-14 rounded-2xl border-primary/20 text-primary font-black uppercase text-[10px] tracking-widest px-10 hover:bg-primary/5"
+              onClick={() => setShowHistorical(true)}
+            >
+              <History className="w-4 h-4 mr-3" /> Cargar Historial Antiguo
+            </Button>
+          </div>
+        )}
       </div>
 
       <div className="fixed -left-[4000px] top-0">

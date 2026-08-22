@@ -75,10 +75,22 @@ export default function ShippingPage() {
   const { data: config } = useDoc(configDocRef)
   const brandColor = config?.brandColor || "#FF3399"
 
-  const customersQuery = React.useMemo(() => db ? query(collection(db, "customers"), orderBy("id", "desc")) : null, [db])
+  const customersQuery = React.useMemo(() => db ? query(collection(db, "customers"), orderBy("id", "desc"), limit(50)) : null, [db])
   const { data: dbCustomers = [] } = useCollection(customersQuery)
 
-  const activeQuotesQuery = React.useMemo(() => db ? query(collection(db, "quotes"), where("status", "in", ["active", "shipped"])) : null, [db])
+  // OPTIMIZACIÓN: Solo cargar boletas de los últimos 30 días para buscar en logística
+  const recentDate = React.useMemo(() => {
+    const d = new Date()
+    d.setDate(d.getDate() - 30)
+    return d
+  }, [])
+
+  const activeQuotesQuery = React.useMemo(() => db ? query(
+    collection(db, "quotes"), 
+    where("status", "in", ["active", "shipped"]),
+    where("createdAt", ">=", recentDate)
+  ) : null, [db, recentDate])
+  
   const { data: activeQuotes = [] } = useCollection(activeQuotesQuery)
 
   const recentLogsQuery = React.useMemo(() => db ? query(collection(db, "logistics"), orderBy("updatedAt", "desc"), limit(5)) : null, [db])
@@ -100,7 +112,7 @@ export default function ShippingPage() {
 
     const customerQuotes = activeQuotes.filter(q => q.customerId === customer.id && q.status === "active")
     if (customerQuotes.length === 0) {
-      toast({ title: "Sin boletas", description: "Este cliente no tiene boletas activas para despacho." })
+      toast({ title: "Sin boletas", description: "Este cliente no tiene boletas activas recientes para despacho." })
       return
     }
 
@@ -122,14 +134,12 @@ export default function ShippingPage() {
       return
     }
 
-    // Guardar en Logística
     await setDoc(logisticsDocRef, {
       date: dateKey,
       entries: [...currentEntries, newEntry],
       updatedAt: serverTimestamp()
     }, { merge: true })
 
-    // Sincronizar estados en Ventas
     for (const q of customerQuotes) {
       updateDoc(doc(db, "quotes", q.id), { status: 'shipped' })
     }
@@ -160,10 +170,7 @@ export default function ShippingPage() {
       return entry
     })
 
-    // Actualizar lote
     await updateDoc(logisticsDocRef, { entries: updatedEntries, updatedAt: serverTimestamp() })
-    
-    // Sincronizar estado en colección Quotes
     await updateDoc(doc(db, "quotes", quoteId), { status: nextStatus })
     
     toast({ 
@@ -177,7 +184,6 @@ export default function ShippingPage() {
     
     const entryToRemove = logData.entries.find((e: any) => e.customerId === deleteConfirm.id)
     if (entryToRemove) {
-      // Regresar boletas a estado activo
       for (const q of entryToRemove.quotes) {
         updateDoc(doc(db, "quotes", q.quoteId), { status: 'active' })
       }
@@ -242,7 +248,7 @@ export default function ShippingPage() {
         {isSearchOpen && (
           <div className="absolute z-50 w-full mt-4 bg-white border-2 border-primary/10 rounded-[2.5rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
             <div className="p-4 bg-primary/5 border-b border-primary/5 flex justify-between items-center">
-              <span className="text-[10px] font-black uppercase text-primary tracking-widest ml-4">Clientes Diva Recientes</span>
+              <span className="text-[10px] font-black uppercase text-primary tracking-widest ml-4">Clientes Diva Recientes (Últimos 30 días)</span>
               <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => setIsSearchOpen(false)}><X className="w-4 h-4" /></Button>
             </div>
             <div className="max-h-[300px] overflow-y-auto scrollbar-hide">

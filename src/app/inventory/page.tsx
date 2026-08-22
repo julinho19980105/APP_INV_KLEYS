@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -42,7 +43,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useCollection, useFirestore, useDoc } from "@/firebase"
-import { collection, query, orderBy, doc, deleteDoc, getDocs, serverTimestamp, updateDoc } from "firebase/firestore"
+import { collection, query, orderBy, doc, deleteDoc, getDocs, serverTimestamp, updateDoc, limit } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { syncCatalogToDrive } from "@/services/sheets-service"
 
@@ -77,7 +78,14 @@ export default function InventoryPage() {
   }, [config])
   
   const productsRef = React.useMemo(() => db ? query(collection(db, "products"), orderBy("code", "asc")) : null, [db])
-  const movementsRef = React.useMemo(() => db ? query(collection(db, "movements"), orderBy("timestamp", "desc")) : null, [db])
+  
+  // OPTIMIZACIÓN: Solo cargar los últimos 100 movimientos de stock
+  const movementsRef = React.useMemo(() => db ? query(
+    collection(db, "movements"), 
+    orderBy("timestamp", "desc"),
+    limit(100)
+  ) : null, [db])
+  
   const { data: products = [] } = useCollection(productsRef)
   const { data: movements = [] } = useCollection(movementsRef)
 
@@ -122,7 +130,7 @@ export default function InventoryPage() {
     if (!db || syncing) return
     setSyncing(true)
     try {
-      toast({ title: "Sincronizando...", description: "Actualizando Google Sheets con 4 columnas..." })
+      toast({ title: "Sincronizando...", description: "Actualizando Google Sheets..." })
       await syncCatalogToDrive(products)
       await updateDoc(doc(db, "config", "global"), {
         lastDriveSync: serverTimestamp()
@@ -186,7 +194,7 @@ export default function InventoryPage() {
       <Tabs defaultValue="all" className="w-full">
         <TabsList className="bg-secondary p-1 rounded-2xl w-full md:w-auto justify-start border-none mb-6">
           <TabsTrigger value="all" className="rounded-xl px-12 data-[state=active]:bg-primary data-[state=active]:text-white text-[11px] font-black uppercase tracking-widest">Almacén Central</TabsTrigger>
-          <TabsTrigger value="movements" className="rounded-xl px-12 data-[state=active]:bg-primary data-[state=active]:text-white text-[11px] font-black uppercase tracking-widest">Kardex de Stock</TabsTrigger>
+          <TabsTrigger value="movements" className="rounded-xl px-12 data-[state=active]:bg-primary data-[state=active]:text-white text-[11px] font-black uppercase tracking-widest">Kardex de Stock (Recientes)</TabsTrigger>
         </TabsList>
         
         <TabsContent value="all" className="space-y-12">
@@ -273,6 +281,9 @@ export default function InventoryPage() {
         </TabsContent>
 
         <TabsContent value="movements" className="space-y-10">
+          <div className="bg-primary/5 p-4 rounded-2xl border border-primary/10 flex items-center justify-center mb-6">
+            <span className="text-[10px] font-black uppercase text-primary tracking-widest">Mostrando últimos 100 movimientos (Ahorro de lecturas)</span>
+          </div>
           {groupedMovements.map(group => (
             <div key={group.label} className="space-y-4">
               <div className="flex items-center gap-3 px-6 py-2.5 text-white rounded-2xl w-fit shadow-md" style={{ backgroundColor: brandColor }}>
