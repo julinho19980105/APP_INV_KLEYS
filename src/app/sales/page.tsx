@@ -27,7 +27,9 @@ import {
   Loader2,
   Users,
   Plus,
-  Printer
+  Printer,
+  Bluetooth,
+  BluetoothConnected
 } from "lucide-react"
 import { 
   DropdownMenu, 
@@ -52,6 +54,12 @@ export default function SalesPage() {
   const [confirmAnnulId, setConfirmAnnulId] = React.useState<string | null>(null)
   const [activeReceipt, setActiveReceipt] = React.useState<any>(null)
   const [daysLimit, setDaysLimit] = React.useState(30)
+  const [isPrinting, setIsPrinting] = React.useState(false)
+  
+  // Bluetooth State
+  const [bleDevice, setBleDevice] = React.useState<BluetoothDevice | null>(null)
+  const [printCharacteristic, setPrintCharacteristic] = React.useState<BluetoothRemoteGATTCharacteristic | null>(null)
+
   const receiptRef = React.useRef<HTMLDivElement>(null)
   
   const configDocRef = React.useMemo(() => db ? doc(db, "config", "global") : null, [db])
@@ -108,25 +116,132 @@ export default function SalesPage() {
     return Object.values(groups)
   }, [filteredQuotes])
 
-  const annulQuote = async (quote: any) => {
-    if (!db) return
+  // Bluetooth Connection Logic
+  const connectPrinter = async () => {
     try {
-      await updateDoc(doc(db, "quotes", quote.id), { status: 'annulled' })
-      for (const item of quote.items) {
-        if (item.isRegistered && item.productId !== "MANUAL") {
-          await updateDoc(doc(db, "products", item.productId), { stock: increment(item.quantity) })
-          await addDoc(collection(db, "movements"), {
-            productCode: item.productId,
-            type: "return",
-            quantity: item.quantity,
-            reason: `ANULACIÓN BOLETA ${quote.id}`,
-            timestamp: serverTimestamp()
-          })
+      const device = await navigator.bluetooth.requestDevice({
+        filters: [{ services: ['000018f0-0000-1000-8000-00805f9b34fb', '0000ff00-0000-1000-8000-00805f9b34fb'] }],
+        optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb', '0000ff00-0000-1000-8000-00805f9b34fb']
+      })
+      
+      const server = await device.gatt?.connect()
+      const services = await server?.getPrimaryServices()
+      if (!services || services.length === 0) throw new Error("No se encontraron servicios de impresión")
+      
+      const characteristics = await services[0].getCharacteristics()
+      const writeChar = characteristics.find(c => c.properties.write || c.properties.writeWithoutResponse)
+      
+      if (!writeChar) throw new Error("No se encontró característica de escritura")
+      
+      setBleDevice(device)
+      setPrintCharacteristic(writeChar)
+      toast({ title: "Impresora Conectada" })
+      
+      device.addEventListener('gattserverdisconnected', () => {
+        setBleDevice(null)
+        setPrintCharacteristic(null)
+        toast({ variant: "destructive", title: "Impresora Desconectada" })
+      })
+    } catch (e) {
+      console.error(e)
+      toast({ variant: "destructive", title: "Error al conectar impresora Bluetooth" })
+    }
+  }
+
+  const sendEscPos = async (data: Uint8Array) => {
+    if (!printCharacteristic) return
+    const chunkSize = 20
+    for (let i = 0; i < data.length; i += chunkSize) {
+      const chunk = data.slice(i, i + chunkSize)
+      await printCharacteristic.writeValue(chunk)
+    }
+  }
+
+  const handleBluetoothPrint = async (sale: any) => {
+    if (!printCharacteristic) {
+      await connectPrinter()
+      if (!printCharacteristic) return
+    }
+
+    setIsPrinting(true)
+    const encoder = new TextEncoder()
+    const esc = {
+      init: new Uint8Array([0x1b, 0x40]),
+      center: new Uint8Array([0x1b, 0x61, 0x01]),
+      left: new Uint8Array([0x1b, 0x61, 0x00]),
+      right: new Uint8Array([0x1b, 0x61, 0x02]),
+      boldOn: new Uint8Array([0x1b, 0x45, 0x01]),
+      boldOff: new Uint8Array([0x1b, 0x45, 0x00]),
+      feed: new Uint8Array([0x0a, 0x0a, 0x0a]),
+      cut: new Uint8Array([0x1d, 0x56, 0x41, 0x03])
+    }
+
+    try {
+      const charWidth = printerWidth === "58" ? 32 : 48
+      const separator = "-".repeat(charWidth) + "\n"
+      
+      let commands = new Uint8Array([
+        ...esc.init,
+        ...esc.center,
+        ...esc.boldOn,
+        ...encoder.encode((companySettings?.companyName || "STILOSTACK").toUpperCase() + "\n"),
+        ...esc.boldOff,
+        ...encoder.encode(separator),
+        ...esc.left,
+        ...encoder.encode(`ID: ${sale.id}\n`),
+        ...encoder.encode(`FECHA: ${format(sale.createdAt?.toDate ? sale.createdAt.toDate() : new Date(), "dd/MM/yy HH:mm")}\n`),
+        ...encoder.encode(`CLIENTE: ${sale.customerName.toUpperCase()}\n`),
+        ...encoder.encode(separator),
+        ...esc.boldOn,
+        ...encoder.encode(`PRENDA           CANT  P.U   TOTAL\n`),
+        ...esc.boldOff,
+        ...encoder.encode(separator)
+      ])
+
+      for (const item of sale.items) {
+        const subtotal = (Number(item.price) * Number(item.quantity)) - (Number(item.discount) || 0)
+        const namePart = (item.name.substring(0, 16).padEnd(16))
+        const qtyPart = (item.quantity.toString().padStart(4))
+        const pricePart = (Number(item.price).toFixed(1).padStart(6))
+        const totalPart = (subtotal.toFixed(1).padStart(8))
+        
+        commands = new Uint8Array([
+          ...commands,
+          ...encoder.encode(`${namePart}${qtyPart}${pricePart}${totalPart}\n`)
+        ])
+        
+        if (Number(item.discount) > 0) {
+          commands = new Uint8Array([
+            ...commands,
+            ...encoder.encode(`  DESC: -S/ ${Number(item.discount).toFixed(1)}\n`)
+          ])
         }
       }
-      toast({ title: "BOLETA ANULADA" })
-      setConfirmAnnulId(null)
-    } catch (e) { toast({ variant: "destructive", title: "ERROR" }) }
+
+      const totalUnits = (sale.items || []).reduce((acc: number, i: any) => acc + (Number(i.quantity) || 0), 0)
+
+      commands = new Uint8Array([
+        ...commands,
+        ...encoder.encode(separator),
+        ...esc.right,
+        ...encoder.encode(`UNIDADES: ${totalUnits}\n`),
+        ...esc.boldOn,
+        ...encoder.encode(`TOTAL: S/ ${Number(sale.total).toFixed(2)}\n`),
+        ...esc.boldOff,
+        ...esc.center,
+        ...encoder.encode("\nGRACIAS POR SU PREFERENCIA\n"),
+        ...esc.feed,
+        ...esc.cut
+      ])
+
+      await sendEscPos(commands)
+      toast({ title: "Ticket Impreso" })
+    } catch (e) {
+      console.error(e)
+      toast({ variant: "destructive", title: "Error al imprimir" })
+    } finally {
+      setIsPrinting(false)
+    }
   }
 
   const handleSendImage = async (sale: any) => {
@@ -154,17 +269,26 @@ export default function SalesPage() {
     }, 500)
   }
 
-  const handlePrint = (sale: any) => {
-    setActiveReceipt(sale)
-    setTimeout(() => {
-      window.print()
-    }, 500)
+  const annulQuote = async (quote: any) => {
+    if (!db) return
+    try {
+      await updateDoc(doc(db, "quotes", quote.id), { status: 'annulled' })
+      for (const item of quote.items) {
+        if (item.isRegistered && item.productId !== "MANUAL") {
+          await updateDoc(doc(db, "products", item.productId), { stock: increment(item.quantity) })
+          await addDoc(collection(db, "movements"), {
+            productCode: item.productId,
+            type: "return",
+            quantity: item.quantity,
+            reason: `ANULACIÓN BOLETA ${quote.id}`,
+            timestamp: serverTimestamp()
+          })
+        }
+      }
+      toast({ title: "BOLETA ANULADA" })
+      setConfirmAnnulId(null)
+    } catch (e) { toast({ variant: "destructive", title: "ERROR" }) }
   }
-
-  const totalUnits = React.useMemo(() => {
-    if (!activeReceipt) return 0;
-    return (activeReceipt.items || []).reduce((acc: number, item: any) => acc + (Number(item.quantity) || 0), 0);
-  }, [activeReceipt]);
 
   return (
     <div className="space-y-6 pt-2 pb-32 max-w-4xl mx-auto px-2 md:px-0">
@@ -181,7 +305,18 @@ export default function SalesPage() {
           </div>
         </div>
         <div className="flex w-full md:w-auto gap-2">
-          <div className="relative flex-1 md:w-56">
+          <Button 
+            variant="outline"
+            className={cn(
+              "h-10 px-4 rounded-xl border-primary/10 font-black text-[9px] uppercase gap-2 bg-white",
+              bleDevice ? "text-green-600 border-green-200 bg-green-50" : "text-primary"
+            )}
+            onClick={connectPrinter}
+          >
+            {bleDevice ? <BluetoothConnected className="w-4 h-4" /> : <Bluetooth className="w-4 h-4" />}
+            {bleDevice ? "Impresora Lista" : "Conectar BLE"}
+          </Button>
+          <div className="relative flex-1 md:w-48">
             <Search className="absolute left-3 top-3 h-4 w-4" style={{ color: brandColor }} />
             <Input 
               placeholder="" 
@@ -250,7 +385,7 @@ export default function SalesPage() {
                         <span className="font-headline font-medium text-[11px] text-foreground">S/ {Number(s.total).toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between items-center pr-2">
-                        <span className="text-[10px] font-medium text-foreground uppercase truncate max-w-[140px]">
+                        <span className="text-[10px] font-normal text-foreground uppercase truncate max-w-[140px]">
                           {s.customerName}
                         </span>
                         <span className="text-[8px] font-medium text-muted-foreground uppercase bg-secondary px-1.5 py-0.5 rounded">
@@ -272,12 +407,16 @@ export default function SalesPage() {
                               <MoreVertical className="w-4 h-4 text-primary" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="rounded-xl p-1.5 w-48 shadow-xl">
+                          <DropdownMenuContent align="end" className="rounded-xl p-1.5 w-56 shadow-xl">
                             <DropdownMenuItem className="text-[10px] font-black uppercase gap-2.5 p-2.5 rounded-lg" onClick={() => router.push(`/quotes?edit=${s.id}`)}>
                               <Edit2 className="w-3.5 h-3.5" style={{ color: brandColor }} /> Editar Venta
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="text-[10px] font-black uppercase gap-2.5 p-2.5 rounded-lg" onClick={() => handlePrint(s)}>
-                              <Printer className="w-3.5 h-3.5" style={{ color: brandColor }} /> Imprimir Boleta
+                            <DropdownMenuItem 
+                              className="text-[10px] font-black uppercase gap-2.5 p-2.5 rounded-lg" 
+                              onClick={() => handleBluetoothPrint(s)}
+                              disabled={isPrinting}
+                            >
+                              <Printer className="w-3.5 h-3.5" style={{ color: brandColor }} /> {isPrinting ? "Imprimiendo..." : "Imprimir Ticket BLE"}
                             </DropdownMenuItem>
                             <DropdownMenuItem className="text-[10px] font-black uppercase gap-2.5 p-2.5 rounded-lg" onClick={() => handleSendImage(s)}>
                               <ImageIcon className="w-3.5 h-3.5" style={{ color: brandColor }} /> Compartir Imagen
@@ -320,56 +459,56 @@ export default function SalesPage() {
         </Button>
       </div>
 
-      {/* Plantilla de Impresión Térmica Bluetooth / Imagen */}
-      <div className="fixed -left-[8000px] top-0 print:static print:left-0 print:w-full print:bg-white print:shadow-none">
+      {/* Plantilla para Compartir Imagen / Vista Previa */}
+      <div className="fixed -left-[8000px] top-0">
         {activeReceipt && (
           <div 
             ref={receiptRef} 
             className={cn(
-              "bg-white p-4 text-black font-mono text-[9px] leading-tight print:p-0",
+              "bg-white p-6 text-black font-mono text-[10px] leading-tight",
               printerWidth === "58" ? "w-[58mm]" : "w-[80mm]"
             )}
           >
-            <div className="text-center mb-4 border-t-2 border-b-2 py-3" style={{ borderColor: brandColor }}>
+            <div className="text-center mb-6 border-y-2 py-4" style={{ borderColor: brandColor }}>
               <h1 className="text-sm font-black uppercase tracking-widest" style={{ color: brandColor }}>
                 {companySettings?.companyName || "STILOSTACK"}
               </h1>
             </div>
             
-            <div className="flex justify-between items-start mb-4">
+            <div className="flex justify-between items-start mb-6">
               <div className="space-y-0.5">
-                <span className="text-[7px] font-bold text-black/50 block">CLIENTE:</span>
-                <div className="text-[10px] font-black uppercase">{activeReceipt.customerName}</div>
-                <div className="text-[8px] font-medium text-black/50">{activeReceipt.customerId}</div>
+                <span className="text-[8px] font-bold text-black/50 block">CLIENTE:</span>
+                <div className="text-[12px] font-black uppercase">{activeReceipt.customerName}</div>
+                <div className="text-[9px] font-medium text-black/50">{activeReceipt.customerId}</div>
               </div>
               <div className="text-right">
-                <div className="text-[12px] font-black mb-0.5" style={{ color: brandColor }}>{activeReceipt.id}</div>
-                <div className="text-[8px] font-bold text-black/60">
-                  {activeReceipt.createdAt?.toDate ? format(activeReceipt.createdAt.toDate(), "dd-MM-yy HH:mm") : ""}
+                <div className="text-[14px] font-black mb-0.5" style={{ color: brandColor }}>{activeReceipt.id}</div>
+                <div className="text-[9px] font-bold text-black/60">
+                  {activeReceipt.createdAt?.toDate ? format(activeReceipt.createdAt.toDate(), "dd/MM/yy HH:mm") : ""}
                 </div>
               </div>
             </div>
 
-            <div className="w-full border-t border-b border-black/10 py-2 mb-4">
+            <div className="w-full border-y border-black/10 py-3 mb-6">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="text-[8px] font-black uppercase border-b border-black/5">
-                    <th className="pb-1">N</th>
-                    <th className="pb-1">PRENDA</th>
-                    <th className="pb-1 text-center">P.U.</th>
-                    <th className="pb-1 text-center">CANT</th>
-                    <th className="pb-1 text-right">TOTAL</th>
+                  <tr className="text-[9px] font-black uppercase border-b border-black/5">
+                    <th className="pb-2">N</th>
+                    <th className="pb-2">PRENDA</th>
+                    <th className="pb-2 text-center">P.U.</th>
+                    <th className="pb-2 text-center">CANT</th>
+                    <th className="pb-2 text-right">TOTAL</th>
                   </tr>
                 </thead>
-                <tbody className="text-[8px] font-medium uppercase">
+                <tbody className="text-[9px] font-medium uppercase">
                   {activeReceipt.items?.map((item: any, i: number) => (
                     <tr key={i} className="align-top border-b border-black/5 last:border-0">
                       <td className="py-2 text-black/40">{i + 1}</td>
                       <td className="py-2">
                         <div className="font-bold text-black">{item.name}</div>
-                        {item.description && <div className="text-[7px] text-black/40 italic leading-none mt-0.5">{item.description}</div>}
+                        {item.description && <div className="text-[8px] text-black/40 italic leading-none mt-1">{item.description}</div>}
                         {Number(item.discount) > 0 && (
-                          <div className="text-[7px] font-black text-destructive mt-0.5 uppercase tracking-tighter">
+                          <div className="text-[8px] font-black text-destructive mt-1 uppercase tracking-tighter">
                             DESC: -S/ {Number(item.discount).toFixed(1)}
                           </div>
                         )}
@@ -385,53 +524,28 @@ export default function SalesPage() {
               </table>
             </div>
 
-            <div className="space-y-2">
-              <div className="flex justify-between items-end border-t border-dashed border-black/20 pt-2">
-                <div className="text-[9px] font-black uppercase">
-                  TOTAL PRENDAS: {totalUnits}
+            <div className="space-y-2 border-t border-dashed border-black/20 pt-4">
+              <div className="flex justify-between items-end">
+                <div className="text-[10px] font-black uppercase">
+                  TOTAL PRENDAS: {(activeReceipt.items || []).reduce((acc: number, item: any) => acc + (Number(item.quantity) || 0), 0)}
                 </div>
                 <div className="text-right space-y-0.5">
-                  <div className="text-[7px] font-black text-black/40 uppercase">TOTAL NETO:</div>
-                  <div className="text-[18px] font-black leading-none" style={{ color: brandColor }}>
+                  <div className="text-[8px] font-black text-black/40 uppercase">TOTAL NETO:</div>
+                  <div className="text-[24px] font-black leading-none" style={{ color: brandColor }}>
                     S/. {Number(activeReceipt.total).toFixed(1)}
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="mt-8 text-center border-t border-black/5 pt-4">
-              <span className="text-[7px] font-bold text-black/30 uppercase tracking-[0.3em]">
-                Gracias por su confianza
+            <div className="mt-10 text-center border-t border-black/5 pt-6">
+              <span className="text-[8px] font-bold text-black/30 uppercase tracking-[0.4em]">
+                GRACIAS POR SU PREFERENCIA
               </span>
             </div>
           </div>
         )}
       </div>
-
-      <style jsx global>{`
-        @media print {
-          body * {
-            visibility: hidden;
-            background: white !important;
-            box-shadow: none !important;
-          }
-          .print\:static, .print\:static * {
-            visibility: visible;
-          }
-          .print\:static {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: auto;
-            margin: 0;
-            padding: 0;
-          }
-          @page {
-            margin: 0;
-            size: auto;
-          }
-        }
-      `}</style>
     </div>
   )
 }
