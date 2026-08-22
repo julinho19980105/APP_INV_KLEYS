@@ -16,7 +16,8 @@ import {
   PackageSearch,
   X,
   Calculator,
-  ImageIcon
+  ImageIcon,
+  UserPlus
 } from "lucide-react"
 import {
   Dialog,
@@ -41,6 +42,7 @@ import {
   getDoc
 } from "firebase/firestore"
 import { syncCatalogToDrive } from "@/services/sheets-service"
+import { cn } from "@/lib/utils"
 
 interface QuoteItem {
   id: string
@@ -111,6 +113,7 @@ export default function QuotesPage() {
   const [isCalcOpen, setIsCalcOpen] = React.useState(false)
   const [calcData, setCalcData] = React.useState({ unidades: "", series: "", libres: "" })
   const [zoomImage, setZoomImage] = React.useState<string | null>(null)
+  const [registeringCustomer, setRegisteringCustomer] = React.useState(false)
 
   const productsRef = React.useMemo(() => db ? query(collection(db, "products"), orderBy("code")) : null, [db])
   const customersRef = React.useMemo(() => db ? query(collection(db, "customers"), orderBy("id")) : null, [db])
@@ -162,6 +165,36 @@ export default function QuotesPage() {
     )
   }, [productQuery, dbProducts])
 
+  const handleQuickRegisterCustomer = async () => {
+    if (!db || !customerQuery.trim()) return
+    setRegisteringCustomer(true)
+    try {
+      const q = query(collection(db, "customers"), orderBy("id", "desc"), limit(1))
+      const snap = await getDocs(q)
+      let nextCustId = "CL-001"
+      if (!snap.empty) {
+        const lastId = snap.docs[0].id
+        const lastNum = parseInt(lastId.split('-')[1]) || 0
+        nextCustId = `CL-${(lastNum + 1).toString().padStart(3, '0')}`
+      }
+      const name = customerQuery.toUpperCase().trim()
+      await setDoc(doc(db, "customers", nextCustId), { 
+        id: nextCustId, 
+        name, 
+        phone: "", 
+        location: "", 
+        createdAt: serverTimestamp() 
+      })
+      setSelectedCustomer({ id: nextCustId, name })
+      setCustomerQuery("")
+      toast({ title: "Cliente Registrado" })
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error al registrar cliente" })
+    } finally {
+      setRegisteringCustomer(false)
+    }
+  }
+
   const selectProductForEntry = (prod: any) => {
     setCurrentEntry({
       id: Math.random().toString(),
@@ -200,7 +233,10 @@ export default function QuotesPage() {
   }
 
   const handleSaveQuote = async () => {
-    if (!db || !selectedCustomer || items.length === 0) return
+    if (!db || !selectedCustomer || items.length === 0) {
+      if (!selectedCustomer) toast({ variant: "destructive", title: "CLIENTE OBLIGATORIO", description: "Debes seleccionar o registrar un cliente antes de guardar." })
+      return
+    }
     setSaving(true)
     try {
       const subtotal = items.reduce((acc, i) => acc + (Number(i.quantity) * Number(i.price)), 0)
@@ -235,10 +271,6 @@ export default function QuotesPage() {
         }
       }
 
-      const updatedProducts = await getDocs(query(collection(db, "products")))
-      const allProds = updatedProducts.docs.map(d => ({ id: d.id, ...d.data() }))
-      await syncCatalogToDrive(allProds)
-
       toast({ title: editId ? "BOLETA ACTUALIZADA" : "VENTA REGISTRADA" })
       router.push('/sales')
     } catch (e) {
@@ -250,12 +282,10 @@ export default function QuotesPage() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 pb-24 pt-2 px-2 md:px-0">
-      <div className="flex justify-between items-end border-b-2 border-black pb-4">
-        <div>
-          <h1 className="text-4xl font-headline font-black text-black uppercase tracking-tight">COTIZACIÓN</h1>
-          <Badge variant="outline" className="text-[9px] font-black border-black/20 uppercase tracking-[0.2em] px-3 mt-1">SERIE {quoteId}</Badge>
-        </div>
-        <div className="flex gap-2">
+      <div className="flex justify-between items-center border-b-2 border-primary/20 pb-4">
+        <h1 className="text-4xl font-headline font-black text-foreground uppercase tracking-tight">COTIZACIÓN</h1>
+        <div className="flex items-center gap-4">
+          <span className="text-4xl font-headline font-black text-primary uppercase">{quoteId}</span>
           {editId && (
             <Button variant="outline" size="icon" className="h-10 w-10 text-destructive rounded-xl border-destructive/20" onClick={() => router.push('/sales')}>
               <X className="w-6 h-6" />
@@ -266,55 +296,66 @@ export default function QuotesPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-1">
-          <Label className="text-[9px] uppercase text-black font-black ml-1">CLIENTE</Label>
-          <div className="relative">
-            <Input 
-              placeholder="" 
-              className="h-11 text-xs font-black uppercase rounded-xl border-black/10 bg-white"
-              value={selectedCustomer ? `${selectedCustomer.name} [${selectedCustomer.id}]` : customerQuery}
-              onChange={e => { if (selectedCustomer) setSelectedCustomer(null); setCustomerQuery(e.target.value); }}
-            />
-            {customerSuggestions.length > 0 && (
-              <div className="absolute z-50 w-full mt-1 bg-white border rounded-xl shadow-2xl overflow-hidden">
-                {customerSuggestions.map(c => (
-                  <button key={c.id} className="w-full text-left px-4 py-3 hover:bg-black/5 border-b last:border-0" onClick={() => { setSelectedCustomer({ id: c.id, name: c.name }); setCustomerQuery(""); }}>
-                    <span className="text-[10px] font-black uppercase text-black">{c.name} <span className="ml-1" style={{ color: brandColor }}>[{c.id}]</span></span>
-                  </button>
-                ))}
-              </div>
+          <Label className="text-[9px] uppercase text-foreground font-black ml-1">CLIENTE</Label>
+          <div className="relative flex gap-2">
+            <div className="relative flex-1">
+              <Input 
+                placeholder="" 
+                className="h-11 text-xs font-black uppercase rounded-xl border-primary/10 bg-white shadow-sm focus:ring-primary"
+                value={selectedCustomer ? `${selectedCustomer.name} [${selectedCustomer.id}]` : customerQuery}
+                onChange={e => { if (selectedCustomer) setSelectedCustomer(null); setCustomerQuery(e.target.value); }}
+              />
+              {customerSuggestions.length > 0 && (
+                <div className="absolute z-50 w-full mt-1 bg-white border border-primary/10 rounded-xl shadow-2xl overflow-hidden">
+                  {customerSuggestions.map(c => (
+                    <button key={c.id} className="w-full text-left px-4 py-3 hover:bg-primary/5 border-b last:border-0" onClick={() => { setSelectedCustomer({ id: c.id, name: c.name }); setCustomerQuery(""); }}>
+                      <span className="text-[10px] font-black uppercase text-foreground">{c.name} <span className="ml-1 text-primary">[{c.id}]</span></span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            {!selectedCustomer && customerQuery.length >= 2 && customerSuggestions.length === 0 && (
+              <Button 
+                className="h-11 w-11 rounded-xl bg-primary text-white shadow-lg shadow-primary/20 shrink-0"
+                onClick={handleQuickRegisterCustomer}
+                disabled={registeringCustomer}
+              >
+                {registeringCustomer ? <Loader2 className="animate-spin w-4 h-4" /> : <UserPlus className="w-5 h-5" />}
+              </Button>
             )}
           </div>
         </div>
 
         <div className="space-y-1">
-          <Label className="text-[9px] uppercase font-black text-black ml-1">BUSCAR PRENDA</Label>
+          <Label className="text-[9px] uppercase font-black text-foreground ml-1">BUSCAR PRENDA</Label>
           <div className="relative">
-            <Search className="absolute left-3 top-3.5 h-4 w-4" style={{ color: brandColor }} />
+            <Search className="absolute left-3 top-3.5 h-4 w-4 text-primary" />
             <Input 
               placeholder="" 
-              className="pl-9 h-11 rounded-xl border-black/10 font-black text-xs uppercase bg-white" 
+              className="pl-9 h-11 rounded-xl border-primary/10 font-black text-xs uppercase bg-white shadow-sm focus:ring-primary" 
               value={productQuery} 
               onChange={e => setProductQuery(e.target.value)} 
             />
             {productQuery.length >= 2 && (
-              <div className="absolute z-50 w-full mt-2 bg-white border rounded-2xl shadow-2xl overflow-hidden">
+              <div className="absolute z-50 w-full mt-2 bg-white border border-primary/10 rounded-2xl shadow-2xl overflow-hidden">
                 {productSuggestions.map(p => (
-                  <div key={p.code} className="w-full text-left px-4 py-3 hover:bg-black/5 flex items-center gap-3 border-b last:border-0 group">
+                  <div key={p.code} className="w-full text-left px-4 py-3 hover:bg-primary/5 flex items-center gap-3 border-b last:border-0 group">
                     <div 
-                      className="w-10 h-10 rounded-lg border overflow-hidden bg-black/5 cursor-pointer shrink-0 hover:ring-2 transition-all"
+                      className="w-10 h-10 rounded-lg border border-primary/10 overflow-hidden bg-secondary cursor-pointer shrink-0 hover:ring-2 transition-all"
                       onClick={(e) => { e.stopPropagation(); setZoomImage(p.images?.[0] || null); }}
                       style={{ borderColor: brandColor }}
                     >
                       {p.images?.[0] ? <img src={getDriveThumb(p.images[0], 400)} className="w-full h-full object-cover" alt="min" /> : <ImageIcon className="w-full h-full p-2 opacity-20" />}
                     </div>
                     <button className="flex-1 min-w-0 text-left" onClick={() => selectProductForEntry(p)}>
-                      <div className="font-black text-[10px] text-black uppercase group-hover:text-primary transition-colors">{p.name}</div>
-                      <div className="text-[7px] font-black text-black/40 uppercase">{p.code}</div>
+                      <div className="font-black text-[10px] text-foreground uppercase group-hover:text-primary transition-colors">{p.name}</div>
+                      <div className="text-[7px] font-black text-muted-foreground uppercase">{p.code}</div>
                     </button>
                   </div>
                 ))}
                 <button 
-                  className="w-full text-left px-4 py-4 hover:bg-black/5 bg-primary/5 border-t flex items-center gap-3"
+                  className="w-full text-left px-4 py-4 hover:bg-primary/5 bg-primary/5 border-t flex items-center gap-3"
                   onClick={() => {
                     setCurrentEntry({
                       ...EMPTY_ENTRY,
@@ -326,8 +367,8 @@ export default function QuotesPage() {
                     setProductQuery("");
                   }}
                 >
-                  <Plus className="w-4 h-4" style={{ color: brandColor }} />
-                  <span className="text-[10px] font-black uppercase text-black">Agregar Prenda Manual: "{productQuery}"</span>
+                  <Plus className="w-4 h-4 text-primary" />
+                  <span className="text-[10px] font-black uppercase text-foreground">Agregar Prenda Manual: "{productQuery}"</span>
                 </button>
               </div>
             )}
@@ -336,17 +377,17 @@ export default function QuotesPage() {
       </div>
 
       {currentEntry.name && (
-        <Card className="rounded-[2rem] border-2 border-black/5 bg-white overflow-hidden shadow-xl">
-          <div className="bg-black/5 border-b py-3 px-8 flex justify-between items-center">
+        <Card className="rounded-[2rem] border-2 border-primary/10 bg-white overflow-hidden shadow-xl shadow-primary/5">
+          <div className="bg-primary/5 border-b border-primary/10 py-3 px-8 flex justify-between items-center">
             <div className="flex flex-col">
-              <span className="text-[14px] font-black uppercase text-black">{currentEntry.name}</span>
-              <span className="text-[9px] font-black text-black/40 uppercase tracking-widest">{currentEntry.productId}</span>
+              <span className="text-[14px] font-black uppercase text-foreground">{currentEntry.name}</span>
+              <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">{currentEntry.productId}</span>
             </div>
             <div className="flex items-center gap-3">
               <Badge variant="outline" className="font-black text-[10px] px-3 bg-green-50 text-green-600 border-green-200">
                 DISPONIBLE: {currentEntry.stock}
               </Badge>
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-black/20 hover:text-black" onClick={() => setCurrentEntry(EMPTY_ENTRY)}>
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => setCurrentEntry(EMPTY_ENTRY)}>
                 <X className="w-4 h-4" />
               </Button>
             </div>
@@ -354,7 +395,7 @@ export default function QuotesPage() {
           <CardContent className="p-4 md:p-8 space-y-6">
             <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
               <div 
-                className="w-20 h-20 rounded-2xl overflow-hidden border shrink-0 bg-muted flex items-center justify-center cursor-pointer hover:ring-2 transition-all"
+                className="w-20 h-20 rounded-2xl overflow-hidden border border-primary/10 shrink-0 bg-muted flex items-center justify-center cursor-pointer hover:ring-2 transition-all shadow-md"
                 onClick={() => setZoomImage(currentEntry.img)}
               >
                 {currentEntry.img ? <img src={getDriveThumb(currentEntry.img, 400)} className="w-full h-full object-cover" /> : <PackageSearch className="w-8 h-8 opacity-20" />}
@@ -362,39 +403,39 @@ export default function QuotesPage() {
               <div className="flex-1 w-full space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-1">
-                    <Label className="text-[8px] font-black uppercase text-black/40 ml-1">PRECIO</Label>
-                    <Input type="number" className="h-10 text-xs font-black rounded-xl border-black/10" value={currentEntry.price} onChange={e => setCurrentEntry({...currentEntry, price: e.target.value})} placeholder="" />
+                    <Label className="text-[8px] font-black uppercase text-muted-foreground ml-1">PRECIO</Label>
+                    <Input type="number" className="h-10 text-xs font-black rounded-xl border-primary/10 focus:ring-primary" value={currentEntry.price} onChange={e => setCurrentEntry({...currentEntry, price: e.target.value})} placeholder="" />
                   </div>
                   <div className="grid grid-cols-2 gap-2 md:col-span-2">
                     <div className="space-y-1">
-                      <Label className="text-[8px] font-black uppercase text-black/40 ml-1">CANTIDAD</Label>
+                      <Label className="text-[8px] font-black uppercase text-muted-foreground ml-1">CANTIDAD</Label>
                       <div className="flex gap-1">
-                        <Input type="number" className="h-10 text-xs font-black rounded-xl" style={{ borderColor: brandColor }} value={currentEntry.quantity} onChange={e => setCurrentEntry({...currentEntry, quantity: e.target.value})} placeholder="" />
-                        <Button variant="outline" size="icon" className="h-10 w-10 shrink-0 rounded-xl" onClick={() => {
+                        <Input type="number" className="h-10 text-xs font-black rounded-xl border-primary/20 focus:ring-primary" value={currentEntry.quantity} onChange={e => setCurrentEntry({...currentEntry, quantity: e.target.value})} placeholder="" />
+                        <Button variant="outline" size="icon" className="h-10 w-10 shrink-0 rounded-xl border-primary/10 text-primary" onClick={() => {
                           setCalcData({ unidades: currentEntry.calcUnidades || "", series: currentEntry.calcSeries || "", libres: currentEntry.calcLibres || "" });
                           setIsCalcOpen(true);
                         }}>
-                          <Calculator className="w-4 h-4" style={{ color: brandColor }} />
+                          <Calculator className="w-4 h-4" />
                         </Button>
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-[8px] font-black uppercase text-black/40 ml-1">DSCTO</Label>
+                      <Label className="text-[8px] font-black uppercase text-muted-foreground ml-1">DSCTO</Label>
                       <Input type="number" className="h-10 text-xs font-black border-orange-200 bg-orange-50 text-orange-600 rounded-xl" value={currentEntry.discount} onChange={e => setCurrentEntry({...currentEntry, discount: e.target.value})} placeholder="" />
                     </div>
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-[8px] font-black uppercase text-black/40 ml-1">DESCRIPCIÓN / NOTAS</Label>
-                  <Input className="h-10 text-[10px] font-normal uppercase bg-black/5 border-none rounded-xl" value={currentEntry.description} onChange={e => setCurrentEntry({...currentEntry, description: e.target.value})} placeholder="" />
+                  <Label className="text-[8px] font-black uppercase text-muted-foreground ml-1">DESCRIPCIÓN / NOTAS</Label>
+                  <Input className="h-10 text-[10px] font-normal uppercase bg-secondary/50 border-none rounded-xl" value={currentEntry.description} onChange={e => setCurrentEntry({...currentEntry, description: e.target.value})} placeholder="" />
                 </div>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <Button variant="outline" className="h-12 rounded-2xl font-black text-xs uppercase border-black/10 text-black/40" onClick={() => setCurrentEntry(EMPTY_ENTRY)}>
+              <Button variant="outline" className="h-12 rounded-2xl font-black text-xs uppercase border-primary/10 text-muted-foreground" onClick={() => setCurrentEntry(EMPTY_ENTRY)}>
                 <Trash2 className="w-4 h-4 mr-2" /> LIMPIAR
               </Button>
-              <Button className="h-12 bg-black text-white rounded-2xl font-black text-xs uppercase" onClick={() => {
+              <Button className="h-12 bg-primary text-white rounded-2xl font-black text-xs uppercase shadow-lg shadow-primary/20" onClick={() => {
                 if (!currentEntry.name || !currentEntry.price || !currentEntry.quantity) return
                 setItems([...items, { ...currentEntry }])
                 setCurrentEntry(EMPTY_ENTRY)
@@ -406,35 +447,35 @@ export default function QuotesPage() {
         </Card>
       )}
 
-      <Card className="rounded-[2rem] border shadow-sm bg-white overflow-hidden">
-        <div className="bg-black/5 border-b py-3 px-6"><span className="text-[10px] font-black uppercase text-black tracking-widest">LISTA DE PRODUCTOS</span></div>
-        <div className="divide-y divide-black/5">
+      <Card className="rounded-[2rem] border border-primary/10 shadow-sm bg-white overflow-hidden">
+        <div className="bg-primary/5 border-b border-primary/10 py-3 px-6"><span className="text-[10px] font-black uppercase text-primary tracking-widest">LISTA DE PRODUCTOS</span></div>
+        <div className="divide-y divide-primary/5">
           {items.length === 0 ? (
             <div className="p-12 text-center opacity-20 font-black uppercase text-xs">Sin prendas en la lista</div>
           ) : items.map((item) => (
-            <div key={item.id} className="p-4 md:px-8 hover:bg-black/[0.01] transition-colors">
+            <div key={item.id} className="p-4 md:px-8 hover:bg-primary/[0.01] transition-colors">
               <div className="flex justify-between items-start">
                 <div className="flex items-center gap-2">
-                  <span className="font-black text-[12px] text-black uppercase">{item.name}</span>
-                  <Badge variant="outline" className="text-[7px] font-black py-0 px-2 uppercase border-black/10">{item.productId}</Badge>
+                  <span className="font-black text-[12px] text-foreground uppercase">{item.name}</span>
+                  <Badge variant="outline" className="text-[7px] font-black py-0 px-2 uppercase border-primary/10 text-primary">{item.productId}</Badge>
                 </div>
-                <div className="font-headline font-black text-sm text-black">
+                <div className="font-headline font-black text-sm text-foreground">
                   S/ {((Number(item.price) * Number(item.quantity)) - Number(item.discount)).toFixed(2)}
                 </div>
               </div>
               <div className="flex justify-between items-end mt-1">
-                <div className="text-[9px] font-normal uppercase text-black/50 leading-relaxed">
-                  <div className="font-black text-black/70 mb-0.5">{item.description || "Sin descripción"}</div>
+                <div className="text-[9px] font-normal uppercase text-muted-foreground leading-relaxed">
+                  <div className="font-black text-foreground/70 mb-0.5">{item.description || "Sin descripción"}</div>
                   <div className="flex gap-2 items-center">
-                    <span className="font-black" style={{ color: brandColor }}>{item.quantity} UND</span>
+                    <span className="font-black text-primary">{item.quantity} UND</span>
                     <span className="opacity-30">×</span>
                     <span>S/ {item.price}</span>
                     {Number(item.discount) > 0 && (
-                      <><span className="opacity-30">|</span><span className="text-red-600 font-black">DESC. - S/ {item.discount}</span></>
+                      <><span className="opacity-30">|</span><span className="text-destructive font-black">DESC. - S/ {item.discount}</span></>
                     )}
                   </div>
                 </div>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-black/20 hover:text-destructive" onClick={() => setItems(items.filter(i => i.id !== item.id))}>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => setItems(items.filter(i => i.id !== item.id))}>
                   <Trash2 className="w-3.5 h-3.5" />
                 </Button>
               </div>
@@ -443,17 +484,21 @@ export default function QuotesPage() {
         </div>
       </Card>
 
-      <div className="flex flex-col md:flex-row justify-between items-end border-b-4 border-black pb-6 pt-6 gap-6">
+      <div className="flex flex-col md:flex-row justify-between items-end border-b-4 border-primary pb-6 pt-6 gap-6">
         <div className="w-full md:w-auto space-y-1">
-          <div className="text-[10px] font-black uppercase text-black/40 tracking-widest">CANTIDAD TOTAL</div>
-          <div className="font-headline font-black text-4xl text-black">{items.reduce((acc, i) => acc + Number(i.quantity), 0)} <span className="text-sm">UND</span></div>
+          <div className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">CANTIDAD TOTAL</div>
+          <div className="font-headline font-black text-4xl text-foreground">{items.reduce((acc, i) => acc + Number(i.quantity), 0)} <span className="text-sm">UND</span></div>
         </div>
         <div className="w-full md:w-auto text-left md:text-right space-y-4">
           <div className="space-y-1">
-            <div className="text-[10px] font-black uppercase text-black/40 tracking-widest">MONTO TOTAL NETO</div>
-            <div className="font-headline font-black text-5xl md:text-6xl text-black tracking-tighter">S/ {items.reduce((acc, i) => acc + (Number(i.quantity) * Number(i.price) - Number(i.discount)), 0).toFixed(2)}</div>
+            <div className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">MONTO TOTAL NETO</div>
+            <div className="font-headline font-black text-5xl md:text-6xl text-foreground tracking-tighter">S/ {items.reduce((acc, i) => acc + (Number(i.quantity) * Number(i.price) - Number(i.discount)), 0).toFixed(2)}</div>
           </div>
-          <Button className="h-16 w-full md:w-64 bg-black text-white rounded-2xl font-black text-base uppercase shadow-2xl active:scale-95" onClick={handleSaveQuote} disabled={saving || items.length === 0}>
+          <Button 
+            className="h-16 w-full md:w-64 bg-primary text-white rounded-2xl font-black text-base uppercase shadow-2xl shadow-primary/30 active:scale-95 transition-all" 
+            onClick={handleSaveQuote} 
+            disabled={saving || items.length === 0}
+          >
             {saving ? <Loader2 className="animate-spin" /> : <Save className="w-5 h-5 mr-3" />} GUARDAR VENTA
           </Button>
         </div>
@@ -461,20 +506,20 @@ export default function QuotesPage() {
 
       <Dialog open={isCalcOpen} onOpenChange={setIsCalcOpen}>
         <DialogContent className="rounded-[2.5rem] border-none shadow-2xl max-w-xs">
-          <DialogHeader><DialogTitle className="text-xs font-black text-black uppercase tracking-widest">Calculadora de Series</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="text-xs font-black text-foreground uppercase tracking-widest">Calculadora de Series</DialogTitle></DialogHeader>
           <div className="space-y-4 pt-4">
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1"><Label className="text-[9px] font-black uppercase text-black/60">Unid x Serie</Label><Input type="number" value={calcData.unidades} onChange={e => setCalcData({...calcData, unidades: e.target.value})} className="h-10 text-xs font-black text-center" placeholder="" /></div>
-              <div className="space-y-1"><Label className="text-[9px] font-black uppercase text-black/60">N° Series</Label><Input type="number" value={calcData.series} onChange={e => setCalcData({...calcData, series: e.target.value})} className="h-10 text-xs font-black text-center" placeholder="" /></div>
+              <div className="space-y-1"><Label className="text-[9px] font-black uppercase text-muted-foreground">Unid x Serie</Label><Input type="number" value={calcData.unidades} onChange={e => setCalcData({...calcData, unidades: e.target.value})} className="h-10 text-xs font-black text-center border-primary/10 rounded-xl" placeholder="" /></div>
+              <div className="space-y-1"><Label className="text-[9px] font-black uppercase text-muted-foreground">N° Series</Label><Input type="number" value={calcData.series} onChange={e => setCalcData({...calcData, series: e.target.value})} className="h-10 text-xs font-black text-center border-primary/10 rounded-xl" placeholder="" /></div>
             </div>
-            <div className="space-y-1"><Label className="text-[9px] font-black uppercase text-black/60">+ Unid Libres</Label><Input type="number" value={calcData.libres} onChange={e => setCalcData({...calcData, libres: e.target.value})} className="h-10 text-xs font-black text-center" placeholder="" /></div>
-            <div className="bg-black/5 p-4 rounded-xl text-center">
-              <div className="text-[8px] font-black uppercase text-black/40 mb-1">Total Calculado</div>
-              <div className="text-2xl font-black text-black">{(Number(calcData.unidades) * Number(calcData.series)) + Number(calcData.libres)} UND</div>
+            <div className="space-y-1"><Label className="text-[9px] font-black uppercase text-muted-foreground">+ Unid Libres</Label><Input type="number" value={calcData.libres} onChange={e => setCalcData({...calcData, libres: e.target.value})} className="h-10 text-xs font-black text-center border-primary/10 rounded-xl" placeholder="" /></div>
+            <div className="bg-primary/5 p-4 rounded-xl text-center border border-primary/10">
+              <div className="text-[8px] font-black uppercase text-primary/40 mb-1">Total Calculado</div>
+              <div className="text-2xl font-black text-primary">{(Number(calcData.unidades) * Number(calcData.series)) + Number(calcData.libres)} UND</div>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <Button variant="outline" className="rounded-xl font-black text-[9px] uppercase" onClick={() => setIsCalcOpen(false)}>CANCELAR</Button>
-              <Button className="bg-black text-white rounded-xl font-black text-[9px] uppercase" onClick={handleApplyCalc}>CONFIRMAR</Button>
+              <Button variant="outline" className="rounded-xl font-black text-[9px] uppercase border-primary/10" onClick={() => setIsCalcOpen(false)}>CANCELAR</Button>
+              <Button className="bg-primary text-white rounded-xl font-black text-[9px] uppercase shadow-lg shadow-primary/20" onClick={handleApplyCalc}>CONFIRMAR</Button>
             </div>
           </div>
         </DialogContent>
