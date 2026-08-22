@@ -47,13 +47,13 @@ import {
   LayoutGrid,
   History,
   Plus,
-  PackagePlus
+  PackagePlus,
+  Calendar
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useCollection, useFirestore, useDoc } from "@/firebase"
 import { collection, query, orderBy, doc, deleteDoc, serverTimestamp, updateDoc, increment, addDoc } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
-import { syncCatalogToDrive } from "@/services/sheets-service"
 
 function getDriveThumb(url: string, size: number = 400) {
   if (!url || !url.includes('drive.google.com')) return url;
@@ -79,7 +79,16 @@ export default function InventoryPage() {
   const [selectedProduct, setSelectedProduct] = React.useState<any>(null)
   const [addStockProduct, setAddStockProduct] = React.useState<any>(null)
   const [addStockQty, setAddStockQty] = React.useState("")
-  const [syncing, setSyncing] = React.useState(false)
+  const [currentTime, setCurrentTime] = React.useState("")
+
+  React.useEffect(() => {
+    if (addStockProduct) {
+      setCurrentTime(new Date().toLocaleString('es-ES', { 
+        day: '2-digit', month: '2-digit', year: 'numeric', 
+        hour: '2-digit', minute: '2-digit', second: '2-digit' 
+      }))
+    }
+  }, [addStockProduct])
 
   const configDocRef = React.useMemo(() => db ? doc(db, "config", "global") : null, [db])
   const { data: config } = useDoc(configDocRef)
@@ -115,17 +124,19 @@ export default function InventoryPage() {
     if (isNaN(qty) || qty <= 0) return
 
     try {
-      await addDoc(collection(db, "movements"), {
+      addDoc(collection(db, "movements"), {
         productCode: addStockProduct.code,
         type: "in",
         quantity: qty,
         reason: "REPOSICIÓN DE STOCK MANUAL",
         timestamp: serverTimestamp()
-      })
-      await updateDoc(doc(db, "products", addStockProduct.id), {
+      });
+      
+      updateDoc(doc(db, "products", addStockProduct.id), {
         stock: increment(qty),
         updatedAt: serverTimestamp()
-      })
+      });
+
       toast({ title: "Stock Actualizado" })
       setAddStockProduct(null)
       setAddStockQty("")
@@ -157,20 +168,20 @@ export default function InventoryPage() {
         <div className="grid grid-cols-2 md:flex md:flex-row w-full md:w-auto gap-2">
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
             <SelectTrigger className="h-9 rounded-lg border-primary/10 font-black text-[9px] uppercase bg-white w-full md:w-32">
-              <SelectValue placeholder="Categoría" />
+              <SelectValue placeholder="Categorías" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all" className="text-[9px] font-black uppercase">Categorías</SelectItem>
+              <SelectItem value="all" className="text-[9px] font-black uppercase">Todas</SelectItem>
               {uniqueCategories.map(cat => <SelectItem key={cat} value={cat} className="text-[9px] font-black uppercase">{cat}</SelectItem>)}
             </SelectContent>
           </Select>
 
           <Select value={collectionFilter} onValueChange={setCollectionFilter}>
             <SelectTrigger className="h-9 rounded-lg border-primary/10 font-black text-[9px] uppercase bg-white w-full md:w-32">
-              <SelectValue placeholder="Colección" />
+              <SelectValue placeholder="Colecciones" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all" className="text-[9px] font-black uppercase">Colecciones</SelectItem>
+              <SelectItem value="all" className="text-[9px] font-black uppercase">Todas</SelectItem>
               {uniqueCollections.map(col => <SelectItem key={col} value={col} className="text-[9px] font-black uppercase">{col}</SelectItem>)}
             </SelectContent>
           </Select>
@@ -213,9 +224,9 @@ export default function InventoryPage() {
               {productsLoading ? (
                 <TableRow><TableCell colSpan={6} className="h-40 text-center"><Loader2 className="animate-spin inline-block mr-2" /> Cargando...</TableCell></TableRow>
               ) : filteredProducts.map(p => (
-                <TableRow key={p.id} className="hover:bg-primary/[0.01] transition-colors border-b last:border-0 h-16 group cursor-pointer" onClick={() => setSelectedProduct(p)}>
+                <TableRow key={p.id} className="hover:bg-primary/[0.01] transition-colors border-b last:border-0 h-20 group cursor-pointer" onClick={() => setSelectedProduct(p)}>
                   <TableCell className="pl-6 py-2 w-14">
-                    <div className="w-10 h-10 rounded-lg border border-primary/5 overflow-hidden bg-secondary shadow-sm">
+                    <div className="w-12 h-12 rounded-lg border border-primary/5 overflow-hidden bg-secondary shadow-sm">
                       {p.images?.[0] ? (
                         <img src={getDriveThumb(p.images[0], 200)} className="w-full h-full object-cover" alt="min" />
                       ) : (
@@ -230,34 +241,34 @@ export default function InventoryPage() {
                     </div>
                   </TableCell>
                   <TableCell className="py-2">
-                    <div className="flex flex-col gap-0.5 text-[9px] font-black uppercase min-w-[120px]">
-                      <div className="flex justify-between items-center border-b border-primary/5 pb-0.5">
-                        <span className="text-muted-foreground text-[7px]">P. FARDO</span>
+                    <div className="flex flex-col gap-0.5 text-[9px] font-black uppercase min-w-[140px]">
+                      <div className="flex justify-between items-center gap-4 border-b border-primary/5 pb-0.5">
+                        <span className="text-muted-foreground text-[7px] shrink-0">P. FARDO</span>
                         <span className="text-foreground">S/ {p.priceFardo}</span>
                       </div>
-                      <div className="flex justify-between items-center border-b border-primary/5 pb-0.5">
-                        <span className="text-muted-foreground text-[7px]">P. MAYOR</span>
+                      <div className="flex justify-between items-center gap-4 border-b border-primary/5 pb-0.5">
+                        <span className="text-muted-foreground text-[7px] shrink-0">P. MAYOR</span>
                         <span className="text-foreground">S/ {p.priceMayor}</span>
                       </div>
-                      <div className="flex justify-between items-center text-primary">
-                        <span className="text-[7px]">P. UNIDAD</span>
+                      <div className="flex justify-between items-center gap-4 text-primary">
+                        <span className="text-[7px] shrink-0">P. UNIDAD</span>
                         <span>S/ {p.priceUnidad}</span>
                       </div>
                     </div>
                   </TableCell>
                   <TableCell className="py-2">
-                    <div className="flex gap-1 items-start flex-wrap max-w-[150px]">
-                      <Badge variant="outline" className="text-[7px] font-black uppercase px-2 py-0 border-primary/10 bg-primary/5 text-primary">{p.category || 'GEN'}</Badge>
-                      <Badge variant="outline" className="text-[7px] font-black uppercase px-2 py-0 border-accent/20 bg-accent/10 text-accent-foreground">{p.collection || 'GEN'}</Badge>
+                    <div className="flex flex-col gap-1 items-start">
+                      <Badge variant="outline" className="text-[7px] font-black uppercase px-2 py-0 border-primary/10 bg-primary/5 text-primary whitespace-nowrap">{p.category || 'GEN'}</Badge>
+                      <Badge variant="outline" className="text-[7px] font-black uppercase px-2 py-0 border-accent/20 bg-accent/10 text-accent-foreground whitespace-nowrap">{p.collection || 'GEN'}</Badge>
                     </div>
                   </TableCell>
                   <TableCell className="text-center py-2">
                     <div className={cn(
-                      "inline-flex flex-col items-center justify-center w-9 h-9 rounded-full border shadow-sm transition-transform group-hover:scale-110",
+                      "inline-flex flex-col items-center justify-center w-10 h-10 rounded-full border shadow-sm transition-transform group-hover:scale-110",
                       p.stock <= 0 ? "bg-red-50 text-red-600 border-red-200" : "bg-green-50 text-green-600 border-green-200"
                     )}>
-                      <span className="font-black text-[12px] leading-none">{p.stock}</span>
-                      <span className="text-[5px] font-bold uppercase">UND</span>
+                      <span className="font-black text-[13px] leading-none">{p.stock}</span>
+                      <span className="text-[6px] font-bold uppercase">UND</span>
                     </div>
                   </TableCell>
                   <TableCell className="text-right pr-6 py-2" onClick={e => e.stopPropagation()}>
@@ -265,9 +276,9 @@ export default function InventoryPage() {
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl"><MoreVertical className="w-4 h-4 text-primary" /></Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="rounded-xl p-2 w-48 shadow-xl">
+                      <DropdownMenuContent align="end" className="rounded-xl p-2 w-52 shadow-xl">
                         <DropdownMenuItem className="text-[10px] font-black uppercase gap-3 cursor-pointer p-3 rounded-lg" onClick={() => setSelectedProduct(p)}>
-                          <Eye className="w-3.5 h-3.5 text-primary" /> Ver Más Detalles
+                          <Eye className="w-3.5 h-3.5 text-primary" /> Ver Detalles
                         </DropdownMenuItem>
                         <DropdownMenuItem className="text-[10px] font-black uppercase gap-3 cursor-pointer p-3 rounded-lg bg-green-50 text-green-700" onClick={() => setAddStockProduct(p)}>
                           <PackagePlus className="w-3.5 h-3.5" /> Agregar Ingreso
@@ -361,38 +372,48 @@ export default function InventoryPage() {
 
       <Dialog open={!!addStockProduct} onOpenChange={() => setAddStockProduct(null)}>
         <DialogContent className="rounded-[2.5rem] border-none shadow-2xl max-w-sm">
-          <DialogHeader><DialogTitle className="text-sm font-black text-foreground uppercase tracking-widest">Registrar Ingreso</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="text-sm font-black text-foreground uppercase tracking-widest">Registrar Ingreso de Stock</DialogTitle></DialogHeader>
           <div className="space-y-6 pt-4">
             <div className="bg-primary/5 p-4 rounded-2xl border border-primary/10">
-              <span className="text-[8px] font-black text-primary/40 uppercase block mb-1">Producto</span>
+              <span className="text-[8px] font-black text-primary/40 uppercase block mb-1">Prenda Seleccionada</span>
               <span className="text-[12px] font-black uppercase text-foreground leading-tight">{addStockProduct?.name}</span>
+              <span className="block text-[8px] font-black text-primary/40 mt-1">{addStockProduct?.code}</span>
             </div>
             
             <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Cantidad a Ingresar</Label>
+              <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Cantidad a Ingresar *</Label>
               <Input 
                 type="number" 
                 value={addStockQty} 
                 onChange={e => setAddStockQty(e.target.value)}
                 placeholder=""
-                className="h-14 font-black text-center text-xl border-green-200 bg-green-50 rounded-2xl focus:ring-green-500"
+                className="h-16 font-black text-center text-2xl border-green-200 bg-green-50 rounded-2xl focus:ring-green-500 shadow-inner"
               />
             </div>
 
-            <div className="bg-secondary/30 p-4 rounded-xl flex items-center justify-between">
-              <div className="flex flex-col">
-                <span className="text-[8px] font-black uppercase text-muted-foreground">Fecha/Hora</span>
-                <span className="text-[10px] font-black uppercase text-foreground">Automático</span>
+            <div className="bg-secondary/30 p-5 rounded-2xl space-y-3">
+              <div className="flex items-center justify-between border-b border-white/40 pb-2">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-3.5 h-3.5 text-primary/40" />
+                  <span className="text-[8px] font-black uppercase text-muted-foreground">Registro Temporal</span>
+                </div>
+                <span className="text-[10px] font-black text-foreground">{currentTime}</span>
               </div>
-              <div className="text-right">
-                <span className="text-[8px] font-black uppercase text-muted-foreground">Nuevo Stock</span>
-                <div className="text-lg font-black text-green-700">{(Number(addStockProduct?.stock || 0) + Number(addStockQty || 0))} UND</div>
+              <div className="flex items-center justify-between">
+                <div className="flex flex-col">
+                  <span className="text-[8px] font-black uppercase text-muted-foreground">Stock Actual</span>
+                  <span className="text-sm font-black text-foreground">{addStockProduct?.stock} UND</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-[8px] font-black uppercase text-muted-foreground">Stock Final</span>
+                  <div className="text-xl font-black text-green-700">{(Number(addStockProduct?.stock || 0) + Number(addStockQty || 0))} UND</div>
+                </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 pt-2">
               <Button variant="outline" className="h-14 rounded-2xl font-black text-[10px] uppercase border-primary/10" onClick={() => setAddStockProduct(null)}>CANCELAR</Button>
-              <Button className="h-14 rounded-2xl bg-green-600 text-white font-black text-[10px] uppercase shadow-lg shadow-green-200" onClick={handleInMovement} disabled={!addStockQty || Number(addStockQty) <= 0}>
+              <Button className="h-14 rounded-2xl bg-green-600 text-white font-black text-[10px] uppercase shadow-lg shadow-green-200 hover:opacity-90 active:scale-95 transition-all" onClick={handleInMovement} disabled={!addStockQty || Number(addStockQty) <= 0}>
                 CONFIRMAR INGRESO
               </Button>
             </div>

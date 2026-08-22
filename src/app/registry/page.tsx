@@ -58,7 +58,6 @@ export default function RegistryPage() {
   
   const configDocRef = React.useMemo(() => db ? doc(db, "config", "global") : null, [db])
   const { data: config } = useDoc(configDocRef)
-  const brandColor = config?.brandColor || "#FF3399"
   
   const [saving, setSaving] = React.useState(false)
   const [nextId, setNextId] = React.useState("P-001")
@@ -237,7 +236,7 @@ export default function RegistryPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-3">
                     <div className="flex items-center justify-between ml-1 pr-1">
-                      <Label className="text-[11px] uppercase font-black text-primary tracking-widest">Categoría</Label>
+                      <Label className="text-[11px] uppercase font-black text-primary tracking-widest">Categoría *</Label>
                       <button 
                         className="text-primary/40 hover:text-primary transition-colors" 
                         onClick={() => { setTagManagerConfig({ type: 'category', title: 'Gestionar Categorías' }); setIsTagManagerOpen(true); }}
@@ -259,7 +258,7 @@ export default function RegistryPage() {
 
                   <div className="space-y-3">
                     <div className="flex items-center justify-between ml-1 pr-1">
-                      <Label className="text-[11px] uppercase font-black text-primary tracking-widest">Colección</Label>
+                      <Label className="text-[11px] uppercase font-black text-primary tracking-widest">Colección *</Label>
                       <button 
                         className="text-primary/40 hover:text-primary transition-colors" 
                         onClick={() => { setTagManagerConfig({ type: 'collection', title: 'Gestionar Colecciones' }); setIsTagManagerOpen(true); }}
@@ -299,7 +298,7 @@ export default function RegistryPage() {
                     value={form.priceFardo} 
                     onChange={e => setForm({...form, priceFardo: e.target.value})} 
                     placeholder=""
-                    className="h-14 rounded-2xl font-black text-lg text-center border-orange-200 bg-orange-100/30 text-orange-700 shadow-sm" 
+                    className="h-14 rounded-2xl font-black text-lg text-center border-orange-100/30 bg-orange-50 text-orange-600 shadow-sm" 
                   />
                 </div>
                 <div className="space-y-2">
@@ -309,7 +308,7 @@ export default function RegistryPage() {
                     value={form.priceMayor} 
                     onChange={e => setForm({...form, priceMayor: e.target.value})} 
                     placeholder=""
-                    className="h-14 rounded-2xl font-black text-lg text-center border-orange-200 bg-orange-100/30 text-orange-700 shadow-sm" 
+                    className="h-14 rounded-2xl font-black text-lg text-center border-orange-100/30 bg-orange-50 text-orange-600 shadow-sm" 
                   />
                 </div>
                 <div className="space-y-2">
@@ -319,7 +318,7 @@ export default function RegistryPage() {
                     value={form.priceUnidad} 
                     onChange={e => setForm({...form, priceUnidad: e.target.value})} 
                     placeholder=""
-                    className="h-14 rounded-2xl font-black text-lg text-center border-orange-200 bg-orange-100/30 text-orange-700 shadow-sm focus:ring-primary" 
+                    className="h-14 rounded-2xl font-black text-lg text-center border-orange-100/30 bg-orange-50 text-orange-600 shadow-sm" 
                   />
                 </div>
               </div>
