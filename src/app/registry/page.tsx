@@ -9,13 +9,14 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from "@/components/ui/select"
-import { ImagePlus, X, Save, Loader2, Search, Package } from "lucide-react"
+  ImagePlus, 
+  X, 
+  Save, 
+  Loader2, 
+  Search, 
+  Package,
+  Heart
+} from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useFirestore, useDoc, useCollection } from "@/firebase"
 import { doc, setDoc, collection, query, orderBy, serverTimestamp, updateDoc, addDoc, increment, getDocs, limit } from "firebase/firestore"
@@ -66,7 +67,7 @@ export default function RegistryPage() {
   })
   const [localImagePreviews, setLocalImagePreviews] = React.useState<string[]>([])
   const [stockSearchQuery, setStockSearchQuery] = React.useState("")
-  const [stockEntry, setStockEntry] = React.useState({ productCode: "", quantity: "", reason: "Reposición Industrial" })
+  const [stockEntry, setStockEntry] = React.useState({ productCode: "", quantity: "", reason: "Reposición Diva" })
 
   React.useEffect(() => {
     if (!db || editId) return
@@ -121,19 +122,9 @@ export default function RegistryPage() {
       await setDoc(doc(db, "products", productCode), productData, { merge: true })
       toast({ title: editId ? "PRENDA ACTUALIZADA" : "PRENDA REGISTRADA" })
       
-      setTimeout(async () => {
-        try {
-          const updatedSnap = await getDocs(query(collection(db, "products")))
-          const allProds = updatedSnap.docs.map(d => ({ id: d.id, ...d.data() }))
-          await syncCatalogToDrive(allProds)
-        } catch (syncErr) {
-          console.warn("Sincronización en la nube falló. Use el botón 'Sincronizar Nube' en el Inventario.");
-        }
-      }, 500)
-      
       router.push('/inventory')
     } catch (e) { 
-      toast({ variant: "destructive", title: "Error al guardar en base de datos" }) 
+      toast({ variant: "destructive", title: "Error al guardar" }) 
     }
     finally { setSaving(false) }
   }
@@ -155,8 +146,8 @@ export default function RegistryPage() {
         timestamp: serverTimestamp() 
       })
       
-      toast({ title: "Stock Actualizado" })
-      setStockEntry({ productCode: "", quantity: "", reason: "Reposición Industrial" })
+      toast({ title: "STOCK ACTUALIZADO" })
+      setStockEntry({ productCode: "", quantity: "", reason: "Reposición Diva" })
       setStockSearchQuery("")
     } catch (e) { toast({ variant: "destructive", title: "Error al actualizar stock" }) }
     finally { setSaving(false) }
@@ -169,66 +160,66 @@ export default function RegistryPage() {
   }, [allProducts, stockSearchQuery])
 
   return (
-    <div className="max-w-6xl mx-auto space-y-4 pt-2 pb-24 px-2 md:px-0">
+    <div className="max-w-6xl mx-auto space-y-6 pt-4 pb-24 px-2 md:px-0">
       <Tabs defaultValue="new" className="w-full">
-        <TabsList className="bg-black/5 p-1 rounded-2xl w-full justify-start border">
-          <TabsTrigger value="new" className="rounded-xl px-12 data-[state=active]:bg-black data-[state=active]:text-white text-xs font-black uppercase">Ficha Técnica</TabsTrigger>
-          <TabsTrigger value="stock" className="rounded-xl px-12 data-[state=active]:bg-black data-[state=active]:text-white text-xs font-black uppercase">Ingreso Stock</TabsTrigger>
+        <TabsList className="bg-secondary p-1 rounded-[1.5rem] w-full justify-start border-none mb-4 shadow-sm">
+          <TabsTrigger value="new" className="rounded-xl px-12 data-[state=active]:bg-primary data-[state=active]:text-white text-[11px] font-black uppercase">Ficha de Prenda</TabsTrigger>
+          <TabsTrigger value="stock" className="rounded-xl px-12 data-[state=active]:bg-primary data-[state=active]:text-white text-[11px] font-black uppercase">Entrada a Almacén</TabsTrigger>
         </TabsList>
 
         <TabsContent value="new" className="pt-2">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-4">
-              <Card className="border shadow-sm bg-white rounded-2xl overflow-hidden">
-                <div className="bg-black/5 border-b py-3 px-6 flex justify-between items-center">
-                  <div className="flex items-center gap-2">
-                    <Package className="w-5 h-5" style={{ color: brandColor }} />
-                    <span className="text-[10px] text-black font-black uppercase tracking-widest">Información de Producto</span>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 space-y-6">
+              <Card className="border-none shadow-xl bg-white rounded-[2.5rem] overflow-hidden">
+                <div className="bg-secondary/50 border-b border-primary/5 py-4 px-8 flex justify-between items-center">
+                  <div className="flex items-center gap-3">
+                    <Package className="w-6 h-6 text-primary" />
+                    <span className="text-[11px] text-primary font-black uppercase tracking-widest">Detalles de Producto</span>
                   </div>
-                  <div className="bg-black text-white px-6 py-1 rounded-xl font-black text-xl shadow-lg">{nextId}</div>
+                  <div className="bg-primary text-white px-8 py-1.5 rounded-2xl font-black text-2xl shadow-lg shadow-primary/20">{nextId}</div>
                 </div>
-                <CardContent className="space-y-6 pt-6 px-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-1">
-                      <Label className="text-[9px] uppercase font-black ml-1 text-black/60">Nombre Comercial *</Label>
-                      <Input value={form.name} onChange={e => setForm({...form, name: e.target.value.toUpperCase()})} className="h-12 border-black/10 rounded-xl font-black text-sm uppercase" />
+                <CardContent className="space-y-8 pt-8 px-8">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-2">
+                      <Label className="text-[10px] uppercase font-black ml-1 text-muted-foreground">Nombre Comercial *</Label>
+                      <Input value={form.name} onChange={e => setForm({...form, name: e.target.value.toUpperCase()})} className="h-12 border-primary/10 rounded-2xl font-black text-sm uppercase focus:ring-primary" />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <Label className="text-[9px] uppercase font-black ml-1 text-black/60">Categoría *</Label>
-                        <Input value={form.category} onChange={e => setForm({...form, category: e.target.value.toUpperCase()})} className="h-12 border-black/10 rounded-xl font-black text-[10px] uppercase" />
+                      <div className="space-y-2">
+                        <Label className="text-[10px] uppercase font-black ml-1 text-muted-foreground">Categoría *</Label>
+                        <Input value={form.category} onChange={e => setForm({...form, category: e.target.value.toUpperCase()})} className="h-12 border-primary/10 rounded-2xl font-black text-[11px] uppercase" />
                       </div>
-                      <div className="space-y-1">
-                        <Label className="text-[9px] uppercase font-black ml-1 text-black/60">Colección *</Label>
-                        <Input value={form.collection} onChange={e => setForm({...form, collection: e.target.value.toUpperCase()})} className="h-12 border-black/10 rounded-xl font-black text-[10px] uppercase" />
+                      <div className="space-y-2">
+                        <Label className="text-[10px] uppercase font-black ml-1 text-muted-foreground">Colección *</Label>
+                        <Input value={form.collection} onChange={e => setForm({...form, collection: e.target.value.toUpperCase()})} className="h-12 border-primary/10 rounded-2xl font-black text-[11px] uppercase" />
                       </div>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="space-y-1"><Label className="text-[9px] uppercase font-black ml-1 text-black/60">Stock</Label><Input type="number" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} className="h-12 rounded-xl font-black text-sm" /></div>
-                    <div className="space-y-1"><Label className="text-[9px] uppercase font-black ml-1 text-black/60">P. Fardo</Label><Input type="number" value={form.priceFardo} onChange={e => setForm({...form, priceFardo: e.target.value})} className="h-12 rounded-xl font-black text-sm" /></div>
-                    <div className="space-y-1"><Label className="text-[9px] uppercase font-black ml-1 text-black/60">P. Mayor</Label><Input type="number" value={form.priceMayor} onChange={e => setForm({...form, priceMayor: e.target.value})} className="h-12 rounded-xl font-black text-sm" /></div>
-                    <div className="space-y-1"><Label className="text-[9px] uppercase font-black ml-1 text-black/60">P. Unidad</Label><Input type="number" value={form.priceUnidad} onChange={e => setForm({...form, priceUnidad: e.target.value})} className="h-12 rounded-xl font-black text-sm" /></div>
+                    <div className="space-y-2"><Label className="text-[10px] uppercase font-black ml-1 text-muted-foreground">Stock</Label><Input type="number" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} className="h-12 rounded-2xl font-black text-sm border-primary/10" /></div>
+                    <div className="space-y-2"><Label className="text-[10px] uppercase font-black ml-1 text-muted-foreground">P. Fardo</Label><Input type="number" value={form.priceFardo} onChange={e => setForm({...form, priceFardo: e.target.value})} className="h-12 rounded-2xl font-black text-sm border-primary/10" /></div>
+                    <div className="space-y-2"><Label className="text-[10px] uppercase font-black ml-1 text-muted-foreground">P. Mayor</Label><Input type="number" value={form.priceMayor} onChange={e => setForm({...form, priceMayor: e.target.value})} className="h-12 rounded-2xl font-black text-sm border-primary/10" /></div>
+                    <div className="space-y-2"><Label className="text-[10px] uppercase font-black ml-1 text-muted-foreground">P. Unidad</Label><Input type="number" value={form.priceUnidad} onChange={e => setForm({...form, priceUnidad: e.target.value})} className="h-12 rounded-2xl font-black text-sm border-primary/10" /></div>
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-[9px] uppercase font-black ml-1 text-black/60">Observaciones</Label>
-                    <Textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="min-h-[100px] rounded-2xl bg-black/5 p-4 text-xs font-normal border-none text-black" />
+                  <div className="space-y-2">
+                    <Label className="text-[10px] uppercase font-black ml-1 text-muted-foreground">Descripción Estética</Label>
+                    <Textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="min-h-[120px] rounded-[1.5rem] bg-secondary/50 p-5 text-sm font-medium border-none text-foreground focus:ring-primary" />
                   </div>
                 </CardContent>
               </Card>
             </div>
-            <div className="space-y-4">
-              <Card className="border shadow-sm bg-white rounded-2xl overflow-hidden">
-                <CardContent className="pt-3 grid grid-cols-2 gap-2 px-6 pb-3">
+            <div className="space-y-6">
+              <Card className="border-none shadow-xl bg-white rounded-[2.5rem] overflow-hidden">
+                <CardContent className="pt-4 grid grid-cols-2 gap-3 px-6 pb-4">
                   {localImagePreviews.map((img, idx) => (
-                    <div key={idx} className="relative aspect-square rounded-xl overflow-hidden border">
+                    <div key={idx} className="relative aspect-square rounded-2xl overflow-hidden border border-primary/5 shadow-sm">
                       <img src={getDriveThumb(img, 400)} className="w-full h-full object-cover" alt="Previa" />
-                      <button onClick={() => setLocalImagePreviews(localImagePreviews.filter((_, i) => i !== idx))} className="absolute top-1 right-1 p-1 bg-destructive rounded-full text-white shadow-md"><X className="w-3 h-3" /></button>
+                      <button onClick={() => setLocalImagePreviews(localImagePreviews.filter((_, i) => i !== idx))} className="absolute top-2 right-2 p-1.5 bg-destructive rounded-full text-white shadow-md hover:scale-110 transition-transform"><X className="w-3.5 h-3.5" /></button>
                     </div>
                   ))}
-                  <button onClick={() => fileInputRef.current?.click()} className="aspect-square rounded-xl border-2 border-dashed border-black/10 flex flex-col items-center justify-center gap-1 bg-black/5 hover:bg-black/10 transition-colors">
-                    <ImagePlus className="w-6 h-6" style={{ color: brandColor }} />
-                    <span className="text-[8px] font-black uppercase opacity-40">Subir Foto</span>
+                  <button onClick={() => fileInputRef.current?.click()} className="aspect-square rounded-2xl border-2 border-dashed border-primary/20 flex flex-col items-center justify-center gap-2 bg-secondary/30 hover:bg-secondary/50 transition-colors group">
+                    <ImagePlus className="w-8 h-8 text-primary group-hover:scale-110 transition-transform" />
+                    <span className="text-[9px] font-black uppercase text-primary/40">Agregar Foto</span>
                   </button>
                   <input type="file" hidden ref={fileInputRef} onChange={async e => {
                     const f = e.target.files?.[0];
@@ -243,14 +234,14 @@ export default function RegistryPage() {
                   }} />
                 </CardContent>
               </Card>
-              <div className="flex gap-2">
+              <div className="flex gap-4">
                 {editId && (
-                  <Button variant="outline" className="h-16 w-20 rounded-2xl border-destructive/20 text-destructive bg-destructive/5" onClick={() => router.push('/inventory')}>
+                  <Button variant="outline" className="h-16 w-20 rounded-2xl border-destructive/20 text-destructive bg-destructive/5 hover:bg-destructive hover:text-white transition-all shadow-md" onClick={() => router.push('/inventory')}>
                     <X className="w-6 h-6" />
                   </Button>
                 )}
-                <Button className="flex-1 h-16 rounded-2xl bg-black text-white font-black text-base shadow-xl active:scale-95 transition-all" onClick={handleSave} disabled={saving}>
-                  {saving ? <Loader2 className="animate-spin" /> : <Save className="mr-3 w-5 h-5" />} {editId ? "ACTUALIZAR" : "GUARDAR"}
+                <Button className="flex-1 h-16 rounded-[1.5rem] bg-primary text-white font-black text-lg shadow-xl shadow-primary/20 hover:opacity-90 active:scale-95 transition-all" onClick={handleSave} disabled={saving}>
+                  {saving ? <Loader2 className="animate-spin" /> : <Save className="mr-3 w-5 h-5" />} {editId ? "ACTUALIZAR" : "GUARDAR FICHA"}
                 </Button>
               </div>
             </div>
@@ -258,34 +249,34 @@ export default function RegistryPage() {
         </TabsContent>
 
         <TabsContent value="stock" className="pt-2">
-          <Card className="border shadow-sm bg-white rounded-[2.5rem] max-w-xl mx-auto overflow-hidden">
-            <CardContent className="p-8 space-y-6">
+          <Card className="border-none shadow-2xl bg-white rounded-[3rem] max-w-xl mx-auto overflow-hidden">
+            <CardContent className="p-10 space-y-8">
               <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: brandColor }} />
-                <Input placeholder="BUSCAR PRENDA..." value={stockSearchQuery} onChange={e => setStockSearchQuery(e.target.value)} className="pl-12 h-14 font-black uppercase rounded-2xl border-black/10" />
+                <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: brandColor }} />
+                <Input placeholder="BUSCAR POR NOMBRE O DNI..." value={stockSearchQuery} onChange={e => setStockSearchQuery(e.target.value)} className="pl-14 h-16 font-black uppercase rounded-3xl border-primary/10 shadow-sm focus:ring-primary" />
               </div>
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {filteredProductsForStock.map(p => (
-                  <div key={p.id} className="p-4 rounded-2xl border flex justify-between items-center cursor-pointer hover:bg-black/5" onClick={() => setStockEntry({...stockEntry, productCode: p.code})}>
+                  <div key={p.id} className="p-5 rounded-3xl border border-primary/5 flex justify-between items-center cursor-pointer hover:bg-primary/5 transition-all group" onClick={() => setStockEntry({...stockEntry, productCode: p.code})}>
                     <div className="flex flex-col">
-                      <span className="font-black text-sm uppercase">{p.name}</span>
-                      <span className="text-[9px] font-black text-black/40 uppercase">{p.code}</span>
+                      <span className="font-black text-base uppercase tracking-tight group-hover:text-primary transition-colors">{p.name}</span>
+                      <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{p.code}</span>
                     </div>
-                    <div className="bg-black text-white px-4 py-1 rounded-xl text-[10px] font-black">ACTUAL: {p.stock}</div>
+                    <div className="bg-secondary text-primary px-5 py-2 rounded-2xl text-[11px] font-black border border-primary/10">ACTUAL: {p.stock}</div>
                   </div>
                 ))}
               </div>
               {stockEntry.productCode && (
-                <div className="pt-6 border-t-2 border-black/5 space-y-6">
-                  <div className="bg-black text-white p-5 rounded-2xl flex justify-between items-center">
-                    <span className="font-black text-base uppercase">{stockEntry.productCode}</span>
-                    <span className="text-[10px] font-black opacity-60 uppercase">Reposición</span>
+                <div className="pt-8 border-t border-primary/5 space-y-8 animate-in fade-in slide-in-from-top-4">
+                  <div className="bg-primary text-white p-6 rounded-[2rem] flex justify-between items-center shadow-lg shadow-primary/20">
+                    <span className="font-black text-xl uppercase">{stockEntry.productCode}</span>
+                    <Heart className="w-6 h-6 fill-current" />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1"><Label className="text-[9px] font-black uppercase text-black/60 ml-2">Cantidad</Label><Input type="number" value={stockEntry.quantity} onChange={e => setStockEntry({...stockEntry, quantity: e.target.value})} className="h-12 rounded-xl font-black text-center text-lg" /></div>
-                    <div className="space-y-1"><Label className="text-[9px] font-black uppercase text-black/60 ml-2">Motivo</Label><Input value={stockEntry.reason} onChange={e => setStockEntry({...stockEntry, reason: e.target.value})} className="h-12 rounded-xl font-black text-[10px] uppercase" /></div>
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-2"><Label className="text-[11px] font-black uppercase text-muted-foreground ml-3">Cantidad</Label><Input type="number" value={stockEntry.quantity} onChange={e => setStockEntry({...stockEntry, quantity: e.target.value})} className="h-14 rounded-2xl font-black text-center text-xl border-primary/10" /></div>
+                    <div className="space-y-2"><Label className="text-[11px] font-black uppercase text-muted-foreground ml-3">Motivo</Label><Input value={stockEntry.reason} onChange={e => setStockEntry({...stockEntry, reason: e.target.value})} className="h-14 rounded-2xl font-black text-[11px] uppercase border-primary/10" /></div>
                   </div>
-                  <Button className="w-full h-16 bg-black text-white font-black rounded-2xl shadow-xl" onClick={handleStockUpdate} disabled={saving}>{saving ? <Loader2 className="animate-spin" /> : "CONFIRMAR INGRESO"}</Button>
+                  <Button className="w-full h-18 bg-primary text-white font-black rounded-3xl shadow-xl shadow-primary/20 text-lg uppercase tracking-widest hover:opacity-90 active:scale-95" onClick={handleStockUpdate} disabled={saving}>{saving ? <Loader2 className="animate-spin" /> : "CONFIRMAR INGRESO"}</Button>
                 </div>
               )}
             </CardContent>

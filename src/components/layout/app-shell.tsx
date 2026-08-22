@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -11,7 +10,8 @@ import {
   Settings,
   Sparkles,
   ShoppingBag,
-  BookOpen
+  BookOpen,
+  Heart
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -51,10 +51,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="flex min-h-screen w-full bg-background overflow-hidden">
         <AppSidebar pathname={pathname} />
         <SidebarInset className="flex-1 overflow-auto bg-background">
-          <header className="md:hidden flex items-center justify-between p-4 bg-white border-b-2 border-black sticky top-0 z-50 shadow-sm">
+          <header className="md:hidden flex items-center justify-between p-4 bg-white border-b border-primary/20 sticky top-0 z-50 shadow-sm">
             <div className="flex items-center gap-3">
-              <SidebarTrigger className="h-10 w-10 border-2 border-black rounded-xl flex items-center justify-center bg-white text-black active:scale-95" />
-              <span className="font-headline font-black text-xl tracking-tighter uppercase text-black">Diva Industrial</span>
+              <SidebarTrigger className="h-10 w-10 border border-primary/20 rounded-xl flex items-center justify-center bg-white text-primary active:scale-95" />
+              <span className="font-headline font-black text-xl tracking-tighter uppercase text-primary">Diva Boutique</span>
             </div>
           </header>
           <main className="p-4 max-w-[1600px] mx-auto w-full pt-2">
@@ -73,31 +73,34 @@ function AppSidebar({ pathname }: { pathname: string }) {
   const { data: companySettings } = useDoc(configDocRef)
 
   const settings = {
-    companyName: companySettings?.companyName || "StiloStack",
+    companyName: companySettings?.companyName || "Diva Industrial",
     companyLogo: companySettings?.companyLogo || "",
     brandColor: companySettings?.brandColor || "#FF3399"
   }
 
   return (
-    <Sidebar collapsible="icon" className="border-r-2 border-black shadow-2xl bg-white">
-      <SidebarHeader className="h-20 flex items-center px-4 border-b-2 border-black bg-white">
+    <Sidebar collapsible="icon" className="border-r border-primary/10 shadow-xl bg-white">
+      <SidebarHeader className="h-24 flex items-center px-4 bg-white">
         <div 
-          className="flex items-center gap-3 overflow-hidden cursor-pointer w-full" 
+          className="flex items-center gap-3 overflow-hidden cursor-pointer w-full group" 
           onClick={toggleSidebar}
         >
-          <div className="w-10 h-10 rounded-2xl bg-black flex items-center justify-center shrink-0 shadow-lg overflow-hidden border-2 border-white">
+          <div 
+            className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-lg overflow-hidden border-2 border-white transition-transform group-hover:scale-110"
+            style={{ backgroundColor: settings.brandColor }}
+          >
             {settings.companyLogo ? (
               <img src={settings.companyLogo} alt="Logo" className="w-full h-full object-cover" />
             ) : (
-              <Sparkles className="w-5 h-5 text-white fill-current" />
+              <Heart className="w-6 h-6 text-white fill-current" />
             )}
           </div>
-          <span className="font-headline font-black text-2xl tracking-tighter text-black group-data-[collapsible=icon]:hidden uppercase truncate">
+          <span className="font-headline font-black text-2xl tracking-tighter text-foreground group-data-[collapsible=icon]:hidden uppercase truncate">
             {settings.companyName}
           </span>
         </div>
       </SidebarHeader>
-      <SidebarContent className="py-6 px-2 bg-white">
+      <SidebarContent className="py-6 px-3 bg-white">
         <SidebarMenu>
           {navItems.map((item, index) => (
             <SidebarMenuItem key={item.name}>
@@ -106,10 +109,10 @@ function AppSidebar({ pathname }: { pathname: string }) {
                 isActive={pathname === item.href}
                 tooltip={item.name}
                 className={cn(
-                  "h-12 px-4 rounded-xl transition-all duration-300 mb-1 border-2 border-transparent",
+                  "h-12 px-4 rounded-2xl transition-all duration-300 mb-2 border border-transparent",
                   pathname === item.href 
-                    ? "bg-black text-white shadow-xl scale-105 border-black" 
-                    : "hover:bg-black/5 hover:text-black hover:border-black/10"
+                    ? "bg-primary text-white shadow-lg shadow-primary/30 scale-105 border-primary/10" 
+                    : "hover:bg-primary/5 hover:text-primary"
                 )}
               >
                 <Link href={item.href}>
@@ -117,8 +120,7 @@ function AppSidebar({ pathname }: { pathname: string }) {
                     className={cn("w-5 h-5")} 
                     style={{ color: pathname === item.href ? '#FFFFFF' : settings.brandColor }} 
                   />
-                  <span className="font-black uppercase flex items-center gap-2">
-                    <span className="opacity-30 text-[9px] font-black">{index + 1}.</span>
+                  <span className="font-black uppercase flex items-center gap-2 text-[11px] tracking-wide">
                     {item.name}
                   </span>
                 </Link>
@@ -127,13 +129,17 @@ function AppSidebar({ pathname }: { pathname: string }) {
           ))}
         </SidebarMenu>
       </SidebarContent>
-      <SidebarFooter className="border-t-2 border-black p-4 bg-black/5">
-        <div className="flex items-center gap-3 p-2 rounded-2xl border-2 border-black bg-white shadow-md group-data-[collapsible=icon]:justify-center">
-          <div className="w-8 h-8 rounded-full bg-black border-2 border-white shrink-0 flex items-center justify-center">
+      <SidebarFooter className="p-4 bg-secondary/50 border-t border-primary/5">
+        <div className="flex items-center gap-3 p-3 rounded-2xl bg-white shadow-sm border border-primary/10 group-data-[collapsible=icon]:justify-center">
+          <div 
+            className="w-8 h-8 rounded-full border-2 border-white shrink-0 flex items-center justify-center shadow-sm"
+            style={{ backgroundColor: settings.brandColor }}
+          >
              <span className="text-[8px] font-black text-white">AD</span>
           </div>
-          <div className="flex flex-col group-data-[collapsible=icon]:hidden">
-            <span className="text-[10px] font-black text-black uppercase tracking-tighter">ADMIN</span>
+          <div className="flex flex-col group-data-[collapsible=icon]:hidden overflow-hidden">
+            <span className="text-[10px] font-black text-foreground uppercase tracking-tight">Administración</span>
+            <span className="text-[8px] text-muted-foreground uppercase">Diva Industrial</span>
           </div>
         </div>
       </SidebarFooter>

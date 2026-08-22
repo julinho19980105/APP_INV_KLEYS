@@ -1,30 +1,29 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 210 16% 96%; /* Cemento suave */
-    --foreground: 0 0% 0%; /* Negro puro para mejor legibilidad */
+    --background: 210 20% 98%; /* Blanco almendra suave */
+    --foreground: 327 20% 15%; /* Gris muy oscuro con matiz fucsia */
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 0%;
+    --card-foreground: 327 20% 15%;
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 0%;
-    --primary: 327 100% 60%; /* Fucsia vibrante */
+    --popover-foreground: 327 20% 15%;
+    --primary: 327 100% 60%; /* Fucsia Diva */
     --primary-foreground: 0 0% 100%;
-    --secondary: 270 50% 95%; /* Lila suave */
-    --secondary-foreground: 270 50% 30%;
-    --muted: 210 20% 90%; 
-    --muted-foreground: 0 0% 0%; /* Negro para textos secundarios */
-    --accent: 202 51% 68%; /* Celeste #87B8D4 */
-    --accent-foreground: 0 0% 100%;
+    --secondary: 327 30% 96%; /* Rosa pastel muy suave */
+    --secondary-foreground: 327 100% 40%;
+    --muted: 327 10% 90%; 
+    --muted-foreground: 327 10% 40%;
+    --accent: 202 51% 85%; /* Celeste pastel suave */
+    --accent-foreground: 202 80% 20%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 210 20% 90%;
-    --input: 210 20% 90%;
+    --border: 327 20% 92%;
+    --input: 327 20% 92%;
     --ring: 327 100% 60%;
-    --radius: 1.5rem;
+    --radius: 2rem;
   }
 }
 
