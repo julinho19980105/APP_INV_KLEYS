@@ -9,13 +9,20 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent } from "@/components/ui/card"
 import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select"
+import { 
   ImagePlus, 
   X, 
   Save, 
   Loader2, 
   Edit2,
   Plus,
-  Package,
+  ArrowLeft,
   Settings2
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
@@ -75,7 +82,6 @@ export default function RegistryPage() {
   })
   const [localImagePreviews, setLocalImagePreviews] = React.useState<string[]>([])
   
-  // Tag Management State
   const [isTagManagerOpen, setIsTagManagerOpen] = React.useState(false)
   const [tagManagerConfig, setTagManagerConfig] = React.useState<{ type: 'category' | 'collection', title: string }>({ type: 'category', title: '' })
   const [newTagName, setNewTagName] = React.useState("")
@@ -145,18 +151,6 @@ export default function RegistryPage() {
       
       await setDoc(doc(db, "products", productCode), productData, { merge: true })
       
-      // Also add to global suggestions list
-      if (form.category) {
-        await updateDoc(doc(db, "config", "global"), {
-          availableCategories: arrayUnion(form.category.toUpperCase())
-        }).catch(() => {});
-      }
-      if (form.collection) {
-        await updateDoc(doc(db, "config", "global"), {
-          availableCollections: arrayUnion(form.collection.toUpperCase())
-        }).catch(() => {});
-      }
-
       toast({ title: editId ? "PRENDA ACTUALIZADA" : "PRENDA REGISTRADA" })
       router.push('/inventory')
     } catch (e) { 
@@ -196,14 +190,13 @@ export default function RegistryPage() {
         batch.update(ref, { [type]: newTag, updatedAt: serverTimestamp() })
       })
       
-      // Update global config list too
       const field = type === 'category' ? 'availableCategories' : 'availableCollections'
       const currentList = config?.[field] || []
       const newList = Array.from(new Set(currentList.map((t: string) => t.toUpperCase() === oldTag ? newTag : t.toUpperCase())))
       batch.update(doc(db, "config", "global"), { [field]: newList })
 
       await batch.commit()
-      toast({ title: "Renombrado Global Exitoso", description: `${targetProducts.length} productos actualizados.` })
+      toast({ title: "Renombrado Global Exitoso" })
       setEditingTagName(null)
     } catch (e) {
       toast({ variant: "destructive", title: "Error en renombrado" })
@@ -216,8 +209,13 @@ export default function RegistryPage() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 pt-4 pb-24 px-2 md:px-0">
-      <div className="flex justify-between items-end border-b-2 border-primary/10 pb-6 mb-4">
-        <h1 className="text-4xl font-headline font-black text-foreground uppercase tracking-tight">Registro de productos</h1>
+      <div className="flex justify-between items-center border-b-2 border-primary/10 pb-6 mb-4">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => router.push('/inventory')} className="h-12 w-12 rounded-2xl hover:bg-primary/5">
+            <ArrowLeft className="w-6 h-6 text-primary" />
+          </Button>
+          <h1 className="text-3xl font-headline font-black text-foreground uppercase tracking-tight">Registro de productos</h1>
+        </div>
         <div className="bg-primary text-white px-8 py-2 rounded-2xl font-black text-2xl shadow-xl shadow-primary/20">{nextId}</div>
       </div>
 
@@ -247,16 +245,16 @@ export default function RegistryPage() {
                         <Settings2 className="w-4 h-4" />
                       </button>
                     </div>
-                    <Input 
-                      list="categories" 
-                      value={form.category} 
-                      placeholder=""
-                      onChange={e => setForm({...form, category: e.target.value})} 
-                      className="h-14 border-primary/10 rounded-2xl font-black text-[12px] uppercase shadow-sm" 
-                    />
-                    <datalist id="categories">
-                      {uniqueCategories.map(cat => <option key={cat} value={cat} />)}
-                    </datalist>
+                    <Select value={form.category} onValueChange={v => setForm({...form, category: v})}>
+                      <SelectTrigger className="h-14 border-primary/10 rounded-2xl font-black text-[12px] uppercase shadow-sm bg-white">
+                        <SelectValue placeholder="" />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-2xl">
+                        {uniqueCategories.map(cat => (
+                          <SelectItem key={cat} value={cat} className="text-[11px] font-black uppercase">{cat}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   <div className="space-y-3">
@@ -269,16 +267,16 @@ export default function RegistryPage() {
                         <Settings2 className="w-4 h-4" />
                       </button>
                     </div>
-                    <Input 
-                      list="collections" 
-                      value={form.collection} 
-                      placeholder=""
-                      onChange={e => setForm({...form, collection: e.target.value})} 
-                      className="h-14 border-primary/10 rounded-2xl font-black text-[12px] uppercase shadow-sm" 
-                    />
-                    <datalist id="collections">
-                      {uniqueCollections.map(col => <option key={col} value={col} />)}
-                    </datalist>
+                    <Select value={form.collection} onValueChange={v => setForm({...form, collection: v})}>
+                      <SelectTrigger className="h-14 border-primary/10 rounded-2xl font-black text-[12px] uppercase shadow-sm bg-white">
+                        <SelectValue placeholder="" />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-2xl">
+                        {uniqueCollections.map(col => (
+                          <SelectItem key={col} value={col} className="text-[11px] font-black uppercase">{col}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               </div>
@@ -291,7 +289,7 @@ export default function RegistryPage() {
                     value={form.stock} 
                     onChange={e => setForm({...form, stock: e.target.value})} 
                     placeholder=""
-                    className="h-14 rounded-2xl font-black text-lg text-center border-green-200 bg-green-50 text-green-700 shadow-sm" 
+                    className="h-14 rounded-2xl font-black text-lg text-center border-green-200 bg-green-100/50 text-green-700 shadow-sm" 
                   />
                 </div>
                 <div className="space-y-2">
@@ -301,7 +299,7 @@ export default function RegistryPage() {
                     value={form.priceFardo} 
                     onChange={e => setForm({...form, priceFardo: e.target.value})} 
                     placeholder=""
-                    className="h-14 rounded-2xl font-black text-lg text-center border-orange-200 bg-orange-50 text-orange-700 shadow-sm" 
+                    className="h-14 rounded-2xl font-black text-lg text-center border-orange-200 bg-orange-100/30 text-orange-700 shadow-sm" 
                   />
                 </div>
                 <div className="space-y-2">
@@ -311,7 +309,7 @@ export default function RegistryPage() {
                     value={form.priceMayor} 
                     onChange={e => setForm({...form, priceMayor: e.target.value})} 
                     placeholder=""
-                    className="h-14 rounded-2xl font-black text-lg text-center border-orange-200 bg-orange-50 text-orange-700 shadow-sm" 
+                    className="h-14 rounded-2xl font-black text-lg text-center border-orange-200 bg-orange-100/30 text-orange-700 shadow-sm" 
                   />
                 </div>
                 <div className="space-y-2">
@@ -321,7 +319,7 @@ export default function RegistryPage() {
                     value={form.priceUnidad} 
                     onChange={e => setForm({...form, priceUnidad: e.target.value})} 
                     placeholder=""
-                    className="h-14 rounded-2xl font-black text-lg text-center border-orange-200 bg-orange-50 text-orange-700 shadow-sm focus:ring-primary" 
+                    className="h-14 rounded-2xl font-black text-lg text-center border-orange-200 bg-orange-100/30 text-orange-700 shadow-sm focus:ring-primary" 
                   />
                 </div>
               </div>
@@ -363,7 +361,7 @@ export default function RegistryPage() {
                 if (f) {
                   const r = new FileReader();
                   r.onloadend = async () => {
-                    toast({ title: "Subiendo imagen...", description: "Conectando con Drive" });
+                    toast({ title: "Subiendo imagen..." });
                     const url = await uploadImageToDrive(r.result as string, `${nextId}_${Date.now()}.jpg`);
                     setLocalImagePreviews(p => [...p, url]);
                     toast({ title: "Imagen Lista" });
@@ -379,11 +377,6 @@ export default function RegistryPage() {
               {saving ? <Loader2 className="animate-spin w-6 h-6" /> : <Save className="mr-3 w-6 h-6" />} 
               {editId ? "ACTUALIZAR FICHA" : "GUARDAR PRENDA"}
             </Button>
-            {editId && (
-              <Button variant="outline" className="h-16 rounded-[2rem] border-primary/10 text-primary font-black uppercase tracking-widest text-[10px] bg-white" onClick={() => router.push('/inventory')}>
-                <X className="w-4 h-4 mr-2" /> CANCELAR EDICIÓN
-              </Button>
-            )}
           </div>
         </div>
       </div>

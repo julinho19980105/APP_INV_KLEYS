@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,18 +41,17 @@ import {
   MoreVertical, 
   ImageIcon, 
   X,
-  CheckCircle2,
-  AlertCircle,
   Loader2,
   Package,
   Eye,
   LayoutGrid,
   History,
-  Plus
+  Plus,
+  PackagePlus
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useCollection, useFirestore, useDoc } from "@/firebase"
-import { collection, query, orderBy, doc, deleteDoc, serverTimestamp, updateDoc } from "firebase/firestore"
+import { collection, query, orderBy, doc, deleteDoc, serverTimestamp, updateDoc, increment, addDoc } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { syncCatalogToDrive } from "@/services/sheets-service"
 
@@ -77,6 +77,8 @@ export default function InventoryPage() {
   const [collectionFilter, setCollectionFilter] = React.useState("all")
   const [isRecentSort, setIsRecentSort] = React.useState(true)
   const [selectedProduct, setSelectedProduct] = React.useState<any>(null)
+  const [addStockProduct, setAddStockProduct] = React.useState<any>(null)
+  const [addStockQty, setAddStockQty] = React.useState("")
   const [syncing, setSyncing] = React.useState(false)
 
   const configDocRef = React.useMemo(() => db ? doc(db, "config", "global") : null, [db])
@@ -107,18 +109,27 @@ export default function InventoryPage() {
     })
   }, [products, searchQuery, categoryFilter, collectionFilter])
 
-  const handleManualSync = async () => {
-    if (!db || syncing) return
-    setSyncing(true)
+  const handleInMovement = async () => {
+    if (!db || !addStockProduct || !addStockQty) return
+    const qty = Number(addStockQty)
+    if (isNaN(qty) || qty <= 0) return
+
     try {
-      await syncCatalogToDrive(products)
-      await updateDoc(doc(db, "config", "global"), { lastDriveSync: serverTimestamp() })
-      toast({ title: "Catálogo Sincronizado" })
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Error", description: e.message })
-    } finally {
-      setSyncing(false)
-    }
+      await addDoc(collection(db, "movements"), {
+        productCode: addStockProduct.code,
+        type: "in",
+        quantity: qty,
+        reason: "REPOSICIÓN DE STOCK MANUAL",
+        timestamp: serverTimestamp()
+      })
+      await updateDoc(doc(db, "products", addStockProduct.id), {
+        stock: increment(qty),
+        updatedAt: serverTimestamp()
+      })
+      toast({ title: "Stock Actualizado" })
+      setAddStockProduct(null)
+      setAddStockQty("")
+    } catch (e) { toast({ variant: "destructive", title: "Error" }) }
   }
 
   const onDelete = async (id: string) => {
@@ -192,7 +203,7 @@ export default function InventoryPage() {
               <TableRow className="bg-primary/5 hover:bg-primary/5 border-none h-12">
                 <TableHead className="font-black uppercase text-[9px] text-primary/60 pl-6 w-14 text-center">FOTO</TableHead>
                 <TableHead className="font-black uppercase text-[9px] text-primary/60">PRENDA</TableHead>
-                <TableHead className="font-black uppercase text-[9px] text-primary/60">PRECIOS (S/)</TableHead>
+                <TableHead className="font-black uppercase text-[9px] text-primary/60">TARIFARIO (S/)</TableHead>
                 <TableHead className="font-black uppercase text-[9px] text-primary/60">ETIQUETAS</TableHead>
                 <TableHead className="font-black uppercase text-[9px] text-primary/60 text-center">STOCK</TableHead>
                 <TableHead className="w-14 pr-6"></TableHead>
@@ -219,23 +230,23 @@ export default function InventoryPage() {
                     </div>
                   </TableCell>
                   <TableCell className="py-2">
-                    <div className="flex gap-4 text-[9px] font-black uppercase">
-                      <div className="flex flex-col">
-                        <span className="text-muted-foreground text-[7px]">FARDO</span>
-                        <span>{p.priceFardo}</span>
+                    <div className="flex flex-col gap-0.5 text-[9px] font-black uppercase min-w-[120px]">
+                      <div className="flex justify-between items-center border-b border-primary/5 pb-0.5">
+                        <span className="text-muted-foreground text-[7px]">P. FARDO</span>
+                        <span className="text-foreground">S/ {p.priceFardo}</span>
                       </div>
-                      <div className="flex flex-col">
-                        <span className="text-muted-foreground text-[7px]">MAYOR</span>
-                        <span>{p.priceMayor}</span>
+                      <div className="flex justify-between items-center border-b border-primary/5 pb-0.5">
+                        <span className="text-muted-foreground text-[7px]">P. MAYOR</span>
+                        <span className="text-foreground">S/ {p.priceMayor}</span>
                       </div>
-                      <div className="flex flex-col text-primary">
-                        <span className="text-[7px]">UNIDAD</span>
-                        <span>{p.priceUnidad}</span>
+                      <div className="flex justify-between items-center text-primary">
+                        <span className="text-[7px]">P. UNIDAD</span>
+                        <span>S/ {p.priceUnidad}</span>
                       </div>
                     </div>
                   </TableCell>
                   <TableCell className="py-2">
-                    <div className="flex gap-1 items-start flex-wrap">
+                    <div className="flex gap-1 items-start flex-wrap max-w-[150px]">
                       <Badge variant="outline" className="text-[7px] font-black uppercase px-2 py-0 border-primary/10 bg-primary/5 text-primary">{p.category || 'GEN'}</Badge>
                       <Badge variant="outline" className="text-[7px] font-black uppercase px-2 py-0 border-accent/20 bg-accent/10 text-accent-foreground">{p.collection || 'GEN'}</Badge>
                     </div>
@@ -243,7 +254,7 @@ export default function InventoryPage() {
                   <TableCell className="text-center py-2">
                     <div className={cn(
                       "inline-flex flex-col items-center justify-center w-9 h-9 rounded-full border shadow-sm transition-transform group-hover:scale-110",
-                      p.stock <= 0 ? "bg-red-50 text-red-600 border-red-200" : "bg-primary/5 text-primary border-primary/10"
+                      p.stock <= 0 ? "bg-red-50 text-red-600 border-red-200" : "bg-green-50 text-green-600 border-green-200"
                     )}>
                       <span className="font-black text-[12px] leading-none">{p.stock}</span>
                       <span className="text-[5px] font-bold uppercase">UND</span>
@@ -254,12 +265,15 @@ export default function InventoryPage() {
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl"><MoreVertical className="w-4 h-4 text-primary" /></Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="rounded-xl p-2 w-40 shadow-xl">
+                      <DropdownMenuContent align="end" className="rounded-xl p-2 w-48 shadow-xl">
                         <DropdownMenuItem className="text-[10px] font-black uppercase gap-3 cursor-pointer p-3 rounded-lg" onClick={() => setSelectedProduct(p)}>
-                          <Eye className="w-3.5 h-3.5 text-primary" /> Detalles
+                          <Eye className="w-3.5 h-3.5 text-primary" /> Ver Más Detalles
+                        </DropdownMenuItem>
+                        <DropdownMenuItem className="text-[10px] font-black uppercase gap-3 cursor-pointer p-3 rounded-lg bg-green-50 text-green-700" onClick={() => setAddStockProduct(p)}>
+                          <PackagePlus className="w-3.5 h-3.5" /> Agregar Ingreso
                         </DropdownMenuItem>
                         <DropdownMenuItem className="text-[10px] font-black uppercase gap-3 cursor-pointer p-3 rounded-lg" onClick={() => router.push(`/registry?edit=${p.id}`)}>
-                          <Edit2 className="w-3.5 h-3.5 text-primary" /> Editar
+                          <Edit2 className="w-3.5 h-3.5 text-primary" /> Editar Ficha
                         </DropdownMenuItem>
                         <DropdownMenuItem className="text-[10px] font-black uppercase gap-3 cursor-pointer p-3 rounded-lg text-destructive" onClick={() => onDelete(p.id)}>
                           <Trash2 className="w-3.5 h-3.5" /> Eliminar
@@ -342,6 +356,47 @@ export default function InventoryPage() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!addStockProduct} onOpenChange={() => setAddStockProduct(null)}>
+        <DialogContent className="rounded-[2.5rem] border-none shadow-2xl max-w-sm">
+          <DialogHeader><DialogTitle className="text-sm font-black text-foreground uppercase tracking-widest">Registrar Ingreso</DialogTitle></DialogHeader>
+          <div className="space-y-6 pt-4">
+            <div className="bg-primary/5 p-4 rounded-2xl border border-primary/10">
+              <span className="text-[8px] font-black text-primary/40 uppercase block mb-1">Producto</span>
+              <span className="text-[12px] font-black uppercase text-foreground leading-tight">{addStockProduct?.name}</span>
+            </div>
+            
+            <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Cantidad a Ingresar</Label>
+              <Input 
+                type="number" 
+                value={addStockQty} 
+                onChange={e => setAddStockQty(e.target.value)}
+                placeholder=""
+                className="h-14 font-black text-center text-xl border-green-200 bg-green-50 rounded-2xl focus:ring-green-500"
+              />
+            </div>
+
+            <div className="bg-secondary/30 p-4 rounded-xl flex items-center justify-between">
+              <div className="flex flex-col">
+                <span className="text-[8px] font-black uppercase text-muted-foreground">Fecha/Hora</span>
+                <span className="text-[10px] font-black uppercase text-foreground">Automático</span>
+              </div>
+              <div className="text-right">
+                <span className="text-[8px] font-black uppercase text-muted-foreground">Nuevo Stock</span>
+                <div className="text-lg font-black text-green-700">{(Number(addStockProduct?.stock || 0) + Number(addStockQty || 0))} UND</div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Button variant="outline" className="h-14 rounded-2xl font-black text-[10px] uppercase border-primary/10" onClick={() => setAddStockProduct(null)}>CANCELAR</Button>
+              <Button className="h-14 rounded-2xl bg-green-600 text-white font-black text-[10px] uppercase shadow-lg shadow-green-200" onClick={handleInMovement} disabled={!addStockQty || Number(addStockQty) <= 0}>
+                CONFIRMAR INGRESO
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
