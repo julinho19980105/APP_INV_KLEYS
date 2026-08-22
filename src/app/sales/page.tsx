@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -24,7 +23,8 @@ import {
   Image as ImageIcon,
   ShoppingBag,
   History,
-  Loader2
+  Loader2,
+  CalendarDays
 } from "lucide-react"
 import { 
   DropdownMenu, 
@@ -57,29 +57,25 @@ export default function SalesPage() {
   const quotesRef = React.useMemo(() => {
     if (!db) return null
     if (showHistorical) {
+      // Carga histórica sin filtro de fecha, pero con un límite razonable para no matar la memoria
       return query(collection(db, "quotes"), orderBy("createdAt", "desc"), limit(200))
     }
-    const now = new Date()
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+    // Lógica de 30 días para ahorro de lecturas
+    const thirtyDaysAgo = new Date()
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+    
     return query(
       collection(db, "quotes"), 
-      where("createdAt", ">=", startOfMonth),
+      where("createdAt", ">=", thirtyDaysAgo),
       orderBy("createdAt", "desc")
     )
   }, [db, showHistorical])
 
   const { data: quotes = [], loading } = useCollection(quotesRef)
 
-  const currentMonthTotal = React.useMemo(() => {
-    const now = new Date()
-    const currentMonth = now.getMonth()
-    const currentYear = now.getFullYear()
+  const recentTotal = React.useMemo(() => {
     return quotes
-      .filter(q => {
-        const date = q.createdAt?.toDate ? q.createdAt.toDate() : new Date()
-        const isThisMonth = date.getMonth() === currentMonth && date.getFullYear() === currentYear
-        return q.status === 'active' && isThisMonth
-      })
+      .filter(q => q.status === 'active')
       .reduce((acc, q) => acc + (q.total || 0), 0)
   }, [quotes])
 
@@ -149,34 +145,34 @@ export default function SalesPage() {
     <div className="space-y-6 pt-2 pb-20 max-w-4xl mx-auto px-2 md:px-0">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 border-b border-primary/10 pb-6">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg shadow-primary/20" style={{ backgroundColor: brandColor }}>
-            <ShoppingBag className="w-6 h-6 text-white" />
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shadow-primary/20" style={{ backgroundColor: brandColor }}>
+            <ShoppingBag className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-0.5">Ventas del Mes</h1>
-            <div className="font-headline font-black text-3xl md:text-4xl text-foreground tracking-tighter">
-              S/ {currentMonthTotal.toFixed(2)}
+            <h1 className="text-[9px] font-black text-primary uppercase tracking-[0.2em] mb-0.5">Últimos 30 días</h1>
+            <div className="font-headline font-black text-2xl md:text-3xl text-foreground tracking-tighter">
+              S/ {recentTotal.toFixed(2)}
             </div>
           </div>
         </div>
         <div className="flex w-full md:w-auto gap-2">
-          <div className="relative flex-1 md:w-60">
-            <Search className="absolute left-3.5 top-3.5 h-4 w-4" style={{ color: brandColor }} />
+          <div className="relative flex-1 md:w-56">
+            <Search className="absolute left-3 top-3 h-4 w-4" style={{ color: brandColor }} />
             <Input 
               placeholder="" 
-              className="pl-10 h-10 rounded-xl border-primary/10 font-black text-xs uppercase bg-white shadow-sm"
+              className="pl-9 h-10 rounded-xl border-primary/10 font-black text-[11px] uppercase bg-white shadow-sm"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
             />
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[120px] h-10 rounded-xl border-primary/10 font-black text-[10px] uppercase bg-white">
+            <SelectTrigger className="w-[110px] h-10 rounded-xl border-primary/10 font-black text-[9px] uppercase bg-white">
               <SelectValue placeholder="Estado" />
             </SelectTrigger>
             <SelectContent className="rounded-xl">
-              <SelectItem value="all" className="text-[10px] font-black uppercase">Todos</SelectItem>
-              <SelectItem value="active" className="text-[10px] font-black uppercase">Ventas</SelectItem>
-              <SelectItem value="annulled" className="text-[10px] font-black uppercase">Anulados</SelectItem>
+              <SelectItem value="all" className="text-[9px] font-black uppercase">Todos</SelectItem>
+              <SelectItem value="active" className="text-[9px] font-black uppercase">Ventas</SelectItem>
+              <SelectItem value="annulled" className="text-[9px] font-black uppercase">Anulados</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -185,46 +181,46 @@ export default function SalesPage() {
       <div className="space-y-6">
         {loading && (
           <div className="flex flex-col items-center justify-center py-10 gap-3 opacity-30">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            <span className="text-[9px] font-black uppercase tracking-widest">Consultando...</span>
+            <Loader2 className="w-6 h-6 animate-spin text-primary" />
+            <span className="text-[8px] font-black uppercase tracking-widest">Consultando...</span>
           </div>
         )}
 
         {groupedSales.map(group => (
-          <div key={group.dateLabel} className="space-y-3">
-            <div className="flex justify-between items-center px-6 py-2 text-white rounded-xl shadow-md" style={{ backgroundColor: brandColor }}>
-              <span className="text-[10px] font-black uppercase tracking-widest">{group.dateLabel}</span>
-              <span className="font-headline font-black text-lg">S/ {group.dayTotal.toFixed(2)}</span>
+          <div key={group.dateLabel} className="space-y-2">
+            <div className="flex justify-between items-center px-4 py-1.5 text-white rounded-lg shadow-sm" style={{ backgroundColor: brandColor }}>
+              <span className="text-[9px] font-black uppercase tracking-widest">{group.dateLabel}</span>
+              <span className="font-headline font-black text-sm">S/ {group.dayTotal.toFixed(2)}</span>
             </div>
             
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {group.sales.map(s => (
                 <Card key={s.id} className={cn(
-                  "rounded-2xl border border-primary/5 overflow-hidden transition-all",
+                  "rounded-xl border border-primary/5 overflow-hidden transition-all",
                   s.status === 'annulled' ? "opacity-30 bg-secondary/30" : "bg-white shadow-sm hover:shadow-md"
                 )}>
-                  <CardContent className="p-3 md:p-4 flex items-center justify-between">
-                    <div className="flex-1 space-y-1">
-                      <div className="flex justify-between items-center pr-4">
+                  <CardContent className="p-2.5 flex items-center justify-between">
+                    <div className="flex-1 space-y-0.5">
+                      <div className="flex justify-between items-center pr-2">
                         <div className="flex items-center gap-2">
-                          <span className="font-black text-[11px] text-foreground uppercase tracking-wide">{s.id}</span>
+                          <span className="font-black text-[10px] text-foreground uppercase tracking-wide">{s.id}</span>
                           <Badge 
                             variant="outline" 
                             className={cn(
-                              "text-[8px] font-black h-5 px-3 uppercase border-none rounded-lg", 
+                              "text-[7px] font-black h-4 px-2 uppercase border-none rounded-md", 
                               s.status === 'active' ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600"
                             )}
                           >
                             {s.status === 'active' ? 'VENTA' : 'ANULADO'}
                           </Badge>
                         </div>
-                        <span className="font-headline font-black text-[13px] text-foreground">S/ {Number(s.total).toFixed(2)}</span>
+                        <span className="font-headline font-black text-[11px] text-foreground">S/ {Number(s.total).toFixed(2)}</span>
                       </div>
-                      <div className="flex justify-between items-center pr-4">
-                        <span className="text-[11px] font-black text-foreground uppercase truncate max-w-[150px]">
+                      <div className="flex justify-between items-center pr-2">
+                        <span className="text-[10px] font-black text-foreground uppercase truncate max-w-[140px]">
                           {s.customerName}
                         </span>
-                        <span className="text-[9px] font-medium text-muted-foreground uppercase bg-secondary px-2 py-0.5 rounded-md">
+                        <span className="text-[8px] font-medium text-muted-foreground uppercase bg-secondary px-1.5 py-0.5 rounded">
                           {s.items?.reduce((acc: number, item: any) => acc + (Number(item.quantity) || 0), 0)} UND
                         </span>
                       </div>
@@ -233,25 +229,25 @@ export default function SalesPage() {
                     <div className="relative">
                       {confirmAnnulId === s.id ? (
                         <div className="flex gap-1">
-                          <Button size="icon" className="h-9 w-9 bg-destructive text-white rounded-xl" onClick={() => annulQuote(s)}><Check className="w-5 h-5" /></Button>
-                          <Button size="icon" className="h-9 w-9 bg-secondary text-primary rounded-xl" onClick={() => setConfirmAnnulId(null)}><X className="w-5 h-5" /></Button>
+                          <Button size="icon" className="h-8 w-8 bg-destructive text-white rounded-lg" onClick={() => annulQuote(s)}><Check className="w-4 h-4" /></Button>
+                          <Button size="icon" className="h-8 w-8 bg-secondary text-primary rounded-lg" onClick={() => setConfirmAnnulId(null)}><X className="w-4 h-4" /></Button>
                         </div>
                       ) : (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-primary/5">
-                              <MoreVertical className="w-5 h-5 text-primary" />
+                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-primary/5">
+                              <MoreVertical className="w-4 h-4 text-primary" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="rounded-xl p-2 w-48 shadow-xl">
-                            <DropdownMenuItem className="text-[11px] font-black uppercase gap-3 p-3 rounded-lg" onClick={() => router.push(`/quotes?edit=${s.id}`)}>
-                              <Edit2 className="w-3.5 h-3.5" style={{ color: brandColor }} /> Editar
+                          <DropdownMenuContent align="end" className="rounded-xl p-1.5 w-40 shadow-xl">
+                            <DropdownMenuItem className="text-[10px] font-black uppercase gap-2.5 p-2.5 rounded-lg" onClick={() => router.push(`/quotes?edit=${s.id}`)}>
+                              <Edit2 className="w-3 h-3" style={{ color: brandColor }} /> Editar
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="text-[11px] font-black uppercase gap-3 p-3 rounded-lg" onClick={() => handleSendImage(s)}>
-                              <ImageIcon className="w-3.5 h-3.5" style={{ color: brandColor }} /> Enviar Foto
+                            <DropdownMenuItem className="text-[10px] font-black uppercase gap-2.5 p-2.5 rounded-lg" onClick={() => handleSendImage(s)}>
+                              <ImageIcon className="w-3 h-3" style={{ color: brandColor }} /> Enviar Foto
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="text-[11px] font-black uppercase gap-3 p-3 rounded-lg text-destructive" onClick={() => setConfirmAnnulId(s.id)}>
-                              <Ban className="w-3.5 h-3.5" /> Anular
+                            <DropdownMenuItem className="text-[10px] font-black uppercase gap-2.5 p-2.5 rounded-lg text-destructive" onClick={() => setConfirmAnnulId(s.id)}>
+                              <Ban className="w-3 h-3" /> Anular
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -265,13 +261,13 @@ export default function SalesPage() {
         ))}
 
         {!loading && !showHistorical && (
-          <div className="flex justify-center pt-6 pb-10">
+          <div className="flex justify-center pt-4 pb-8">
             <Button 
               variant="outline" 
-              className="h-10 rounded-xl border-primary/20 text-primary font-black uppercase text-[9px] tracking-widest px-8"
+              className="h-9 rounded-xl border-primary/20 text-primary font-black uppercase text-[8px] tracking-[0.2em] px-6 shadow-sm"
               onClick={() => setShowHistorical(true)}
             >
-              <History className="w-3.5 h-3.5 mr-2" /> Cargar Historial Antiguo
+              <History className="w-3 h-3 mr-2" /> Cargar Historial Antiguo
             </Button>
           </div>
         )}

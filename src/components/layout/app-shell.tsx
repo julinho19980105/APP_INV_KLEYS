@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -10,7 +9,8 @@ import {
   Settings,
   ShoppingBag,
   BookOpen,
-  Heart
+  Heart,
+  History
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -36,6 +36,7 @@ const navItems = [
   { name: "Cotización", href: "/quotes", icon: FileText },
   { name: "Inventario", href: "/inventory", icon: Package },
   { name: "Registrar", href: "/registry", icon: PlusCircle },
+  { name: "Movimientos", href: "/movements", icon: History },
   { name: "Clientes", href: "/customers", icon: Users },
   { name: "Catálogo", href: "/catalogo", icon: BookOpen },
   { name: "Ajustes", href: "/settings", icon: Settings },
