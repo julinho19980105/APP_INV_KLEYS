@@ -8,31 +8,24 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { 
   ImagePlus, 
   X, 
   Save, 
   Loader2, 
-  Search, 
-  Package,
-  Heart,
-  Plus,
   Edit2,
   Trash2,
-  List
+  Package
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useFirestore, useDoc, useCollection } from "@/firebase"
-import { doc, setDoc, collection, query, orderBy, serverTimestamp, updateDoc, addDoc, increment, getDocs, limit, writeBatch } from "firebase/firestore"
-import { uploadImageToDrive, syncCatalogToDrive } from "@/services/sheets-service"
+import { doc, setDoc, collection, query, orderBy, serverTimestamp, getDocs, limit, writeBatch } from "firebase/firestore"
+import { uploadImageToDrive } from "@/services/sheets-service"
 import { 
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
-  DialogFooter
 } from "@/components/ui/dialog"
 
 function getDriveThumb(url: string, size: number = 400) {
@@ -80,7 +73,6 @@ export default function RegistryPage() {
   })
   const [localImagePreviews, setLocalImagePreviews] = React.useState<string[]>([])
   
-  // Modals para Categoría/Colección
   const [isRenameOpen, setIsRenameOpen] = React.useState(false)
   const [renameData, setRenameData] = React.useState({ type: "category", oldName: "", newName: "" })
 
@@ -174,12 +166,8 @@ export default function RegistryPage() {
     <div className="max-w-6xl mx-auto space-y-6 pt-4 pb-24 px-2 md:px-0">
       <div className="flex justify-between items-end border-b-2 border-primary/10 pb-6 mb-4">
         <div className="flex items-center gap-5">
-          <div className="w-14 h-14 rounded-3xl flex items-center justify-center shadow-lg shadow-primary/20" style={{ backgroundColor: brandColor }}>
-            <Heart className="w-7 h-7 text-white fill-current" />
-          </div>
           <div>
-            <h1 className="text-4xl font-headline font-black text-foreground uppercase tracking-tight">Ficha Industrial</h1>
-            <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mt-1">Alta y Gestión de Prendas</p>
+            <h1 className="text-4xl font-headline font-black text-foreground uppercase tracking-tight">Registro de productos</h1>
           </div>
         </div>
         <div className="bg-primary text-white px-8 py-2 rounded-2xl font-black text-2xl shadow-xl shadow-primary/20">{nextId}</div>
@@ -195,19 +183,21 @@ export default function RegistryPage() {
                   <Input 
                     value={form.name} 
                     onChange={e => setForm({...form, name: e.target.value})} 
-                    placeholder="EJ: TOP GALA ROSA"
+                    placeholder="ESCRIBIR NOMBRE..."
                     className="h-14 border-primary/10 rounded-2xl font-black text-base uppercase focus:ring-primary shadow-sm" 
                   />
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-3">
-                    <div className="flex justify-between items-center ml-1">
+                    <div className="flex items-center gap-2 ml-1">
                       <Label className="text-[11px] uppercase font-black text-primary tracking-widest">Categoría</Label>
-                      <div className="flex gap-2">
-                        <button className="text-primary hover:scale-110 transition-transform" onClick={() => setForm({...form, category: ""})}><Plus className="w-4 h-4" /></button>
-                        <button className="text-primary hover:scale-110 transition-transform" onClick={() => { setRenameData({ type: 'category', oldName: form.category, newName: "" }); setIsRenameOpen(true); }}><Edit2 className="w-4 h-4" /></button>
-                      </div>
+                      <button 
+                        className="text-primary/40 hover:text-primary transition-colors" 
+                        onClick={() => { setRenameData({ type: 'category', oldName: form.category, newName: "" }); setIsRenameOpen(true); }}
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                     <div className="relative">
                       <Input 
@@ -223,12 +213,14 @@ export default function RegistryPage() {
                   </div>
 
                   <div className="space-y-3">
-                    <div className="flex justify-between items-center ml-1">
+                    <div className="flex items-center gap-2 ml-1">
                       <Label className="text-[11px] uppercase font-black text-primary tracking-widest">Colección</Label>
-                      <div className="flex gap-2">
-                        <button className="text-primary hover:scale-110 transition-transform" onClick={() => setForm({...form, collection: ""})}><Plus className="w-4 h-4" /></button>
-                        <button className="text-primary hover:scale-110 transition-transform" onClick={() => { setRenameData({ type: 'collection', oldName: form.collection, newName: "" }); setIsRenameOpen(true); }}><Edit2 className="w-4 h-4" /></button>
-                      </div>
+                      <button 
+                        className="text-primary/40 hover:text-primary transition-colors" 
+                        onClick={() => { setRenameData({ type: 'collection', oldName: form.collection, newName: "" }); setIsRenameOpen(true); }}
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                     <div className="relative">
                       <Input 
@@ -248,19 +240,39 @@ export default function RegistryPage() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                 <div className="space-y-2">
                   <Label className="text-[10px] uppercase font-black ml-1 text-muted-foreground">Stock</Label>
-                  <Input type="number" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} className="h-14 rounded-2xl font-black text-lg text-center border-primary/10 shadow-sm" />
+                  <Input 
+                    type="number" 
+                    value={form.stock} 
+                    onChange={e => setForm({...form, stock: e.target.value})} 
+                    className="h-14 rounded-2xl font-black text-lg text-center border-green-200 bg-green-50 text-green-700 shadow-sm" 
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[10px] uppercase font-black ml-1 text-muted-foreground">P. Fardo</Label>
-                  <Input type="number" value={form.priceFardo} onChange={e => setForm({...form, priceFardo: e.target.value})} className="h-14 rounded-2xl font-black text-lg text-center border-primary/10 shadow-sm" />
+                  <Input 
+                    type="number" 
+                    value={form.priceFardo} 
+                    onChange={e => setForm({...form, priceFardo: e.target.value})} 
+                    className="h-14 rounded-2xl font-black text-lg text-center border-orange-200 bg-orange-50 text-orange-700 shadow-sm" 
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[10px] uppercase font-black ml-1 text-muted-foreground">P. Mayor</Label>
-                  <Input type="number" value={form.priceMayor} onChange={e => setForm({...form, priceMayor: e.target.value})} className="h-14 rounded-2xl font-black text-lg text-center border-primary/10 shadow-sm" />
+                  <Input 
+                    type="number" 
+                    value={form.priceMayor} 
+                    onChange={e => setForm({...form, priceMayor: e.target.value})} 
+                    className="h-14 rounded-2xl font-black text-lg text-center border-orange-200 bg-orange-50 text-orange-700 shadow-sm" 
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[10px] uppercase font-black ml-1 text-muted-foreground">P. Unidad</Label>
-                  <Input type="number" value={form.priceUnidad} onChange={e => setForm({...form, priceUnidad: e.target.value})} className="h-14 rounded-2xl font-black text-lg text-center border-primary/10 shadow-sm focus:ring-primary" />
+                  <Input 
+                    type="number" 
+                    value={form.priceUnidad} 
+                    onChange={e => setForm({...form, priceUnidad: e.target.value})} 
+                    className="h-14 rounded-2xl font-black text-lg text-center border-orange-200 bg-orange-50 text-orange-700 shadow-sm focus:ring-primary" 
+                  />
                 </div>
               </div>
 
@@ -329,12 +341,12 @@ export default function RegistryPage() {
       <Dialog open={isRenameOpen} onOpenChange={setIsRenameOpen}>
         <DialogContent className="rounded-[3rem] border-none shadow-2xl max-w-sm">
           <DialogHeader>
-            <DialogTitle className="text-sm font-black text-primary uppercase tracking-widest text-center">Renombrar Global</DialogTitle>
+            <DialogTitle className="text-sm font-black text-primary uppercase tracking-widest text-center">Corregir Nombre</DialogTitle>
           </DialogHeader>
           <div className="space-y-6 pt-4">
             <div className="bg-primary/5 p-6 rounded-2xl border border-primary/10 text-center">
-              <span className="text-[10px] font-black uppercase text-primary/40 block mb-1">Nombre Actual</span>
-              <span className="text-xl font-headline font-black text-foreground uppercase">{renameData.oldName || 'SIN NOMBRE'}</span>
+              <span className="text-[10px] font-black uppercase text-primary/40 block mb-1">Actual</span>
+              <span className="text-xl font-headline font-black text-foreground uppercase">{renameData.oldName || 'GENERAL'}</span>
             </div>
             <div className="space-y-2">
               <Label className="text-[10px] font-black uppercase text-primary/40 ml-1">Nuevo Nombre</Label>
