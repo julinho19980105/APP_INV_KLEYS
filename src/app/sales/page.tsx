@@ -23,8 +23,7 @@ import {
   Image as ImageIcon,
   ShoppingBag,
   History,
-  Loader2,
-  CalendarDays
+  Loader2
 } from "lucide-react"
 import { 
   DropdownMenu, 
@@ -44,10 +43,10 @@ export default function SalesPage() {
   const { toast } = useToast()
   
   const [searchQuery, setSearchQuery] = React.useState("")
-  const [statusFilter, setStatusFilter] = React.useState<string>("all")
+  const [statusFilter, setStatusFilter] = React.useState<string>("active")
   const [confirmAnnulId, setConfirmAnnulId] = React.useState<string | null>(null)
   const [activeReceipt, setActiveReceipt] = React.useState<any>(null)
-  const [showHistorical, setShowHistorical] = React.useState(false)
+  const [daysLimit, setDaysLimit] = React.useState(30)
   const receiptRef = React.useRef<HTMLDivElement>(null)
   
   const configDocRef = React.useMemo(() => db ? doc(db, "config", "global") : null, [db])
@@ -56,26 +55,29 @@ export default function SalesPage() {
 
   const quotesRef = React.useMemo(() => {
     if (!db) return null
-    if (showHistorical) {
-      // Carga histórica sin filtro de fecha, pero con un límite razonable para no matar la memoria
-      return query(collection(db, "quotes"), orderBy("createdAt", "desc"), limit(200))
-    }
-    // Lógica de 30 días para ahorro de lecturas
-    const thirtyDaysAgo = new Date()
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+    const startDate = new Date()
+    startDate.setDate(startDate.getDate() - daysLimit)
     
     return query(
       collection(db, "quotes"), 
-      where("createdAt", ">=", thirtyDaysAgo),
+      where("createdAt", ">=", startDate),
       orderBy("createdAt", "desc")
     )
-  }, [db, showHistorical])
+  }, [db, daysLimit])
 
   const { data: quotes = [], loading } = useCollection(quotesRef)
 
-  const recentTotal = React.useMemo(() => {
+  const monthTotal = React.useMemo(() => {
+    const now = new Date()
+    const currentMonth = now.getMonth()
+    const currentYear = now.getFullYear()
+    
     return quotes
-      .filter(q => q.status === 'active')
+      .filter(q => {
+        if (q.status !== 'active' || !q.createdAt?.toDate) return false
+        const date = q.createdAt.toDate()
+        return date.getMonth() === currentMonth && date.getFullYear() === currentYear
+      })
       .reduce((acc, q) => acc + (q.total || 0), 0)
   }, [quotes])
 
@@ -149,9 +151,9 @@ export default function SalesPage() {
             <ShoppingBag className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-[9px] font-black text-primary uppercase tracking-[0.2em] mb-0.5">Últimos 30 días</h1>
-            <div className="font-headline font-black text-2xl md:text-3xl text-foreground tracking-tighter">
-              S/ {recentTotal.toFixed(2)}
+            <h1 className="text-[9px] font-black text-primary uppercase tracking-[0.2em] mb-0.5">Total Mes Actual</h1>
+            <div className="font-headline font-black text-xl md:text-2xl text-foreground tracking-tighter">
+              S/ {monthTotal.toFixed(2)}
             </div>
           </div>
         </div>
@@ -214,10 +216,10 @@ export default function SalesPage() {
                             {s.status === 'active' ? 'VENTA' : 'ANULADO'}
                           </Badge>
                         </div>
-                        <span className="font-headline font-black text-[11px] text-foreground">S/ {Number(s.total).toFixed(2)}</span>
+                        <span className="font-headline font-medium text-[11px] text-foreground">S/ {Number(s.total).toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between items-center pr-2">
-                        <span className="text-[10px] font-black text-foreground uppercase truncate max-w-[140px]">
+                        <span className="text-[10px] font-medium text-foreground uppercase truncate max-w-[140px]">
                           {s.customerName}
                         </span>
                         <span className="text-[8px] font-medium text-muted-foreground uppercase bg-secondary px-1.5 py-0.5 rounded">
@@ -260,14 +262,14 @@ export default function SalesPage() {
           </div>
         ))}
 
-        {!loading && !showHistorical && (
+        {!loading && (
           <div className="flex justify-center pt-4 pb-8">
             <Button 
               variant="outline" 
               className="h-9 rounded-xl border-primary/20 text-primary font-black uppercase text-[8px] tracking-[0.2em] px-6 shadow-sm"
-              onClick={() => setShowHistorical(true)}
+              onClick={() => setDaysLimit(prev => prev + 30)}
             >
-              <History className="w-3 h-3 mr-2" /> Cargar Historial Antiguo
+              <History className="w-3 h-3 mr-2" /> Cargar 30 días anteriores
             </Button>
           </div>
         )}

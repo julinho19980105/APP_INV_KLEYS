@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -262,9 +261,6 @@ export default function QuotesPage() {
               <X className="w-6 h-6" />
             </Button>
           )}
-          <Button className="h-10 bg-black text-white rounded-xl font-black px-6" onClick={handleSaveQuote} disabled={saving || items.length === 0}>
-            {saving ? <Loader2 className="animate-spin" /> : <Save className="w-4 h-4 mr-2" />} {editId ? "ACTUALIZAR" : "GUARDAR VENTA"}
-          </Button>
         </div>
       </div>
 
@@ -452,9 +448,14 @@ export default function QuotesPage() {
           <div className="text-[10px] font-black uppercase text-black/40 tracking-widest">CANTIDAD TOTAL</div>
           <div className="font-headline font-black text-4xl text-black">{items.reduce((acc, i) => acc + Number(i.quantity), 0)} <span className="text-sm">UND</span></div>
         </div>
-        <div className="w-full md:w-auto text-left md:text-right space-y-1">
-          <div className="text-[10px] font-black uppercase text-black/40 tracking-widest">MONTO TOTAL NETO</div>
-          <div className="font-headline font-black text-5xl md:text-6xl text-black tracking-tighter">S/ {items.reduce((acc, i) => acc + (Number(i.quantity) * Number(i.price) - Number(i.discount)), 0).toFixed(2)}</div>
+        <div className="w-full md:w-auto text-left md:text-right space-y-4">
+          <div className="space-y-1">
+            <div className="text-[10px] font-black uppercase text-black/40 tracking-widest">MONTO TOTAL NETO</div>
+            <div className="font-headline font-black text-5xl md:text-6xl text-black tracking-tighter">S/ {items.reduce((acc, i) => acc + (Number(i.quantity) * Number(i.price) - Number(i.discount)), 0).toFixed(2)}</div>
+          </div>
+          <Button className="h-16 w-full md:w-64 bg-black text-white rounded-2xl font-black text-base uppercase shadow-2xl active:scale-95" onClick={handleSaveQuote} disabled={saving || items.length === 0}>
+            {saving ? <Loader2 className="animate-spin" /> : <Save className="w-5 h-5 mr-3" />} GUARDAR VENTA
+          </Button>
         </div>
       </div>
 
