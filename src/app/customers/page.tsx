@@ -10,7 +10,7 @@ import {
   TableHeader, 
   TableRow 
 } from "@/components/ui/table"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -31,7 +31,6 @@ import {
 import { useCollection, useFirestore, useDoc } from "@/firebase"
 import { collection, query, orderBy, serverTimestamp, setDoc, doc, limit, getDocs, deleteDoc } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
-import { cn } from "@/lib/utils"
 
 export default function CustomersPage() {
   const db = useFirestore()
@@ -80,8 +79,7 @@ export default function CustomersPage() {
     <div className="space-y-6 pt-2 pb-24 px-2 md:px-0 max-w-4xl mx-auto">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 border-b-2 border-black pb-4">
         <div>
-          <h1 className="text-3xl font-headline font-black text-black uppercase tracking-tight">Cartera de Clientes</h1>
-          <p className="text-[10px] font-black text-primary uppercase tracking-[0.3em] ml-1 mt-1">Gestión Industrial</p>
+          <h1 className="text-3xl font-headline font-black text-black uppercase tracking-tight">CLIENTES</h1>
         </div>
         <div className="flex w-full md:w-auto gap-3">
           <div className="relative flex-1 md:w-64">
@@ -99,7 +97,7 @@ export default function CustomersPage() {
                 <UserPlus className="w-4 h-4 mr-2" /> NUEVO
               </Button>
             </DialogTrigger>
-            <DialogContent className="rounded-[2.5rem] border-none shadow-2xl max-w-md">
+            <DialogContent className="rounded-2xl border-none shadow-2xl max-w-md">
               <DialogHeader><DialogTitle className="text-sm font-black text-black uppercase tracking-widest">Alta de Cliente</DialogTitle></DialogHeader>
               <div className="space-y-4 pt-4">
                 <div className="space-y-1"><Label className="text-[9px] font-black uppercase text-black ml-1">Nombre Completo *</Label><Input value={newCustomer.name} onChange={e => setNewCustomer({...newCustomer, name: e.target.value})} className="h-10 text-xs font-black uppercase rounded-xl" placeholder="" /></div>
@@ -110,7 +108,7 @@ export default function CustomersPage() {
         </div>
       </div>
 
-      <Card className="rounded-[2rem] border shadow-sm overflow-hidden bg-white">
+      <Card className="rounded-2xl border shadow-sm overflow-hidden bg-white">
         <Table>
           <TableHeader>
             <TableRow className="bg-black/5 hover:bg-black/5 border-none h-10">
@@ -120,16 +118,18 @@ export default function CustomersPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredCustomers.map(c => (
+            {loading ? (
+              <TableRow><TableCell colSpan={3} className="h-32 text-center opacity-40 text-[10px] font-black">CARGANDO...</TableCell></TableRow>
+            ) : filteredCustomers.map(c => (
               <TableRow key={c.id} className="hover:bg-black/5 transition-colors border-b last:border-0 h-12">
                 <TableCell className="pl-8 py-0 w-24"><span className="font-black text-[10px] text-black/40">{c.id}</span></TableCell>
                 <TableCell className="py-0"><span className="font-black text-[11px] text-black uppercase">{c.name}</span></TableCell>
                 <TableCell className="text-right pr-8 py-0">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreVertical className="w-4 h-4" /></Button></DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="rounded-2xl border-black/10 p-2">
-                      <DropdownMenuItem className="text-[9px] font-black uppercase gap-2 p-3 rounded-xl"><Edit2 className="w-3.5 h-3.5" style={{ color: brandColor }} /> Editar</DropdownMenuItem>
-                      <DropdownMenuItem className="text-[9px] font-black uppercase gap-2 p-3 rounded-xl text-destructive" onClick={() => deleteDoc(doc(db, "customers", c.id))}><Trash2 className="w-3.5 h-3.5" /> Eliminar</DropdownMenuItem>
+                    <DropdownMenuContent align="end" className="rounded-xl border-black/10 p-2">
+                      <DropdownMenuItem className="text-[9px] font-black uppercase gap-2 p-3 rounded-lg"><Edit2 className="w-3.5 h-3.5" style={{ color: brandColor }} /> Editar</DropdownMenuItem>
+                      <DropdownMenuItem className="text-[9px] font-black uppercase gap-2 p-3 rounded-lg text-destructive" onClick={() => deleteDoc(doc(db, "customers", c.id))}><Trash2 className="w-3.5 h-3.5" /> Eliminar</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>

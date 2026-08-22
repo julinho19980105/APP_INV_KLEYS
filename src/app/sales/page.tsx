@@ -17,14 +17,11 @@ import {
 import { 
   Search, 
   Ban, 
-  Printer, 
   MoreVertical,
   Check,
   X,
   Edit2,
   Image as ImageIcon,
-  Bluetooth,
-  FileText,
   ShoppingBag,
   History,
   Loader2
@@ -59,14 +56,11 @@ export default function SalesPage() {
 
   const quotesRef = React.useMemo(() => {
     if (!db) return null
-    
     if (showHistorical) {
       return query(collection(db, "quotes"), orderBy("createdAt", "desc"), limit(200))
     }
-
     const now = new Date()
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-    
     return query(
       collection(db, "quotes"), 
       where("createdAt", ">=", startOfMonth),
@@ -80,13 +74,11 @@ export default function SalesPage() {
     const now = new Date()
     const currentMonth = now.getMonth()
     const currentYear = now.getFullYear()
-    
     return quotes
       .filter(q => {
         const date = q.createdAt?.toDate ? q.createdAt.toDate() : new Date()
         const isThisMonth = date.getMonth() === currentMonth && date.getFullYear() === currentYear
-        const isValidStatus = q.status === 'active' || q.status === 'shipped'
-        return isThisMonth && isValidStatus
+        return q.status === 'active' && isThisMonth
       })
       .reduce((acc, q) => acc + (q.total || 0), 0)
   }, [quotes])
@@ -107,7 +99,7 @@ export default function SalesPage() {
       const dayLabel = date.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }).toUpperCase()
       if (!groups[dayLabel]) groups[dayLabel] = { dateLabel: dayLabel, sales: [], dayTotal: 0 }
       groups[dayLabel].sales.push(sale)
-      if (sale.status !== 'annulled') groups[dayLabel].dayTotal += (sale.total || 0)
+      if (sale.status === 'active') groups[dayLabel].dayTotal += (sale.total || 0)
     })
     return Object.values(groups)
   }, [filteredQuotes])
@@ -130,9 +122,7 @@ export default function SalesPage() {
       }
       toast({ title: "BOLETA ANULADA" })
       setConfirmAnnulId(null)
-    } catch (e) {
-      toast({ variant: "destructive", title: "ERROR" })
-    }
+    } catch (e) { toast({ variant: "destructive", title: "ERROR" }) }
   }
 
   const handleSendImage = async (sale: any) => {
@@ -156,115 +146,112 @@ export default function SalesPage() {
   }
 
   return (
-    <div className="space-y-6 pt-4 pb-20 max-w-4xl mx-auto px-2 md:px-0">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-8 border-b border-primary/10 pb-8">
-        <div className="flex items-center gap-5">
-          <div className="w-16 h-16 rounded-[2rem] flex items-center justify-center shadow-xl shadow-primary/20" style={{ backgroundColor: brandColor }}>
-            <ShoppingBag className="w-8 h-8 text-white" />
+    <div className="space-y-6 pt-2 pb-20 max-w-4xl mx-auto px-2 md:px-0">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 border-b border-primary/10 pb-6">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg shadow-primary/20" style={{ backgroundColor: brandColor }}>
+            <ShoppingBag className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h1 className="text-[11px] font-black text-primary uppercase tracking-[0.3em] mb-1">Ventas del Mes</h1>
-            <div className="font-headline font-black text-5xl md:text-6xl text-foreground tracking-tighter">
+            <h1 className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-0.5">Ventas del Mes</h1>
+            <div className="font-headline font-black text-3xl md:text-4xl text-foreground tracking-tighter">
               S/ {currentMonthTotal.toFixed(2)}
             </div>
           </div>
         </div>
-        <div className="flex w-full md:w-auto gap-3">
-          <div className="relative flex-1 md:w-72">
-            <Search className="absolute left-4 top-4 h-4 w-4" style={{ color: brandColor }} />
+        <div className="flex w-full md:w-auto gap-2">
+          <div className="relative flex-1 md:w-60">
+            <Search className="absolute left-3.5 top-3.5 h-4 w-4" style={{ color: brandColor }} />
             <Input 
               placeholder="" 
-              className="pl-12 h-12 rounded-2xl border-primary/10 font-black text-xs uppercase bg-white shadow-sm focus:ring-primary"
+              className="pl-10 h-10 rounded-xl border-primary/10 font-black text-xs uppercase bg-white shadow-sm"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
             />
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[140px] h-12 rounded-2xl border-primary/10 font-black text-[11px] uppercase bg-white shadow-sm">
+            <SelectTrigger className="w-[120px] h-10 rounded-xl border-primary/10 font-black text-[10px] uppercase bg-white">
               <SelectValue placeholder="Estado" />
             </SelectTrigger>
-            <SelectContent className="rounded-2xl border-primary/10">
-              <SelectItem value="all" className="text-[11px] font-black uppercase">Todos</SelectItem>
-              <SelectItem value="active" className="text-[11px] font-black uppercase">Activos</SelectItem>
-              <SelectItem value="shipped" className="text-[11px] font-black uppercase">Enviados</SelectItem>
-              <SelectItem value="annulled" className="text-[11px] font-black uppercase">Anulados</SelectItem>
+            <SelectContent className="rounded-xl">
+              <SelectItem value="all" className="text-[10px] font-black uppercase">Todos</SelectItem>
+              <SelectItem value="active" className="text-[10px] font-black uppercase">Ventas</SelectItem>
+              <SelectItem value="annulled" className="text-[10px] font-black uppercase">Anulados</SelectItem>
             </SelectContent>
           </Select>
         </div>
       </div>
 
-      <div className="space-y-10">
+      <div className="space-y-6">
         {loading && (
-          <div className="flex flex-col items-center justify-center py-20 gap-4 opacity-40">
-            <Loader2 className="w-10 h-10 animate-spin text-primary" />
-            <span className="text-[10px] font-black uppercase tracking-widest">Consultando...</span>
+          <div className="flex flex-col items-center justify-center py-10 gap-3 opacity-30">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <span className="text-[9px] font-black uppercase tracking-widest">Consultando...</span>
           </div>
         )}
 
         {groupedSales.map(group => (
-          <div key={group.dateLabel} className="space-y-5">
-            <div className="flex justify-between items-center px-8 py-4 text-white rounded-[1.5rem] shadow-lg shadow-primary/10" style={{ backgroundColor: brandColor }}>
-              <span className="text-[11px] font-black uppercase tracking-widest">{group.dateLabel}</span>
-              <span className="font-headline font-black text-xl">S/ {group.dayTotal.toFixed(2)}</span>
+          <div key={group.dateLabel} className="space-y-3">
+            <div className="flex justify-between items-center px-6 py-2 text-white rounded-xl shadow-md" style={{ backgroundColor: brandColor }}>
+              <span className="text-[10px] font-black uppercase tracking-widest">{group.dateLabel}</span>
+              <span className="font-headline font-black text-lg">S/ {group.dayTotal.toFixed(2)}</span>
             </div>
             
-            <div className="space-y-4">
+            <div className="space-y-2">
               {group.sales.map(s => (
                 <Card key={s.id} className={cn(
-                  "rounded-[2rem] border border-primary/5 overflow-hidden transition-all",
-                  s.status === 'annulled' ? "opacity-40 bg-secondary/30" : "bg-white shadow-md hover:shadow-xl hover:scale-[1.01]"
+                  "rounded-2xl border border-primary/5 overflow-hidden transition-all",
+                  s.status === 'annulled' ? "opacity-30 bg-secondary/30" : "bg-white shadow-sm hover:shadow-md"
                 )}>
-                  <CardContent className="p-6 flex items-center justify-between">
-                    <div className="flex-1 space-y-2">
-                      <div className="flex justify-between items-center pr-8 md:pr-16">
-                        <div className="flex items-center gap-3">
-                          <span className="font-black text-lg text-foreground tracking-tight">{s.id}</span>
+                  <CardContent className="p-3 md:p-4 flex items-center justify-between">
+                    <div className="flex-1 space-y-1">
+                      <div className="flex justify-between items-center pr-4">
+                        <div className="flex items-center gap-2">
+                          <span className="font-black text-[11px] text-foreground uppercase tracking-wide">{s.id}</span>
                           <Badge 
                             variant="outline" 
                             className={cn(
-                              "text-[9px] font-black h-6 px-4 uppercase border-none rounded-xl", 
-                              s.status === 'active' && "bg-green-50 text-green-600",
-                              s.status === 'shipped' && "bg-primary/10 text-primary",
-                              s.status === 'annulled' && "bg-red-50 text-red-600"
+                              "text-[8px] font-black h-5 px-3 uppercase border-none rounded-lg", 
+                              s.status === 'active' ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600"
                             )}
                           >
-                            {s.status === 'active' ? 'ACTIVO' : s.status === 'shipped' ? 'ENVIADO' : 'ANULADO'}
+                            {s.status === 'active' ? 'VENTA' : 'ANULADO'}
                           </Badge>
                         </div>
-                        <span className="font-headline font-black text-2xl text-foreground">S/ {Number(s.total).toFixed(2)}</span>
+                        <span className="font-headline font-black text-[13px] text-foreground">S/ {Number(s.total).toFixed(2)}</span>
                       </div>
-                      <div className="flex justify-between items-center pr-8 md:pr-16">
-                        <span className="text-[12px] font-black text-foreground uppercase truncate max-w-[180px] md:max-w-none">
+                      <div className="flex justify-between items-center pr-4">
+                        <span className="text-[11px] font-black text-foreground uppercase truncate max-w-[150px]">
                           {s.customerName}
                         </span>
-                        <span className="text-[10px] font-medium text-muted-foreground uppercase bg-secondary px-3 py-1 rounded-lg">
-                          {s.items?.reduce((acc: number, item: any) => acc + (Number(item.quantity) || 0), 0)} UNID
+                        <span className="text-[9px] font-medium text-muted-foreground uppercase bg-secondary px-2 py-0.5 rounded-md">
+                          {s.items?.reduce((acc: number, item: any) => acc + (Number(item.quantity) || 0), 0)} UND
                         </span>
                       </div>
                     </div>
 
                     <div className="relative">
                       {confirmAnnulId === s.id ? (
-                        <div className="flex gap-2">
-                          <Button size="icon" className="h-12 w-12 bg-destructive text-white rounded-2xl shadow-lg" onClick={() => annulQuote(s)}><Check className="w-6 h-6" /></Button>
-                          <Button size="icon" className="h-12 w-12 bg-secondary text-primary rounded-2xl border border-primary/10 shadow-lg" onClick={() => setConfirmAnnulId(null)}><X className="w-6 h-6" /></Button>
+                        <div className="flex gap-1">
+                          <Button size="icon" className="h-9 w-9 bg-destructive text-white rounded-xl" onClick={() => annulQuote(s)}><Check className="w-5 h-5" /></Button>
+                          <Button size="icon" className="h-9 w-9 bg-secondary text-primary rounded-xl" onClick={() => setConfirmAnnulId(null)}><X className="w-5 h-5" /></Button>
                         </div>
                       ) : (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-12 w-12 rounded-2xl hover:bg-primary/5 transition-all">
-                              <MoreVertical className="w-6 h-6 text-primary" />
+                            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-primary/5">
+                              <MoreVertical className="w-5 h-5 text-primary" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="rounded-[1.5rem] border-primary/10 shadow-2xl p-3 w-64">
-                            <DropdownMenuItem className="text-[12px] font-black uppercase gap-4 p-4 rounded-xl cursor-pointer hover:bg-primary/5" onClick={() => router.push(`/quotes?edit=${s.id}`)}>
-                              <Edit2 className="w-4 h-4" style={{ color: brandColor }} /> Editar Venta
+                          <DropdownMenuContent align="end" className="rounded-xl p-2 w-48 shadow-xl">
+                            <DropdownMenuItem className="text-[11px] font-black uppercase gap-3 p-3 rounded-lg" onClick={() => router.push(`/quotes?edit=${s.id}`)}>
+                              <Edit2 className="w-3.5 h-3.5" style={{ color: brandColor }} /> Editar
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="text-[12px] font-black uppercase gap-4 p-4 rounded-xl cursor-pointer hover:bg-primary/5" onClick={() => handleSendImage(s)}>
-                              <ImageIcon className="w-4 h-4" style={{ color: brandColor }} /> Enviar Imagen
+                            <DropdownMenuItem className="text-[11px] font-black uppercase gap-3 p-3 rounded-lg" onClick={() => handleSendImage(s)}>
+                              <ImageIcon className="w-3.5 h-3.5" style={{ color: brandColor }} /> Enviar Foto
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="text-[12px] font-black uppercase gap-4 p-4 rounded-xl text-destructive cursor-pointer hover:bg-destructive/5" onClick={() => setConfirmAnnulId(s.id)}>
-                              <Ban className="w-4 h-4" /> Anular Boleta
+                            <DropdownMenuItem className="text-[11px] font-black uppercase gap-3 p-3 rounded-lg text-destructive" onClick={() => setConfirmAnnulId(s.id)}>
+                              <Ban className="w-3.5 h-3.5" /> Anular
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -278,13 +265,13 @@ export default function SalesPage() {
         ))}
 
         {!loading && !showHistorical && (
-          <div className="flex justify-center pt-10 pb-20">
+          <div className="flex justify-center pt-6 pb-10">
             <Button 
               variant="outline" 
-              className="h-14 rounded-2xl border-primary/20 text-primary font-black uppercase text-[10px] tracking-widest px-10 hover:bg-primary/5"
+              className="h-10 rounded-xl border-primary/20 text-primary font-black uppercase text-[9px] tracking-widest px-8"
               onClick={() => setShowHistorical(true)}
             >
-              <History className="w-4 h-4 mr-3" /> Cargar Historial Antiguo
+              <History className="w-3.5 h-3.5 mr-2" /> Cargar Historial Antiguo
             </Button>
           </div>
         )}
@@ -292,7 +279,7 @@ export default function SalesPage() {
 
       <div className="fixed -left-[4000px] top-0">
         {activeReceipt && (
-          <div ref={receiptRef} className="boleta" style={{ width: '560px', backgroundColor: '#ffffff', padding: '30px', fontFamily: 'Arial, sans-serif' }}>
+          <div ref={receiptRef} style={{ width: '560px', backgroundColor: '#ffffff', padding: '30px', fontFamily: 'Arial, sans-serif' }}>
             <div style={{ backgroundColor: brandColor, color: 'white', textAlign: 'center', padding: '30px', borderRadius: '20px' }}>
               <div style={{ fontSize: '32px', fontWeight: 950, marginBottom: '5px' }}>{companySettings?.companyName || "BOUTIQUE"}</div>
               <div style={{ fontSize: '14px', fontWeight: 700, letterSpacing: '2px' }}>BOLETA DE VENTA · {activeReceipt.id}</div>

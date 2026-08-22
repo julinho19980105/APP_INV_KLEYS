@@ -7,7 +7,6 @@ import {
   PlusCircle, 
   FileText, 
   Users, 
-  Truck, 
   Settings,
   ShoppingBag,
   BookOpen,
@@ -38,7 +37,6 @@ const navItems = [
   { name: "Inventario", href: "/inventory", icon: Package },
   { name: "Registrar", href: "/registry", icon: PlusCircle },
   { name: "Clientes", href: "/customers", icon: Users },
-  { name: "Logística", href: "/shipping", icon: Truck },
   { name: "Catálogo", href: "/catalogo", icon: BookOpen },
   { name: "Ajustes", href: "/settings", icon: Settings },
 ]
@@ -102,7 +100,7 @@ function AppSidebar({ pathname }: { pathname: string }) {
       </SidebarHeader>
       <SidebarContent className="py-6 px-3 bg-white">
         <SidebarMenu>
-          {navItems.map((item, index) => (
+          {navItems.map((item) => (
             <SidebarMenuItem key={item.name}>
               <SidebarMenuButton 
                 asChild 
