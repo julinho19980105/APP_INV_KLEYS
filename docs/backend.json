@@ -61,6 +61,38 @@
         "createdAt": { "type": "string", "format": "date-time" }
       }
     },
+    "LogisticsLog": {
+      "title": "Lote de Logística",
+      "description": "Registro de despacho diario por cliente",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string", "format": "date" },
+        "entries": { 
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "customerId": { "type": "string" },
+              "customerName": { "type": "string" },
+              "addedAt": { "type": "string", "format": "date-time" },
+              "quotes": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "quoteId": { "type": "string" },
+                    "amount": { "type": "number" },
+                    "quantity": { "type": "number" },
+                    "selected": { "type": "boolean" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
+    },
     "AppConfig": {
       "title": "Configuración de Aplicación",
       "description": "Configuración global de la identidad Diva",
@@ -93,6 +125,10 @@
     "/movements/{movementId}": {
       "schema": "Movement",
       "description": "Kardex de stock"
+    },
+    "/logistics/{logId}": {
+      "schema": "LogisticsLog",
+      "description": "Historial de despacho diario"
     },
     "/config/{configId}": {
       "schema": "AppConfig",
