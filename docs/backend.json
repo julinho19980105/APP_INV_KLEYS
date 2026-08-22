@@ -102,7 +102,8 @@
         "companyLogo": { "type": "string" },
         "brandColor": { "type": "string" },
         "inventoryViewMode": { "type": "string" },
-        "printerWidth": { "type": "string", "enum": ["58", "80"] }
+        "printerWidth": { "type": "string", "enum": ["58", "80"] },
+        "catalogUrl": { "type": "string", "description": "URL de implementación del Catálogo Externo" }
       }
     }
   },

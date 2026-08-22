@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from "react"
-import { Settings, Save, Sparkles, Building2, Upload, LayoutGrid, Layers, X, Loader2, Printer } from "lucide-react"
+import { Settings, Save, Building2, Upload, LayoutGrid, Layers, X, Loader2, Printer, Link as LinkIcon } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -25,7 +25,8 @@ export default function SettingsPage() {
     companyLogo: "",
     brandColor: "#FF3399",
     inventoryViewMode: "collection",
-    printerWidth: "80"
+    printerWidth: "80",
+    catalogUrl: "https://script.google.com/macros/s/AKfycbwBpGRDSXd-Ujrp0erWr3G0LDDqCLwV7sXYhdpNY6qPN7WrFH1Sd4A9KNKXNomqjHT5/exec"
   })
   const [saving, setSaving] = React.useState(false)
 
@@ -36,7 +37,8 @@ export default function SettingsPage() {
         companyLogo: dbConfig.companyLogo || "",
         brandColor: dbConfig.brandColor || "#FF3399",
         inventoryViewMode: dbConfig.inventoryViewMode || "collection",
-        printerWidth: dbConfig.printerWidth || "80"
+        printerWidth: dbConfig.printerWidth || "80",
+        catalogUrl: dbConfig.catalogUrl || "https://script.google.com/macros/s/AKfycbwBpGRDSXd-Ujrp0erWr3G0LDDqCLwV7sXYhdpNY6qPN7WrFH1Sd4A9KNKXNomqjHT5/exec"
       })
     }
   }, [dbConfig])
@@ -45,8 +47,6 @@ export default function SettingsPage() {
     if (!db) return
     setSaving(true)
     try {
-      // Validar tamaño del logo si existe (Firestore tiene límite de 1MB por documento)
-      // Base64 ocupa más espacio, así que limitamos a 600KB reales aproximadamente
       if (form.companyLogo && form.companyLogo.length > 800000) {
         toast({ 
           variant: "destructive", 
@@ -168,6 +168,19 @@ export default function SettingsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-8 space-y-8">
+             <div className="space-y-1.5">
+               <Label className="text-[9px] font-black uppercase text-black ml-1 flex items-center gap-2">
+                 <LinkIcon className="w-3 h-3" /> URL Catálogo Externo
+               </Label>
+               <Input 
+                 value={form.catalogUrl}
+                 onChange={e => setForm({...form, catalogUrl: e.target.value})}
+                 placeholder="https://script.google.com/macros/s/..."
+                 className="h-12 font-medium border-black/10 rounded-xl text-xs bg-black/5" 
+               />
+               <p className="text-[8px] text-muted-foreground uppercase mt-1 px-1">Este link se usará para el visor de Catálogo Industrial.</p>
+             </div>
+
              <div className="space-y-4">
                <Label className="text-[9px] font-black uppercase text-black ml-1">Ancho de Ticket BLE</Label>
                <RadioGroup 
