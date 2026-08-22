@@ -459,89 +459,92 @@ export default function SalesPage() {
         </Button>
       </div>
 
-      {/* Plantilla para Compartir Imagen / Vista Previa */}
+      {/* Plantilla de Boleta Imagen (Copia exacta de referencia) */}
       <div className="fixed -left-[8000px] top-0">
         {activeReceipt && (
           <div 
             ref={receiptRef} 
-            className={cn(
-              "bg-white p-6 text-black font-mono text-[10px] leading-tight",
-              printerWidth === "58" ? "w-[58mm]" : "w-[80mm]"
-            )}
+            className="bg-white p-12 w-[600px] text-black font-sans relative"
           >
-            <div className="text-center mb-6 border-y-2 py-4" style={{ borderColor: brandColor }}>
-              <h1 className="text-sm font-black uppercase tracking-widest" style={{ color: brandColor }}>
+            {/* Cabecera con líneas dobles */}
+            <div className="border-t-4 mb-1" style={{ borderColor: brandColor }}></div>
+            <div className="border-t-4 mb-4" style={{ borderColor: brandColor }}></div>
+            
+            <div className="text-center mb-8">
+              <h1 className="text-5xl font-black uppercase tracking-widest" style={{ color: brandColor }}>
                 {companySettings?.companyName || "STILOSTACK"}
               </h1>
             </div>
             
-            <div className="flex justify-between items-start mb-6">
-              <div className="space-y-0.5">
-                <span className="text-[8px] font-bold text-black/50 block">CLIENTE:</span>
-                <div className="text-[12px] font-black uppercase">{activeReceipt.customerName}</div>
-                <div className="text-[9px] font-medium text-black/50">{activeReceipt.customerId}</div>
+            <div className="border-t-4 mb-8" style={{ borderColor: brandColor }}></div>
+
+            <div className="flex justify-between items-start mb-10 px-2">
+              <div className="space-y-2">
+                <span className="text-[12px] font-bold text-black/50 block uppercase tracking-widest">CLIENTE:</span>
+                <div className="text-[24px] font-black uppercase leading-tight">{activeReceipt.customerName}</div>
+                <div className="text-[16px] font-bold text-black/60 uppercase">ID: {activeReceipt.customerId}</div>
               </div>
               <div className="text-right">
-                <div className="text-[14px] font-black mb-0.5" style={{ color: brandColor }}>{activeReceipt.id}</div>
-                <div className="text-[9px] font-bold text-black/60">
-                  {activeReceipt.createdAt?.toDate ? format(activeReceipt.createdAt.toDate(), "dd/MM/yy HH:mm") : ""}
+                <div className="text-[32px] font-black mb-1 uppercase tracking-tighter" style={{ color: brandColor }}>{activeReceipt.id}</div>
+                <div className="text-[16px] font-bold text-black/60">
+                  {activeReceipt.createdAt?.toDate ? format(activeReceipt.createdAt.toDate(), "dd-MM-yyyy") : ""}
                 </div>
               </div>
             </div>
 
-            <div className="w-full border-y border-black/10 py-3 mb-6">
+            <div className="w-full mb-10">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="text-[9px] font-black uppercase border-b border-black/5">
-                    <th className="pb-2">N</th>
-                    <th className="pb-2">PRENDA</th>
-                    <th className="pb-2 text-center">P.U.</th>
-                    <th className="pb-2 text-center">CANT</th>
-                    <th className="pb-2 text-right">TOTAL</th>
+                  <tr className="text-[14px] font-black uppercase text-white" style={{ backgroundColor: brandColor }}>
+                    <th className="py-4 px-4 rounded-l-2xl">Nº</th>
+                    <th className="py-4">PRODUCTO</th>
+                    <th className="py-4 text-center">CANT.</th>
+                    <th className="py-4 text-right pr-4 rounded-r-2xl">TOTAL</th>
                   </tr>
                 </thead>
-                <tbody className="text-[9px] font-medium uppercase">
+                <tbody className="text-[16px] font-medium uppercase">
                   {activeReceipt.items?.map((item: any, i: number) => (
-                    <tr key={i} className="align-top border-b border-black/5 last:border-0">
-                      <td className="py-2 text-black/40">{i + 1}</td>
-                      <td className="py-2">
-                        <div className="font-bold text-black">{item.name}</div>
-                        {item.description && <div className="text-[8px] text-black/40 italic leading-none mt-1">{item.description}</div>}
-                        {Number(item.discount) > 0 && (
-                          <div className="text-[8px] font-black text-destructive mt-1 uppercase tracking-tighter">
-                            DESC: -S/ {Number(item.discount).toFixed(1)}
-                          </div>
-                        )}
-                      </td>
-                      <td className="py-2 text-center">{Number(item.price).toFixed(1)}</td>
-                      <td className="py-2 text-center font-black">{item.quantity}</td>
-                      <td className="py-2 text-right font-black">
-                        {((Number(item.price) * Number(item.quantity)) - (Number(item.discount) || 0)).toFixed(1)}
-                      </td>
-                    </tr>
+                    <React.Fragment key={i}>
+                      <tr className="align-top">
+                        <td className="py-6 px-4 text-black/40 font-bold">{i + 1}</td>
+                        <td className="py-6">
+                          <div className="font-black text-black text-[18px] mb-1">{item.name}</div>
+                          {item.description && <div className="text-[13px] text-black/50 italic leading-snug">{item.description}</div>}
+                          {Number(item.discount) > 0 && (
+                            <div className="text-[14px] font-black text-destructive mt-2 uppercase tracking-tight">
+                              DESC: -S/ {Number(item.discount).toFixed(2)}
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-6 text-center font-black text-[18px]">{item.quantity}</td>
+                        <td className="py-6 text-right pr-4 font-black text-[18px]">
+                          {((Number(item.price) * Number(item.quantity)) - (Number(item.discount) || 0)).toFixed(2)}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td colSpan={4} className="border-b border-black/10"></td>
+                      </tr>
+                    </React.Fragment>
                   ))}
                 </tbody>
               </table>
             </div>
 
-            <div className="space-y-2 border-t border-dashed border-black/20 pt-4">
-              <div className="flex justify-between items-end">
-                <div className="text-[10px] font-black uppercase">
-                  TOTAL PRENDAS: {(activeReceipt.items || []).reduce((acc: number, item: any) => acc + (Number(item.quantity) || 0), 0)}
-                </div>
-                <div className="text-right space-y-0.5">
-                  <div className="text-[8px] font-black text-black/40 uppercase">TOTAL NETO:</div>
-                  <div className="text-[24px] font-black leading-none" style={{ color: brandColor }}>
-                    S/. {Number(activeReceipt.total).toFixed(1)}
-                  </div>
+            <div className="border-t-4 mb-6" style={{ borderColor: brandColor }}></div>
+
+            <div className="flex justify-between items-end px-4">
+              <div className="space-y-2">
+                <div className="text-[12px] font-black uppercase text-black/50 tracking-widest">TOTAL PRENDAS:</div>
+                <div className="text-[36px] font-black text-black leading-none">
+                  {(activeReceipt.items || []).reduce((acc: number, item: any) => acc + (Number(item.quantity) || 0), 0)} <span className="text-[18px]">UND</span>
                 </div>
               </div>
-            </div>
-
-            <div className="mt-10 text-center border-t border-black/5 pt-6">
-              <span className="text-[8px] font-bold text-black/30 uppercase tracking-[0.4em]">
-                GRACIAS POR SU PREFERENCIA
-              </span>
+              <div className="text-right space-y-2">
+                <div className="text-[14px] font-black uppercase tracking-widest" style={{ color: brandColor }}>TOTAL A PAGAR:</div>
+                <div className="text-[64px] font-black leading-none tracking-tighter" style={{ color: brandColor }}>
+                  S/. {Number(activeReceipt.total).toFixed(2)}
+                </div>
+              </div>
             </div>
           </div>
         )}
