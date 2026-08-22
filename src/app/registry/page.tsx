@@ -14,12 +14,13 @@ import {
   Save, 
   Loader2, 
   Edit2,
-  Trash2,
-  Package
+  Plus,
+  Package,
+  Settings2
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useFirestore, useDoc, useCollection } from "@/firebase"
-import { doc, setDoc, collection, query, orderBy, serverTimestamp, getDocs, limit, writeBatch } from "firebase/firestore"
+import { doc, setDoc, collection, query, orderBy, serverTimestamp, getDocs, limit, writeBatch, updateDoc, arrayUnion } from "firebase/firestore"
 import { uploadImageToDrive } from "@/services/sheets-service"
 import { 
   Dialog,
@@ -27,6 +28,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { cn } from "@/lib/utils"
 
 function getDriveThumb(url: string, size: number = 400) {
   if (!url || !url.includes('drive.google.com')) return url;
@@ -73,11 +75,23 @@ export default function RegistryPage() {
   })
   const [localImagePreviews, setLocalImagePreviews] = React.useState<string[]>([])
   
-  const [isRenameOpen, setIsRenameOpen] = React.useState(false)
-  const [renameData, setRenameData] = React.useState({ type: "category", oldName: "", newName: "" })
+  // Tag Management State
+  const [isTagManagerOpen, setIsTagManagerOpen] = React.useState(false)
+  const [tagManagerConfig, setTagManagerConfig] = React.useState<{ type: 'category' | 'collection', title: string }>({ type: 'category', title: '' })
+  const [newTagName, setNewTagName] = React.useState("")
+  const [editingTagName, setEditingTagName] = React.useState<{ old: string, new: string } | null>(null)
 
-  const uniqueCategories = React.useMemo(() => Array.from(new Set(allProducts.map(p => (p.category || '').toUpperCase()).filter(Boolean))).sort(), [allProducts])
-  const uniqueCollections = React.useMemo(() => Array.from(new Set(allProducts.map(p => (p.collection || '').toUpperCase()).filter(Boolean))).sort(), [allProducts])
+  const uniqueCategories = React.useMemo(() => {
+    const fromProducts = allProducts.map(p => (p.category || '').toUpperCase()).filter(Boolean)
+    const fromConfig = config?.availableCategories || []
+    return Array.from(new Set([...fromProducts, ...fromConfig])).sort()
+  }, [allProducts, config])
+
+  const uniqueCollections = React.useMemo(() => {
+    const fromProducts = allProducts.map(p => (p.collection || '').toUpperCase()).filter(Boolean)
+    const fromConfig = config?.availableCollections || []
+    return Array.from(new Set([...fromProducts, ...fromConfig])).sort()
+  }, [allProducts, config])
 
   React.useEffect(() => {
     if (!db || editId) return
@@ -130,6 +144,19 @@ export default function RegistryPage() {
       }
       
       await setDoc(doc(db, "products", productCode), productData, { merge: true })
+      
+      // Also add to global suggestions list
+      if (form.category) {
+        await updateDoc(doc(db, "config", "global"), {
+          availableCategories: arrayUnion(form.category.toUpperCase())
+        }).catch(() => {});
+      }
+      if (form.collection) {
+        await updateDoc(doc(db, "config", "global"), {
+          availableCollections: arrayUnion(form.collection.toUpperCase())
+        }).catch(() => {});
+      }
+
       toast({ title: editId ? "PRENDA ACTUALIZADA" : "PRENDA REGISTRADA" })
       router.push('/inventory')
     } catch (e) { 
@@ -138,23 +165,46 @@ export default function RegistryPage() {
     finally { setSaving(false) }
   }
 
-  const handleRenameLabel = async () => {
-    if (!db || !renameData.newName || !renameData.oldName) return
+  const handleAddNewTag = async () => {
+    if (!db || !newTagName.trim()) return
+    const tag = newTagName.toUpperCase().trim()
+    const field = tagManagerConfig.type === 'category' ? 'availableCategories' : 'availableCollections'
+    try {
+      await updateDoc(doc(db, "config", "global"), {
+        [field]: arrayUnion(tag)
+      })
+      setNewTagName("")
+      toast({ title: "Agregado a la lista" })
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error al agregar" })
+    }
+  }
+
+  const handleRenameTag = async () => {
+    if (!db || !editingTagName || !editingTagName.new.trim()) return
     setSaving(true)
+    const oldTag = editingTagName.old.toUpperCase()
+    const newTag = editingTagName.new.toUpperCase().trim()
+    const type = tagManagerConfig.type
+
     try {
       const batch = writeBatch(db)
-      const targetProducts = allProducts.filter(p => (p[renameData.type] || '').toUpperCase() === renameData.oldName.toUpperCase())
+      const targetProducts = allProducts.filter(p => (p[type] || '').toUpperCase() === oldTag)
       
       targetProducts.forEach(p => {
         const ref = doc(db, "products", p.id)
-        batch.update(ref, { [renameData.type]: renameData.newName.toUpperCase(), updatedAt: serverTimestamp() })
+        batch.update(ref, { [type]: newTag, updatedAt: serverTimestamp() })
       })
       
+      // Update global config list too
+      const field = type === 'category' ? 'availableCategories' : 'availableCollections'
+      const currentList = config?.[field] || []
+      const newList = Array.from(new Set(currentList.map((t: string) => t.toUpperCase() === oldTag ? newTag : t.toUpperCase())))
+      batch.update(doc(db, "config", "global"), { [field]: newList })
+
       await batch.commit()
-      toast({ title: "Cambio Global Exitoso", description: `Se actualizaron ${targetProducts.length} productos.` })
-      setIsRenameOpen(false)
-      if (renameData.type === 'category') setForm({...form, category: renameData.newName.toUpperCase()})
-      else setForm({...form, collection: renameData.newName.toUpperCase()})
+      toast({ title: "Renombrado Global Exitoso", description: `${targetProducts.length} productos actualizados.` })
+      setEditingTagName(null)
     } catch (e) {
       toast({ variant: "destructive", title: "Error en renombrado" })
     } finally {
@@ -162,14 +212,12 @@ export default function RegistryPage() {
     }
   }
 
+  const currentTagsList = tagManagerConfig.type === 'category' ? uniqueCategories : uniqueCollections
+
   return (
     <div className="max-w-6xl mx-auto space-y-6 pt-4 pb-24 px-2 md:px-0">
       <div className="flex justify-between items-end border-b-2 border-primary/10 pb-6 mb-4">
-        <div className="flex items-center gap-5">
-          <div>
-            <h1 className="text-4xl font-headline font-black text-foreground uppercase tracking-tight">Registro de productos</h1>
-          </div>
-        </div>
+        <h1 className="text-4xl font-headline font-black text-foreground uppercase tracking-tight">Registro de productos</h1>
         <div className="bg-primary text-white px-8 py-2 rounded-2xl font-black text-2xl shadow-xl shadow-primary/20">{nextId}</div>
       </div>
 
@@ -190,51 +238,47 @@ export default function RegistryPage() {
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-3">
-                    <div className="flex items-center gap-2 ml-1">
+                    <div className="flex items-center justify-between ml-1 pr-1">
                       <Label className="text-[11px] uppercase font-black text-primary tracking-widest">Categoría</Label>
                       <button 
                         className="text-primary/40 hover:text-primary transition-colors" 
-                        onClick={() => { setRenameData({ type: 'category', oldName: form.category || '', newName: "" }); setIsRenameOpen(true); }}
+                        onClick={() => { setTagManagerConfig({ type: 'category', title: 'Gestionar Categorías' }); setIsTagManagerOpen(true); }}
                       >
-                        <Edit2 className="w-3.5 h-3.5" />
+                        <Settings2 className="w-4 h-4" />
                       </button>
                     </div>
-                    <div className="relative">
-                      <Input 
-                        list="categories" 
-                        value={form.category} 
-                        placeholder=""
-                        onChange={e => setForm({...form, category: e.target.value.toUpperCase()})} 
-                        className="h-14 border-primary/10 rounded-2xl font-black text-[12px] uppercase shadow-sm" 
-                      />
-                      <datalist id="categories">
-                        {uniqueCategories.map(cat => <option key={cat} value={cat} />)}
-                      </datalist>
-                    </div>
+                    <Input 
+                      list="categories" 
+                      value={form.category} 
+                      placeholder=""
+                      onChange={e => setForm({...form, category: e.target.value})} 
+                      className="h-14 border-primary/10 rounded-2xl font-black text-[12px] uppercase shadow-sm" 
+                    />
+                    <datalist id="categories">
+                      {uniqueCategories.map(cat => <option key={cat} value={cat} />)}
+                    </datalist>
                   </div>
 
                   <div className="space-y-3">
-                    <div className="flex items-center gap-2 ml-1">
+                    <div className="flex items-center justify-between ml-1 pr-1">
                       <Label className="text-[11px] uppercase font-black text-primary tracking-widest">Colección</Label>
                       <button 
                         className="text-primary/40 hover:text-primary transition-colors" 
-                        onClick={() => { setRenameData({ type: 'collection', oldName: form.collection || '', newName: "" }); setIsRenameOpen(true); }}
+                        onClick={() => { setTagManagerConfig({ type: 'collection', title: 'Gestionar Colecciones' }); setIsTagManagerOpen(true); }}
                       >
-                        <Edit2 className="w-3.5 h-3.5" />
+                        <Settings2 className="w-4 h-4" />
                       </button>
                     </div>
-                    <div className="relative">
-                      <Input 
-                        list="collections" 
-                        value={form.collection} 
-                        placeholder=""
-                        onChange={e => setForm({...form, collection: e.target.value.toUpperCase()})} 
-                        className="h-14 border-primary/10 rounded-2xl font-black text-[12px] uppercase shadow-sm" 
-                      />
-                      <datalist id="collections">
-                        {uniqueCollections.map(col => <option key={col} value={col} />)}
-                      </datalist>
-                    </div>
+                    <Input 
+                      list="collections" 
+                      value={form.collection} 
+                      placeholder=""
+                      onChange={e => setForm({...form, collection: e.target.value})} 
+                      className="h-14 border-primary/10 rounded-2xl font-black text-[12px] uppercase shadow-sm" 
+                    />
+                    <datalist id="collections">
+                      {uniqueCollections.map(col => <option key={col} value={col} />)}
+                    </datalist>
                   </div>
                 </div>
               </div>
@@ -246,6 +290,7 @@ export default function RegistryPage() {
                     type="number" 
                     value={form.stock} 
                     onChange={e => setForm({...form, stock: e.target.value})} 
+                    placeholder=""
                     className="h-14 rounded-2xl font-black text-lg text-center border-green-200 bg-green-50 text-green-700 shadow-sm" 
                   />
                 </div>
@@ -255,6 +300,7 @@ export default function RegistryPage() {
                     type="number" 
                     value={form.priceFardo} 
                     onChange={e => setForm({...form, priceFardo: e.target.value})} 
+                    placeholder=""
                     className="h-14 rounded-2xl font-black text-lg text-center border-orange-200 bg-orange-50 text-orange-700 shadow-sm" 
                   />
                 </div>
@@ -264,6 +310,7 @@ export default function RegistryPage() {
                     type="number" 
                     value={form.priceMayor} 
                     onChange={e => setForm({...form, priceMayor: e.target.value})} 
+                    placeholder=""
                     className="h-14 rounded-2xl font-black text-lg text-center border-orange-200 bg-orange-50 text-orange-700 shadow-sm" 
                   />
                 </div>
@@ -273,6 +320,7 @@ export default function RegistryPage() {
                     type="number" 
                     value={form.priceUnidad} 
                     onChange={e => setForm({...form, priceUnidad: e.target.value})} 
+                    placeholder=""
                     className="h-14 rounded-2xl font-black text-lg text-center border-orange-200 bg-orange-50 text-orange-700 shadow-sm focus:ring-primary" 
                   />
                 </div>
@@ -340,7 +388,52 @@ export default function RegistryPage() {
         </div>
       </div>
 
-      <Dialog open={isRenameOpen} onOpenChange={setIsRenameOpen}>
+      <Dialog open={isTagManagerOpen} onOpenChange={setIsTagManagerOpen}>
+        <DialogContent className="rounded-[3rem] border-none shadow-2xl max-w-md overflow-hidden p-0">
+          <DialogHeader className="p-8 bg-primary/5 border-b">
+            <DialogTitle className="text-sm font-black text-primary uppercase tracking-widest">{tagManagerConfig.title}</DialogTitle>
+          </DialogHeader>
+          <div className="p-8 space-y-6">
+            <div className="space-y-3">
+              <Label className="text-[10px] font-black uppercase text-primary/40 ml-1">Agregar Nueva</Label>
+              <div className="flex gap-2">
+                <Input 
+                  value={newTagName} 
+                  onChange={e => setNewTagName(e.target.value)}
+                  placeholder=""
+                  className="h-12 font-black uppercase border-primary/10 rounded-xl"
+                />
+                <Button className="h-12 w-12 rounded-xl bg-primary text-white shadow-lg" onClick={handleAddNewTag}>
+                  <Plus className="w-5 h-5" />
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <Label className="text-[10px] font-black uppercase text-primary/40 ml-1">Lista de Existentes</Label>
+              <div className="max-h-[300px] overflow-y-auto pr-2 space-y-2 scrollbar-hide">
+                {currentTagsList.length > 0 ? currentTagsList.map(tag => (
+                  <div key={tag} className="flex items-center justify-between p-4 bg-primary/5 rounded-2xl border border-primary/5 group">
+                    <span className="font-black text-xs uppercase text-foreground">{tag}</span>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8 rounded-full text-primary/40 hover:text-primary hover:bg-white"
+                      onClick={() => setEditingTagName({ old: tag, new: tag })}
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                )) : (
+                  <div className="text-center py-10 opacity-20 font-black text-[10px] uppercase">Lista vacía</div>
+                )}
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!editingTagName} onOpenChange={() => setEditingTagName(null)}>
         <DialogContent className="rounded-[3rem] border-none shadow-2xl max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-sm font-black text-primary uppercase tracking-widest text-center">Corregir Nombre</DialogTitle>
@@ -348,20 +441,20 @@ export default function RegistryPage() {
           <div className="space-y-6 pt-4">
             <div className="bg-primary/5 p-6 rounded-2xl border border-primary/10 text-center">
               <span className="text-[10px] font-black uppercase text-primary/40 block mb-1">Actual</span>
-              <span className="text-xl font-headline font-black text-foreground uppercase">{renameData.oldName || ''}</span>
+              <span className="text-xl font-headline font-black text-foreground uppercase">{editingTagName?.old || ''}</span>
             </div>
             <div className="space-y-2">
               <Label className="text-[10px] font-black uppercase text-primary/40 ml-1">Nuevo Nombre</Label>
               <Input 
-                value={renameData.newName} 
-                onChange={e => setRenameData({...renameData, newName: e.target.value.toUpperCase()})}
+                value={editingTagName?.new || ''} 
+                onChange={e => setEditingTagName(prev => prev ? ({ ...prev, new: e.target.value.toUpperCase() }) : null)}
                 placeholder=""
                 className="h-14 font-black uppercase text-center border-primary/10 rounded-2xl shadow-inner"
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <Button variant="outline" className="h-14 rounded-2xl font-black text-[10px] uppercase border-primary/10" onClick={() => setIsRenameOpen(false)}>CANCELAR</Button>
-              <Button className="h-14 rounded-2xl bg-primary text-white font-black text-[10px] uppercase shadow-lg shadow-primary/20" onClick={handleRenameLabel} disabled={saving || !renameData.newName}>
+              <Button variant="outline" className="h-14 rounded-2xl font-black text-[10px] uppercase border-primary/10" onClick={() => setEditingTagName(null)}>CANCELAR</Button>
+              <Button className="h-14 rounded-2xl bg-primary text-white font-black text-[10px] uppercase shadow-lg shadow-primary/20" onClick={handleRenameTag} disabled={saving || !editingTagName?.new.trim()}>
                 {saving ? <Loader2 className="animate-spin" /> : "ACTUALIZAR TODO"}
               </Button>
             </div>
