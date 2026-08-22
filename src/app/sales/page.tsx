@@ -26,7 +26,8 @@ import {
   History,
   Loader2,
   Users,
-  Plus
+  Plus,
+  Printer
 } from "lucide-react"
 import { 
   DropdownMenu, 
@@ -35,10 +36,11 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu"
 import { useCollection, useFirestore, useDoc } from "@/firebase"
-import { collection, query, orderBy, doc, updateDoc, increment, addDoc, serverTimestamp, where, limit } from "firebase/firestore"
+import { collection, query, orderBy, doc, updateDoc, increment, addDoc, serverTimestamp, where } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { toJpeg } from 'html-to-image'
+import { format } from "date-fns"
 
 export default function SalesPage() {
   const router = useRouter()
@@ -134,16 +136,24 @@ export default function SalesPage() {
           const dataUrl = await toJpeg(receiptRef.current, { quality: 0.95, backgroundColor: '#ffffff' })
           const blob = await (await fetch(dataUrl)).blob()
           const file = new File([blob], `Boleta_${sale.id}.jpg`, { type: 'image/jpeg' })
-          if (navigator.share) await navigator.share({ files: [file], title: `Boleta ${sale.id}` })
-          else {
+          if (navigator.share) {
+            await navigator.share({ files: [file], title: `Boleta ${sale.id}` })
+          } else {
             const link = document.createElement('a')
             link.download = `Boleta_${sale.id}.jpg`
             link.href = dataUrl
             link.click()
           }
-        } catch (err) { toast({ variant: "destructive", title: "ERROR" }) }
+        } catch (err) { toast({ variant: "destructive", title: "ERROR AL GENERAR IMAGEN" }) }
       }
-    }, 400)
+    }, 500)
+  }
+
+  const handlePrint = (sale: any) => {
+    setActiveReceipt(sale)
+    setTimeout(() => {
+      window.print()
+    }, 500)
   }
 
   return (
@@ -252,15 +262,18 @@ export default function SalesPage() {
                               <MoreVertical className="w-4 h-4 text-primary" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="rounded-xl p-1.5 w-40 shadow-xl">
+                          <DropdownMenuContent align="end" className="rounded-xl p-1.5 w-48 shadow-xl">
                             <DropdownMenuItem className="text-[10px] font-black uppercase gap-2.5 p-2.5 rounded-lg" onClick={() => router.push(`/quotes?edit=${s.id}`)}>
-                              <Edit2 className="w-3 h-3" style={{ color: brandColor }} /> Editar
+                              <Edit2 className="w-3.5 h-3.5" style={{ color: brandColor }} /> Editar Venta
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="text-[10px] font-black uppercase gap-2.5 p-2.5 rounded-lg" onClick={() => handlePrint(s)}>
+                              <Printer className="w-3.5 h-3.5" style={{ color: brandColor }} /> Imprimir Boleta
                             </DropdownMenuItem>
                             <DropdownMenuItem className="text-[10px] font-black uppercase gap-2.5 p-2.5 rounded-lg" onClick={() => handleSendImage(s)}>
-                              <ImageIcon className="w-3 h-3" style={{ color: brandColor }} /> Enviar Foto
+                              <ImageIcon className="w-3.5 h-3.5" style={{ color: brandColor }} /> Compartir Imagen
                             </DropdownMenuItem>
                             <DropdownMenuItem className="text-[10px] font-black uppercase gap-2.5 p-2.5 rounded-lg text-destructive" onClick={() => setConfirmAnnulId(s.id)}>
-                              <Ban className="w-3 h-3" /> Anular
+                              <Ban className="w-3.5 h-3.5" /> Anular Boleta
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -297,16 +310,83 @@ export default function SalesPage() {
         </Button>
       </div>
 
-      <div className="fixed -left-[4000px] top-0">
+      {/* Plantilla de Impresión / Imagen Oculta */}
+      <div className="fixed -left-[8000px] top-0 print:static print:left-0 print:w-full print:bg-white">
         {activeReceipt && (
-          <div ref={receiptRef} style={{ width: '560px', backgroundColor: '#ffffff', padding: '30px', fontFamily: 'Arial, sans-serif' }}>
-            <div style={{ backgroundColor: brandColor, color: 'white', textAlign: 'center', padding: '30px', borderRadius: '20px' }}>
-              <div style={{ fontSize: '32px', fontWeight: 950, marginBottom: '5px' }}>{companySettings?.companyName || "BOUTIQUE"}</div>
-              <div style={{ fontSize: '14px', fontWeight: 700, letterSpacing: '2px' }}>BOLETA DE VENTA · {activeReceipt.id}</div>
+          <div ref={receiptRef} className="w-[450px] bg-white p-10 text-black font-sans print:p-4 print:w-full">
+            <div className="text-center mb-8 border-b-2 border-black pb-6">
+              <h1 className="text-3xl font-black uppercase tracking-tighter" style={{ color: brandColor }}>{companySettings?.companyName || "STILOSTACK"}</h1>
+              <p className="text-[10px] font-black tracking-[0.3em] uppercase mt-1 opacity-60">Boleta de Venta · {activeReceipt.id}</p>
+            </div>
+            
+            <div className="mb-8 space-y-1 text-[11px] font-bold uppercase">
+              <div className="flex justify-between">
+                <span className="opacity-40">CLIENTE:</span>
+                <span>{activeReceipt.customerName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="opacity-40">FECHA:</span>
+                <span>{activeReceipt.createdAt?.toDate ? format(activeReceipt.createdAt.toDate(), "dd/MM/yyyy HH:mm") : ""}</span>
+              </div>
+            </div>
+
+            <table className="w-full text-[10px] mb-8 border-collapse">
+              <thead className="border-b-2 border-black">
+                <tr className="font-black text-left uppercase">
+                  <th className="py-2 w-full">PRENDA</th>
+                  <th className="py-2 text-center whitespace-nowrap px-4">CANT</th>
+                  <th className="py-2 text-right whitespace-nowrap">SUBTOTAL</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-black/10">
+                {activeReceipt.items?.map((item: any, i: number) => (
+                  <tr key={i} className="font-medium">
+                    <td className="py-3 uppercase text-[9px] leading-tight">
+                      <div className="font-black">{item.name}</div>
+                      <div className="text-[7px] opacity-40">{item.productId}</div>
+                    </td>
+                    <td className="py-3 text-center font-black">{item.quantity}</td>
+                    <td className="py-3 text-right font-black">
+                      S/ {((Number(item.price) * Number(item.quantity)) - Number(item.discount)).toFixed(2)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <div className="border-t-2 border-black pt-6 space-y-2">
+              <div className="flex justify-between text-[11px] font-bold uppercase opacity-60">
+                <span>SUBTOTAL:</span>
+                <span>S/ {Number(activeReceipt.subtotal).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-xl font-black uppercase">
+                <span>TOTAL NETO:</span>
+                <span style={{ color: brandColor }}>S/ {Number(activeReceipt.total).toFixed(2)}</span>
+              </div>
+            </div>
+
+            <div className="mt-12 text-center">
+              <p className="text-[8px] font-black uppercase tracking-[0.4em] opacity-30">Gracias por su preferencia</p>
             </div>
           </div>
         )}
       </div>
+
+      <style jsx global>{`
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+          .print\:static, .print\:static * {
+            visibility: visible;
+          }
+          .print\:static {
+            position: absolute;
+            left: 0;
+            top: 0;
+          }
+        }
+      `}</style>
     </div>
   )
 }
