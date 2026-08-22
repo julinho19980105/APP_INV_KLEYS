@@ -160,12 +160,6 @@ export default function ShippingPage() {
     toast({ title: "Registro Eliminado" })
   }
 
-  const handleMarkAsShipped = async (quoteId: string) => {
-    if (!db) return
-    await updateDoc(doc(db, "quotes", quoteId), { status: 'shipped' })
-    toast({ title: "Boleta Enviada", description: `Estado de ${quoteId} actualizado.` })
-  }
-
   return (
     <div className="space-y-6 pt-4 pb-24 px-2 md:px-6 max-w-5xl mx-auto">
       {/* Header Logística */}
@@ -344,13 +338,15 @@ export default function ShippingPage() {
                                   <div className="text-[8px] font-black text-primary/40 uppercase mb-0.5">Und</div>
                                   <div className="font-headline font-black text-[16px]">{q.quantity}</div>
                                 </div>
-                                <Button 
-                                  variant="outline" 
-                                  className="h-9 px-6 rounded-xl border-primary/20 text-[9px] font-black uppercase gap-2 hover:bg-primary hover:text-white transition-all"
-                                  onClick={() => handleMarkAsShipped(q.quoteId)}
-                                >
-                                  <CheckCircle2 className="w-3.5 h-3.5" /> Enviado
-                                </Button>
+                                
+                                <div className={cn(
+                                  "min-w-[120px] text-center px-4 py-2 rounded-xl text-[9px] font-black uppercase border transition-colors",
+                                  q.selected 
+                                    ? "bg-green-50 text-green-600 border-green-200" 
+                                    : "bg-red-50 text-red-600 border-red-200"
+                                )}>
+                                  {q.selected ? "ENVIADO" : "NO ENVIADO"}
+                                </div>
                               </div>
                             </div>
                           ))}
