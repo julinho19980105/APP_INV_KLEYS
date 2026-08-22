@@ -57,8 +57,8 @@ export default function SalesPage() {
   const [isPrinting, setIsPrinting] = React.useState(false)
   
   // Bluetooth State
-  const [bleDevice, setBleDevice] = React.useState<BluetoothDevice | null>(null)
-  const [printCharacteristic, setPrintCharacteristic] = React.useState<BluetoothRemoteGATTCharacteristic | null>(null)
+  const [bleDevice, setBleDevice] = React.useState<any>(null)
+  const [printCharacteristic, setPrintCharacteristic] = React.useState<any>(null)
 
   const receiptRef = React.useRef<HTMLDivElement>(null)
   
@@ -119,7 +119,7 @@ export default function SalesPage() {
   // Bluetooth Connection Logic
   const connectPrinter = async () => {
     try {
-      const device = await navigator.bluetooth.requestDevice({
+      const device = await (navigator as any).bluetooth.requestDevice({
         filters: [{ services: ['000018f0-0000-1000-8000-00805f9b34fb', '0000ff00-0000-1000-8000-00805f9b34fb'] }],
         optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb', '0000ff00-0000-1000-8000-00805f9b34fb']
       })
@@ -129,7 +129,7 @@ export default function SalesPage() {
       if (!services || services.length === 0) throw new Error("No se encontraron servicios de impresión")
       
       const characteristics = await services[0].getCharacteristics()
-      const writeChar = characteristics.find(c => c.properties.write || c.properties.writeWithoutResponse)
+      const writeChar = characteristics.find((c: any) => c.properties.write || c.properties.writeWithoutResponse)
       
       if (!writeChar) throw new Error("No se encontró característica de escritura")
       
@@ -172,6 +172,8 @@ export default function SalesPage() {
       right: new Uint8Array([0x1b, 0x61, 0x02]),
       boldOn: new Uint8Array([0x1b, 0x45, 0x01]),
       boldOff: new Uint8Array([0x1b, 0x45, 0x00]),
+      tripleSize: new Uint8Array([0x1d, 0x21, 0x22]), // Triple width & Triple height
+      normalSize: new Uint8Array([0x1d, 0x21, 0x00]),
       feed: new Uint8Array([0x0a, 0x0a, 0x0a]),
       cut: new Uint8Array([0x1d, 0x56, 0x41, 0x03])
     }
@@ -183,37 +185,53 @@ export default function SalesPage() {
       let commands = new Uint8Array([
         ...esc.init,
         ...esc.center,
+        ...esc.tripleSize,
         ...esc.boldOn,
         ...encoder.encode((companySettings?.companyName || "STILOSTACK").toUpperCase() + "\n"),
+        ...esc.normalSize,
         ...esc.boldOff,
+        ...encoder.encode("BOLETA INTERNA\n"),
+        ...encoder.encode(`${sale.id}\n`),
         ...encoder.encode(separator),
-        ...esc.left,
-        ...encoder.encode(`ID: ${sale.id}\n`),
-        ...encoder.encode(`FECHA: ${format(sale.createdAt?.toDate ? sale.createdAt.toDate() : new Date(), "dd/MM/yy HH:mm")}\n`),
-        ...encoder.encode(`CLIENTE: ${sale.customerName.toUpperCase()}\n`),
-        ...encoder.encode(separator),
-        ...esc.boldOn,
-        ...encoder.encode(`PRENDA           CANT  P.U   TOTAL\n`),
-        ...esc.boldOff,
-        ...encoder.encode(separator)
+        ...esc.left
       ])
 
-      for (const item of sale.items) {
+      // Seccion Cliente y Fecha (2 columnas)
+      const dateStr = format(sale.createdAt?.toDate ? sale.createdAt.toDate() : new Date(), "dd/MM/yy HH:mm")
+      const nameHeader = "NOMBRE".padEnd(charWidth / 2)
+      const dateHeader = "FECHA".padStart(charWidth / 2)
+      
+      commands = new Uint8Array([
+        ...commands,
+        ...esc.boldOn,
+        ...encoder.encode(`${nameHeader}${dateHeader}\n`),
+        ...esc.boldOff,
+        ...encoder.encode(`${sale.customerName.toUpperCase().substring(0, charWidth / 2 - 1).padEnd(charWidth / 2)}${dateStr.padStart(charWidth / 2)}\n`),
+        ...encoder.encode(`ID: ${sale.customerId.toUpperCase()}\n`),
+        ...encoder.encode(separator),
+        ...esc.boldOn,
+        ...encoder.encode(`PRODUCTOS\n`),
+        ...esc.boldOff
+      ])
+
+      for (let i = 0; i < sale.items.length; i++) {
+        const item = sale.items[i]
         const subtotal = (Number(item.price) * Number(item.quantity)) - (Number(item.discount) || 0)
-        const namePart = (item.name.substring(0, 16).padEnd(16))
-        const qtyPart = (item.quantity.toString().padStart(4))
-        const pricePart = (Number(item.price).toFixed(1).padStart(6))
-        const totalPart = (subtotal.toFixed(1).padStart(8))
+        
+        // Formato Enumerado: 1- NOMBRE + DESCRIPCION
+        const itemLine = `${i + 1}- ${item.name} ${item.description || ""}\n`
+        const valuesLine = `    CANT: ${item.quantity}  P.U: S/ ${item.price}  SUB: S/ ${subtotal.toFixed(2)}\n`
         
         commands = new Uint8Array([
           ...commands,
-          ...encoder.encode(`${namePart}${qtyPart}${pricePart}${totalPart}\n`)
+          ...encoder.encode(itemLine),
+          ...encoder.encode(valuesLine)
         ])
         
         if (Number(item.discount) > 0) {
           commands = new Uint8Array([
             ...commands,
-            ...encoder.encode(`  DESC: -S/ ${Number(item.discount).toFixed(1)}\n`)
+            ...encoder.encode(`    DESC: -S/ ${Number(item.discount).toFixed(2)}\n`)
           ])
         }
       }
@@ -224,9 +242,10 @@ export default function SalesPage() {
         ...commands,
         ...encoder.encode(separator),
         ...esc.right,
-        ...encoder.encode(`UNIDADES: ${totalUnits}\n`),
+        ...esc.tripleSize,
         ...esc.boldOn,
-        ...encoder.encode(`TOTAL: S/ ${Number(sale.total).toFixed(2)}\n`),
+        ...encoder.encode(`UND: ${totalUnits}  TOTAL: S/ ${Number(sale.total).toFixed(2)}\n`),
+        ...esc.normalSize,
         ...esc.boldOff,
         ...esc.center,
         ...encoder.encode("\nGRACIAS POR SU PREFERENCIA\n"),
@@ -459,70 +478,75 @@ export default function SalesPage() {
         </Button>
       </div>
 
-      {/* Plantilla de Boleta Imagen (Copia exacta de referencia) */}
+      {/* Plantilla de Boleta Imagen (Diseño Industrial 300% Refactored) */}
       <div className="fixed -left-[8000px] top-0">
         {activeReceipt && (
           <div 
             ref={receiptRef} 
-            className="bg-white p-12 w-[600px] text-black font-sans relative"
+            className="bg-white p-12 w-[800px] text-black font-sans relative"
           >
             {/* Cabecera con líneas dobles */}
-            <div className="border-t-4 mb-1" style={{ borderColor: brandColor }}></div>
-            <div className="border-t-4 mb-4" style={{ borderColor: brandColor }}></div>
+            <div className="border-t-[6px] mb-2" style={{ borderColor: brandColor }}></div>
+            <div className="border-t-[6px] mb-6" style={{ borderColor: brandColor }}></div>
             
-            <div className="text-center mb-8">
-              <h1 className="text-5xl font-black uppercase tracking-widest" style={{ color: brandColor }}>
+            <div className="text-center mb-4">
+              <h1 className="text-8xl font-black uppercase tracking-tighter" style={{ color: brandColor }}>
                 {companySettings?.companyName || "STILOSTACK"}
               </h1>
+              <div className="text-2xl font-black uppercase text-black/40 mt-2 tracking-[0.5em]">BOLETA INTERNA</div>
+              <div className="text-4xl font-black text-black mt-2">{activeReceipt.id}</div>
             </div>
             
-            <div className="border-t-4 mb-8" style={{ borderColor: brandColor }}></div>
+            <div className="border-t-[6px] mb-10" style={{ borderColor: brandColor }}></div>
 
-            <div className="flex justify-between items-start mb-10 px-2">
-              <div className="space-y-2">
-                <span className="text-[12px] font-bold text-black/50 block uppercase tracking-widest">CLIENTE:</span>
-                <div className="text-[24px] font-black uppercase leading-tight">{activeReceipt.customerName}</div>
-                <div className="text-[16px] font-bold text-black/60 uppercase">ID: {activeReceipt.customerId}</div>
+            {/* Dos columnas de datos */}
+            <div className="grid grid-cols-2 gap-12 mb-12 px-4">
+              <div className="space-y-4">
+                <div className="text-xl font-black text-black/30 uppercase tracking-[0.2em]">NOMBRE</div>
+                <div className="space-y-1">
+                  <div className="text-4xl font-black uppercase leading-tight">{activeReceipt.customerName}</div>
+                  <div className="text-2xl font-bold text-black/50 uppercase">ID: {activeReceipt.customerId}</div>
+                </div>
               </div>
-              <div className="text-right">
-                <div className="text-[32px] font-black mb-1 uppercase tracking-tighter" style={{ color: brandColor }}>{activeReceipt.id}</div>
-                <div className="text-[16px] font-bold text-black/60">
-                  {activeReceipt.createdAt?.toDate ? format(activeReceipt.createdAt.toDate(), "dd-MM-yyyy") : ""}
+              <div className="space-y-4 text-right">
+                <div className="text-xl font-black text-black/30 uppercase tracking-[0.2em]">FECHA</div>
+                <div className="text-4xl font-black">
+                  {activeReceipt.createdAt?.toDate ? format(activeReceipt.createdAt.toDate(), "dd / MM / yyyy") : ""}
                 </div>
               </div>
             </div>
 
-            <div className="w-full mb-10">
+            <div className="w-full mb-12">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="text-[14px] font-black uppercase text-white" style={{ backgroundColor: brandColor }}>
-                    <th className="py-4 px-4 rounded-l-2xl">Nº</th>
-                    <th className="py-4">PRODUCTO</th>
-                    <th className="py-4 text-center">CANT.</th>
-                    <th className="py-4 text-right pr-4 rounded-r-2xl">TOTAL</th>
+                  <tr className="text-[18px] font-black uppercase text-white" style={{ backgroundColor: brandColor }}>
+                    <th className="py-6 px-6 rounded-l-3xl w-16">Nº</th>
+                    <th className="py-6">PRODUCTO Y DESCRIPCIÓN</th>
+                    <th className="py-6 text-center w-24">CANT.</th>
+                    <th className="py-6 text-right pr-8 rounded-r-3xl w-32">TOTAL</th>
                   </tr>
                 </thead>
-                <tbody className="text-[16px] font-medium uppercase">
+                <tbody className="text-xl font-medium uppercase">
                   {activeReceipt.items?.map((item: any, i: number) => (
                     <React.Fragment key={i}>
                       <tr className="align-top">
-                        <td className="py-6 px-4 text-black/40 font-bold">{i + 1}</td>
-                        <td className="py-6">
-                          <div className="font-black text-black text-[18px] mb-1">{item.name}</div>
-                          {item.description && <div className="text-[13px] text-black/50 italic leading-snug">{item.description}</div>}
+                        <td className="py-8 px-6 text-black/30 font-black">{i + 1}-</td>
+                        <td className="py-8">
+                          <div className="font-black text-black text-2xl mb-1">{item.name}</div>
+                          {item.description && <div className="text-lg text-black/50 italic leading-snug">{item.description}</div>}
                           {Number(item.discount) > 0 && (
-                            <div className="text-[14px] font-black text-destructive mt-2 uppercase tracking-tight">
+                            <div className="text-lg font-black text-destructive mt-3 uppercase tracking-tight">
                               DESC: -S/ {Number(item.discount).toFixed(2)}
                             </div>
                           )}
                         </td>
-                        <td className="py-6 text-center font-black text-[18px]">{item.quantity}</td>
-                        <td className="py-6 text-right pr-4 font-black text-[18px]">
+                        <td className="py-8 text-center font-black text-2xl">{item.quantity}</td>
+                        <td className="py-8 text-right pr-8 font-black text-2xl">
                           {((Number(item.price) * Number(item.quantity)) - (Number(item.discount) || 0)).toFixed(2)}
                         </td>
                       </tr>
                       <tr>
-                        <td colSpan={4} className="border-b border-black/10"></td>
+                        <td colSpan={4} className="border-b-2 border-black/5"></td>
                       </tr>
                     </React.Fragment>
                   ))}
@@ -530,18 +554,18 @@ export default function SalesPage() {
               </table>
             </div>
 
-            <div className="border-t-4 mb-6" style={{ borderColor: brandColor }}></div>
+            <div className="border-t-[6px] mb-8" style={{ borderColor: brandColor }}></div>
 
-            <div className="flex justify-between items-end px-4">
-              <div className="space-y-2">
-                <div className="text-[12px] font-black uppercase text-black/50 tracking-widest">TOTAL PRENDAS:</div>
-                <div className="text-[36px] font-black text-black leading-none">
-                  {(activeReceipt.items || []).reduce((acc: number, item: any) => acc + (Number(item.quantity) || 0), 0)} <span className="text-[18px]">UND</span>
+            {/* Totales Masivos */}
+            <div className="flex justify-between items-end px-6">
+              <div className="flex items-baseline gap-4">
+                <div className="text-2xl font-black uppercase text-black/30 tracking-widest">UND TOTALES:</div>
+                <div className="text-6xl font-black text-black leading-none">
+                  {(activeReceipt.items || []).reduce((acc: number, item: any) => acc + (Number(item.quantity) || 0), 0)}
                 </div>
               </div>
-              <div className="text-right space-y-2">
-                <div className="text-[14px] font-black uppercase tracking-widest" style={{ color: brandColor }}>TOTAL A PAGAR:</div>
-                <div className="text-[64px] font-black leading-none tracking-tighter" style={{ color: brandColor }}>
+              <div className="text-right">
+                <div className="text-9xl font-black leading-none tracking-tighter" style={{ color: brandColor }}>
                   S/. {Number(activeReceipt.total).toFixed(2)}
                 </div>
               </div>
