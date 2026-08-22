@@ -57,6 +57,7 @@ export default function SalesPage() {
   const configDocRef = React.useMemo(() => db ? doc(db, "config", "global") : null, [db])
   const { data: companySettings } = useDoc(configDocRef)
   const brandColor = companySettings?.brandColor || "#FF3399"
+  const printerWidth = companySettings?.printerWidth || "80"
 
   const quotesRef = React.useMemo(() => {
     if (!db) return null
@@ -133,7 +134,11 @@ export default function SalesPage() {
     setTimeout(async () => {
       if (receiptRef.current) {
         try {
-          const dataUrl = await toJpeg(receiptRef.current, { quality: 0.95, backgroundColor: '#ffffff' })
+          const dataUrl = await toJpeg(receiptRef.current, { 
+            quality: 0.95, 
+            backgroundColor: '#ffffff',
+            pixelRatio: 2
+          })
           const blob = await (await fetch(dataUrl)).blob()
           const file = new File([blob], `Boleta_${sale.id}.jpg`, { type: 'image/jpeg' })
           if (navigator.share) {
@@ -312,7 +317,7 @@ export default function SalesPage() {
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
         <Button 
           onClick={() => router.push('/quotes')}
-          className="h-20 w-20 rounded-full bg-primary shadow-2xl flex flex-col gap-1 items-center justify-center text-white active:scale-90 transition-transform"
+          className="h-20 w-20 rounded-full shadow-2xl flex flex-col gap-1 items-center justify-center text-white active:scale-90 transition-transform"
           style={{ backgroundColor: brandColor }}
         >
           <Plus className="w-8 h-8" />
@@ -320,50 +325,58 @@ export default function SalesPage() {
         </Button>
       </div>
 
-      {/* Plantilla de Impresión / Imagen Oculta */}
-      <div className="fixed -left-[8000px] top-0 print:static print:left-0 print:w-full print:bg-white">
+      {/* Plantilla de Impresión Térmica Bluetooth / Imagen */}
+      <div className="fixed -left-[8000px] top-0 print:static print:left-0 print:w-full print:bg-white print:shadow-none">
         {activeReceipt && (
-          <div ref={receiptRef} className="w-[500px] bg-white p-10 text-black font-sans print:p-4 print:w-full">
-            <div className="text-center mb-10 border-t-2 border-b-2 py-4" style={{ borderColor: brandColor }}>
-              <h1 className="text-4xl font-black uppercase tracking-tight" style={{ color: brandColor }}>{companySettings?.companyName || "STILOSTACK"}</h1>
+          <div 
+            ref={receiptRef} 
+            className={cn(
+              "bg-white p-4 text-black font-mono text-[9px] leading-tight print:p-0",
+              printerWidth === "58" ? "w-[58mm]" : "w-[80mm]"
+            )}
+          >
+            <div className="text-center mb-4 border-t-2 border-b-2 py-3" style={{ borderColor: brandColor }}>
+              <h1 className="text-sm font-black uppercase tracking-widest" style={{ color: brandColor }}>
+                {companySettings?.companyName || "STILOSTACK"}
+              </h1>
             </div>
             
-            <div className="flex justify-between items-start mb-10">
-              <div className="space-y-1">
-                <span className="text-[10px] font-black text-black/40 block">CLIENTE:</span>
-                <div className="text-2xl font-black uppercase leading-none">{activeReceipt.customerName}</div>
-                <div className="text-[11px] font-medium text-black/40">{activeReceipt.customerId}</div>
+            <div className="flex justify-between items-start mb-4">
+              <div className="space-y-0.5">
+                <span className="text-[7px] font-bold text-black/50 block">CLIENTE:</span>
+                <div className="text-[10px] font-black uppercase">{activeReceipt.customerName}</div>
+                <div className="text-[8px] font-medium text-black/50">{activeReceipt.customerId}</div>
               </div>
               <div className="text-right">
-                <div className="text-3xl font-black mb-1" style={{ color: brandColor }}>{activeReceipt.id}</div>
-                <div className="text-[11px] font-bold text-black/60">
-                  {activeReceipt.createdAt?.toDate ? format(activeReceipt.createdAt.toDate(), "dd-MM-yyyy") : ""}
+                <div className="text-[12px] font-black mb-0.5" style={{ color: brandColor }}>{activeReceipt.id}</div>
+                <div className="text-[8px] font-bold text-black/60">
+                  {activeReceipt.createdAt?.toDate ? format(activeReceipt.createdAt.toDate(), "dd-MM-yy HH:mm") : ""}
                 </div>
               </div>
             </div>
 
-            <div className="rounded-t-2xl overflow-hidden mb-8 border border-black/10">
+            <div className="w-full border-t border-b border-black/10 py-2 mb-4">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="text-white text-[10px] font-black uppercase" style={{ backgroundColor: brandColor }}>
-                    <th className="py-3 px-4 w-10">N</th>
-                    <th className="py-3 px-4">NOMBRE</th>
-                    <th className="py-3 px-4 text-center">P.U.</th>
-                    <th className="py-3 px-4 text-center">CANT</th>
-                    <th className="py-3 px-4 text-right">SUB. TOTAL</th>
+                  <tr className="text-[8px] font-black uppercase border-b border-black/5">
+                    <th className="pb-1">N</th>
+                    <th className="pb-1">PRENDA</th>
+                    <th className="pb-1 text-center">P.U.</th>
+                    <th className="pb-1 text-center">CANT</th>
+                    <th className="pb-1 text-right">TOTAL</th>
                   </tr>
                 </thead>
-                <tbody className="text-[11px] font-medium uppercase divide-y divide-black/5">
+                <tbody className="text-[8px] font-medium uppercase">
                   {activeReceipt.items?.map((item: any, i: number) => (
-                    <tr key={i} className="align-top">
-                      <td className="py-4 px-4 text-black/40">{i + 1}</td>
-                      <td className="py-4 px-4">
-                        <div className="font-black text-black">{item.name}</div>
-                        {item.description && <div className="text-[8px] text-black/40 italic leading-tight mt-1">{item.description}</div>}
+                    <tr key={i} className="align-top border-b border-black/5 last:border-0">
+                      <td className="py-2 text-black/40">{i + 1}</td>
+                      <td className="py-2">
+                        <div className="font-bold text-black">{item.name}</div>
+                        {item.description && <div className="text-[7px] text-black/40 italic leading-none mt-0.5">{item.description}</div>}
                       </td>
-                      <td className="py-4 px-4 text-center font-bold">{Number(item.price).toFixed(1)}</td>
-                      <td className="py-4 px-4 text-center font-black">{item.quantity}</td>
-                      <td className="py-4 px-4 text-right font-black">
+                      <td className="py-2 text-center">{Number(item.price).toFixed(1)}</td>
+                      <td className="py-2 text-center font-black">{item.quantity}</td>
+                      <td className="py-2 text-right font-black">
                         {((Number(item.price) * Number(item.quantity)) - (Number(item.discount) || 0)).toFixed(1)}
                       </td>
                     </tr>
@@ -372,25 +385,29 @@ export default function SalesPage() {
               </table>
             </div>
 
-            <div className="space-y-6">
-              <div className="w-full h-px bg-black/10"></div>
-              
-              <div className="flex justify-between items-end">
-                <div className="text-xl font-black uppercase tracking-tight">
-                  {totalUnits} UNIDADES
+            <div className="space-y-2">
+              <div className="flex justify-between items-end border-t border-dashed border-black/20 pt-2">
+                <div className="text-[9px] font-black uppercase">
+                  TOTAL PRENDAS: {totalUnits}
                 </div>
-                <div className="text-right space-y-1">
+                <div className="text-right space-y-0.5">
                   {totalDiscount > 0 && (
-                    <div className="text-[12px] font-bold text-destructive uppercase">
-                      DESCUENTO: - S/ {totalDiscount.toFixed(1)}
+                    <div className="text-[8px] font-bold text-destructive uppercase">
+                      DSCTO: -S/ {totalDiscount.toFixed(1)}
                     </div>
                   )}
-                  <div className="text-[10px] font-black text-black/40 uppercase tracking-widest">TOTAL:</div>
-                  <div className="text-6xl font-black tracking-tighter" style={{ color: brandColor }}>
+                  <div className="text-[7px] font-black text-black/40 uppercase">TOTAL NETO:</div>
+                  <div className="text-[18px] font-black leading-none" style={{ color: brandColor }}>
                     S/. {Number(activeReceipt.total).toFixed(1)}
                   </div>
                 </div>
               </div>
+            </div>
+
+            <div className="mt-8 text-center border-t border-black/5 pt-4">
+              <span className="text-[7px] font-bold text-black/30 uppercase tracking-[0.3em]">
+                Gracias por su confianza
+              </span>
             </div>
           </div>
         )}
@@ -400,6 +417,8 @@ export default function SalesPage() {
         @media print {
           body * {
             visibility: hidden;
+            background: white !important;
+            box-shadow: none !important;
           }
           .print\:static, .print\:static * {
             visibility: visible;
@@ -408,6 +427,13 @@ export default function SalesPage() {
             position: absolute;
             left: 0;
             top: 0;
+            width: auto;
+            margin: 0;
+            padding: 0;
+          }
+          @page {
+            margin: 0;
+            size: auto;
           }
         }
       `}</style>
