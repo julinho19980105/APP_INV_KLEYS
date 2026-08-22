@@ -18,7 +18,8 @@ import {
   X,
   Calculator,
   ImageIcon,
-  UserPlus
+  UserPlus,
+  ArrowLeft
 } from "lucide-react"
 import {
   Dialog,
@@ -109,7 +110,7 @@ export default function QuotesPage() {
   
   const [currentEntry, setCurrentEntry] = React.useState<QuoteItem>(EMPTY_ENTRY)
   const [items, setItems] = React.useState<QuoteItem[]>([])
-  const [oldItems, setOldItems] = React.useState<QuoteItem[]>([]) // Para trazabilidad en edición
+  const [oldItems, setOldItems] = React.useState<QuoteItem[]>([])
   
   const [isCalcOpen, setIsCalcOpen] = React.useState(false)
   const [calcData, setCalcData] = React.useState({ unidades: "", series: "", libres: "" })
@@ -143,7 +144,7 @@ export default function QuotesPage() {
           setQuoteId(data.id)
           setSelectedCustomer({ id: data.customerId, name: data.customerName })
           setItems(data.items || [])
-          setOldItems(data.items || []) // Guardamos copia para revertir stock si se edita
+          setOldItems(data.items || [])
         }
       })
     }
@@ -191,7 +192,7 @@ export default function QuotesPage() {
       setCustomerQuery("")
       toast({ title: "Cliente Registrado" })
     } catch (e) {
-      toast({ variant: "destructive", title: "Error al registrar cliente" })
+      toast({ variant: "destructive", title: "Error" })
     } finally {
       setRegisteringCustomer(false)
     }
@@ -241,11 +242,12 @@ export default function QuotesPage() {
     }
     setSaving(true)
     try {
-      // 1. Si es edición, revertimos el stock de los productos antiguos
+      // 1. SI ES EDICIÓN: REVERSIÓN DE STOCK (Solo ocurre al guardar para evitar errores si se cancela)
       if (editId && oldItems.length > 0) {
         for (const item of oldItems) {
           if (item.isRegistered && item.productId !== "MANUAL") {
-            await updateDoc(doc(db, "products", item.productId), {
+            const prodRef = doc(db, "products", item.productId)
+            await updateDoc(prodRef, {
               stock: increment(Number(item.quantity)),
               updatedAt: serverTimestamp()
             })
@@ -260,7 +262,7 @@ export default function QuotesPage() {
         }
       }
 
-      // 2. Calculamos totales y guardamos boleta
+      // 2. GUARDAR BOLETA
       const subtotal = items.reduce((acc, i) => acc + (Number(i.quantity) * Number(i.price)), 0)
       const total = items.reduce((acc, i) => acc + (Number(i.quantity) * Number(i.price) - Number(i.discount)), 0)
       
@@ -277,10 +279,11 @@ export default function QuotesPage() {
 
       await setDoc(doc(db, "quotes", quoteId), quoteData)
 
-      // 3. Procesamos las nuevas salidas de stock
+      // 3. PROCESAR NUEVAS SALIDAS
       for (const item of items) {
         if (item.isRegistered && item.productId !== "MANUAL") {
-          await updateDoc(doc(db, "products", item.productId), {
+          const prodRef = doc(db, "products", item.productId)
+          await updateDoc(prodRef, {
             stock: increment(-Number(item.quantity)),
             updatedAt: serverTimestamp()
           })
@@ -306,14 +309,14 @@ export default function QuotesPage() {
   return (
     <div className="max-w-6xl mx-auto space-y-6 pb-24 pt-2 px-2 md:px-0">
       <div className="flex justify-between items-center border-b-2 border-primary/20 pb-4">
-        <h1 className="text-xl md:text-2xl font-headline font-black text-foreground uppercase tracking-tight">COTIZACIÓN</h1>
+        <div className="flex items-center gap-3">
+           <Button variant="ghost" size="icon" onClick={() => router.push('/sales')} className="h-9 w-9 rounded-xl hover:bg-primary/5">
+            <ArrowLeft className="w-5 h-5 text-primary" />
+          </Button>
+          <h1 className="text-xl md:text-2xl font-headline font-black text-foreground uppercase tracking-tight">COTIZACIÓN</h1>
+        </div>
         <div className="flex items-center gap-4">
           <span className="text-xl md:text-2xl font-headline font-black text-primary uppercase">{quoteId}</span>
-          {editId && (
-            <Button variant="outline" size="icon" className="h-9 w-9 text-destructive rounded-xl border-destructive/20" onClick={() => router.push('/sales')}>
-              <X className="w-5 h-5" />
-            </Button>
-          )}
         </div>
       </div>
 
@@ -517,17 +520,25 @@ export default function QuotesPage() {
             <div className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">MONTO TOTAL NETO</div>
             <div className="font-headline font-black text-4xl md:text-6xl text-foreground tracking-tighter">S/ {items.reduce((acc, i) => acc + (Number(i.quantity) * Number(i.price) - Number(i.discount)), 0).toFixed(2)}</div>
           </div>
-          <Button 
-            className="h-16 w-full md:w-64 bg-primary text-white rounded-2xl font-black text-base uppercase shadow-2xl shadow-primary/30 active:scale-95 transition-all" 
-            onClick={handleSaveQuote} 
-            disabled={saving || items.length === 0}
-          >
-            {saving ? <Loader2 className="animate-spin" /> : <Save className="w-5 h-5 mr-3" />} GUARDAR VENTA
-          </Button>
+          <div className="flex flex-col gap-3 w-full md:w-64">
+             <Button 
+              className="h-16 w-full bg-primary text-white rounded-2xl font-black text-base uppercase shadow-2xl shadow-primary/30 active:scale-95 transition-all" 
+              onClick={handleSaveQuote} 
+              disabled={saving || items.length === 0}
+            >
+              {saving ? <Loader2 className="animate-spin" /> : <Save className="w-5 h-5 mr-3" />} GUARDAR VENTA
+            </Button>
+            <Button 
+              variant="outline"
+              className="h-12 w-full rounded-xl font-black text-xs uppercase border-primary/10 text-muted-foreground hover:bg-primary/5"
+              onClick={() => router.push('/sales')}
+            >
+              DESCARTAR EDICIÓN
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* Calculadora y Zoom Diálogos se mantienen igual */}
       <Dialog open={isCalcOpen} onOpenChange={setIsCalcOpen}>
         <DialogContent className="rounded-[2.5rem] border-none shadow-2xl max-w-xs">
           <DialogHeader><DialogTitle className="text-xs font-black text-foreground uppercase tracking-widest">Calculadora de Series</DialogTitle></DialogHeader>

@@ -4,7 +4,6 @@
 import * as React from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent } from "@/components/ui/card"
@@ -35,6 +34,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
 
 function getDriveThumb(url: string, size: number = 400) {
   if (!url || !url.includes('drive.google.com')) return url;
@@ -168,7 +168,7 @@ export default function RegistryPage() {
       setNewTagName("")
       toast({ title: "Agregado a la lista" })
     } catch (e) {
-      toast({ variant: "destructive", title: "Error al agregar" })
+      toast({ variant: "destructive", title: "Error" })
     }
   }
 
@@ -197,7 +197,7 @@ export default function RegistryPage() {
       toast({ title: "Renombrado Global Exitoso" })
       setEditingTagName(null)
     } catch (e) {
-      toast({ variant: "destructive", title: "Error en renombrado" })
+      toast({ variant: "destructive", title: "Error" })
     } finally {
       setSaving(false)
     }
@@ -245,7 +245,7 @@ export default function RegistryPage() {
                     </div>
                     <Select value={form.category} onValueChange={v => setForm({...form, category: v})}>
                       <SelectTrigger className="h-14 border-primary/10 rounded-2xl font-black text-[12px] uppercase shadow-sm bg-white">
-                        <SelectValue placeholder="Seleccionar" />
+                        <SelectValue placeholder="" />
                       </SelectTrigger>
                       <SelectContent className="rounded-2xl">
                         {uniqueCategories.map(cat => (
@@ -267,7 +267,7 @@ export default function RegistryPage() {
                     </div>
                     <Select value={form.collection} onValueChange={v => setForm({...form, collection: v})}>
                       <SelectTrigger className="h-14 border-primary/10 rounded-2xl font-black text-[12px] uppercase shadow-sm bg-white">
-                        <SelectValue placeholder="Seleccionar" />
+                        <SelectValue placeholder="" />
                       </SelectTrigger>
                       <SelectContent className="rounded-2xl">
                         {uniqueCollections.map(col => (
