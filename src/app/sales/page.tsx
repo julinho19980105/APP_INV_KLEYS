@@ -248,7 +248,7 @@ export default function SalesPage() {
         ...esc.normalSize,
         ...esc.boldOff,
         ...esc.center,
-        ...encoder.encode("\nGRACIAS POR SU PREFERENCIA\n"),
+        ...encoder.encode("\nGRACIAS POR SU COMPRA\n"),
         ...esc.feed,
         ...esc.cut
       ])
@@ -478,7 +478,7 @@ export default function SalesPage() {
         </Button>
       </div>
 
-      {/* Plantilla de Boleta Imagen (Diseño Industrial 300% Refactored) */}
+      {/* Plantilla de Boleta Imagen (Diseño Industrial Mejorado) */}
       <div className="fixed -left-[8000px] top-0">
         {activeReceipt && (
           <div 
@@ -556,18 +556,25 @@ export default function SalesPage() {
 
             <div className="border-t-[6px] mb-8" style={{ borderColor: brandColor }}></div>
 
-            {/* Totales Masivos */}
-            <div className="flex justify-between items-end px-6">
-              <div className="flex items-baseline gap-4">
-                <div className="text-2xl font-black uppercase text-black/30 tracking-widest">UND TOTALES:</div>
-                <div className="text-6xl font-black text-black leading-none">
-                  {(activeReceipt.items || []).reduce((acc: number, item: any) => acc + (Number(item.quantity) || 0), 0)}
+            {/* Totales Ajustados */}
+            <div className="flex justify-between items-center px-6 mb-8">
+              <div className="flex flex-col items-start">
+                <div className="text-xl font-black uppercase text-black/30 tracking-widest">CANTIDAD TOTAL</div>
+                <div className="text-5xl font-black text-black">
+                  {(activeReceipt.items || []).reduce((acc: number, item: any) => acc + (Number(item.quantity) || 0), 0)} UND
                 </div>
               </div>
-              <div className="text-right">
-                <div className="text-9xl font-black leading-none tracking-tighter" style={{ color: brandColor }}>
+              <div className="flex flex-col items-end">
+                <div className="text-xl font-black uppercase text-black/30 tracking-widest">TOTAL A PAGAR</div>
+                <div className="text-5xl font-black" style={{ color: brandColor }}>
                   S/. {Number(activeReceipt.total).toFixed(2)}
                 </div>
+              </div>
+            </div>
+
+            <div className="text-center mt-6">
+              <div className="text-2xl font-black uppercase text-black/40 tracking-[0.3em]">
+                GRACIAS POR SU COMPRA
               </div>
             </div>
           </div>
