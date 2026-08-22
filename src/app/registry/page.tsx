@@ -63,8 +63,8 @@ export default function RegistryPage() {
 
   const [form, setForm] = React.useState({ 
     name: "", 
-    category: "GENERAL", 
-    collection: "GENERAL", 
+    category: "", 
+    collection: "", 
     description: "", 
     stock: "", 
     priceFardo: "", 
@@ -97,8 +97,8 @@ export default function RegistryPage() {
     if (editingProduct) {
       setForm({
         name: editingProduct.name || "",
-        category: editingProduct.category || "GENERAL",
-        collection: editingProduct.collection || "GENERAL",
+        category: editingProduct.category || "",
+        collection: editingProduct.collection || "",
         description: editingProduct.description || "",
         stock: editingProduct.stock?.toString() || "",
         priceFardo: editingProduct.priceFardo?.toString() || "",
@@ -194,7 +194,7 @@ export default function RegistryPage() {
                       <Label className="text-[11px] uppercase font-black text-primary tracking-widest">Categoría</Label>
                       <button 
                         className="text-primary/40 hover:text-primary transition-colors" 
-                        onClick={() => { setRenameData({ type: 'category', oldName: form.category, newName: "" }); setIsRenameOpen(true); }}
+                        onClick={() => { setRenameData({ type: 'category', oldName: form.category || 'GENERAL', newName: "" }); setIsRenameOpen(true); }}
                       >
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
@@ -203,6 +203,7 @@ export default function RegistryPage() {
                       <Input 
                         list="categories" 
                         value={form.category} 
+                        placeholder="GENERAL..."
                         onChange={e => setForm({...form, category: e.target.value.toUpperCase()})} 
                         className="h-14 border-primary/10 rounded-2xl font-black text-[12px] uppercase shadow-sm" 
                       />
@@ -217,7 +218,7 @@ export default function RegistryPage() {
                       <Label className="text-[11px] uppercase font-black text-primary tracking-widest">Colección</Label>
                       <button 
                         className="text-primary/40 hover:text-primary transition-colors" 
-                        onClick={() => { setRenameData({ type: 'collection', oldName: form.collection, newName: "" }); setIsRenameOpen(true); }}
+                        onClick={() => { setRenameData({ type: 'collection', oldName: form.collection || 'GENERAL', newName: "" }); setIsRenameOpen(true); }}
                       >
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
@@ -226,6 +227,7 @@ export default function RegistryPage() {
                       <Input 
                         list="collections" 
                         value={form.collection} 
+                        placeholder="GENERAL..."
                         onChange={e => setForm({...form, collection: e.target.value.toUpperCase()})} 
                         className="h-14 border-primary/10 rounded-2xl font-black text-[12px] uppercase shadow-sm" 
                       />
