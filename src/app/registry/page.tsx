@@ -35,7 +35,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { cn } from "@/lib/utils"
 
 function getDriveThumb(url: string, size: number = 400) {
   if (!url || !url.includes('drive.google.com')) return url;
@@ -246,7 +245,7 @@ export default function RegistryPage() {
                     </div>
                     <Select value={form.category} onValueChange={v => setForm({...form, category: v})}>
                       <SelectTrigger className="h-14 border-primary/10 rounded-2xl font-black text-[12px] uppercase shadow-sm bg-white">
-                        <SelectValue placeholder="" />
+                        <SelectValue placeholder="Seleccionar" />
                       </SelectTrigger>
                       <SelectContent className="rounded-2xl">
                         {uniqueCategories.map(cat => (
@@ -268,7 +267,7 @@ export default function RegistryPage() {
                     </div>
                     <Select value={form.collection} onValueChange={v => setForm({...form, collection: v})}>
                       <SelectTrigger className="h-14 border-primary/10 rounded-2xl font-black text-[12px] uppercase shadow-sm bg-white">
-                        <SelectValue placeholder="" />
+                        <SelectValue placeholder="Seleccionar" />
                       </SelectTrigger>
                       <SelectContent className="rounded-2xl">
                         {uniqueCollections.map(col => (
@@ -288,7 +287,7 @@ export default function RegistryPage() {
                     value={form.stock} 
                     onChange={e => setForm({...form, stock: e.target.value})} 
                     placeholder=""
-                    className="h-14 rounded-2xl font-black text-lg text-center border-green-200 bg-green-100/50 text-green-700 shadow-sm" 
+                    className="h-14 rounded-2xl font-black text-lg text-center border-green-200 bg-green-50 text-green-700 shadow-sm" 
                   />
                 </div>
                 <div className="space-y-2">
@@ -298,7 +297,7 @@ export default function RegistryPage() {
                     value={form.priceFardo} 
                     onChange={e => setForm({...form, priceFardo: e.target.value})} 
                     placeholder=""
-                    className="h-14 rounded-2xl font-black text-lg text-center border-orange-100/30 bg-orange-50 text-orange-600 shadow-sm" 
+                    className="h-14 rounded-2xl font-black text-lg text-center border-orange-100 bg-orange-50 text-orange-600 shadow-sm" 
                   />
                 </div>
                 <div className="space-y-2">
@@ -308,7 +307,7 @@ export default function RegistryPage() {
                     value={form.priceMayor} 
                     onChange={e => setForm({...form, priceMayor: e.target.value})} 
                     placeholder=""
-                    className="h-14 rounded-2xl font-black text-lg text-center border-orange-100/30 bg-orange-50 text-orange-600 shadow-sm" 
+                    className="h-14 rounded-2xl font-black text-lg text-center border-orange-100 bg-orange-50 text-orange-600 shadow-sm" 
                   />
                 </div>
                 <div className="space-y-2">
@@ -318,7 +317,7 @@ export default function RegistryPage() {
                     value={form.priceUnidad} 
                     onChange={e => setForm({...form, priceUnidad: e.target.value})} 
                     placeholder=""
-                    className="h-14 rounded-2xl font-black text-lg text-center border-orange-100/30 bg-orange-50 text-orange-600 shadow-sm" 
+                    className="h-14 rounded-2xl font-black text-lg text-center border-orange-100 bg-orange-50 text-orange-600 shadow-sm" 
                   />
                 </div>
               </div>

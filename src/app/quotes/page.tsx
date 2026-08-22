@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -41,7 +42,6 @@ import {
   setDoc,
   getDoc
 } from "firebase/firestore"
-import { syncCatalogToDrive } from "@/services/sheets-service"
 import { cn } from "@/lib/utils"
 
 interface QuoteItem {
@@ -109,6 +109,7 @@ export default function QuotesPage() {
   
   const [currentEntry, setCurrentEntry] = React.useState<QuoteItem>(EMPTY_ENTRY)
   const [items, setItems] = React.useState<QuoteItem[]>([])
+  const [oldItems, setOldItems] = React.useState<QuoteItem[]>([]) // Para trazabilidad en edición
   
   const [isCalcOpen, setIsCalcOpen] = React.useState(false)
   const [calcData, setCalcData] = React.useState({ unidades: "", series: "", libres: "" })
@@ -142,6 +143,7 @@ export default function QuotesPage() {
           setQuoteId(data.id)
           setSelectedCustomer({ id: data.customerId, name: data.customerName })
           setItems(data.items || [])
+          setOldItems(data.items || []) // Guardamos copia para revertir stock si se edita
         }
       })
     }
@@ -234,11 +236,31 @@ export default function QuotesPage() {
 
   const handleSaveQuote = async () => {
     if (!db || !selectedCustomer || items.length === 0) {
-      if (!selectedCustomer) toast({ variant: "destructive", title: "CLIENTE OBLIGATORIO", description: "Debes seleccionar o registrar un cliente antes de guardar." })
+      if (!selectedCustomer) toast({ variant: "destructive", title: "CLIENTE OBLIGATORIO" })
       return
     }
     setSaving(true)
     try {
+      // 1. Si es edición, revertimos el stock de los productos antiguos
+      if (editId && oldItems.length > 0) {
+        for (const item of oldItems) {
+          if (item.isRegistered && item.productId !== "MANUAL") {
+            await updateDoc(doc(db, "products", item.productId), {
+              stock: increment(Number(item.quantity)),
+              updatedAt: serverTimestamp()
+            })
+            await addDoc(collection(db, "movements"), {
+              productCode: item.productId,
+              type: "return",
+              quantity: Number(item.quantity),
+              reason: `REVERSIÓN POR EDICIÓN VENTA ${quoteId}`,
+              timestamp: serverTimestamp()
+            })
+          }
+        }
+      }
+
+      // 2. Calculamos totales y guardamos boleta
       const subtotal = items.reduce((acc, i) => acc + (Number(i.quantity) * Number(i.price)), 0)
       const total = items.reduce((acc, i) => acc + (Number(i.quantity) * Number(i.price) - Number(i.discount)), 0)
       
@@ -255,6 +277,7 @@ export default function QuotesPage() {
 
       await setDoc(doc(db, "quotes", quoteId), quoteData)
 
+      // 3. Procesamos las nuevas salidas de stock
       for (const item of items) {
         if (item.isRegistered && item.productId !== "MANUAL") {
           await updateDoc(doc(db, "products", item.productId), {
@@ -283,12 +306,12 @@ export default function QuotesPage() {
   return (
     <div className="max-w-6xl mx-auto space-y-6 pb-24 pt-2 px-2 md:px-0">
       <div className="flex justify-between items-center border-b-2 border-primary/20 pb-4">
-        <h1 className="text-4xl font-headline font-black text-foreground uppercase tracking-tight">COTIZACIÓN</h1>
+        <h1 className="text-xl md:text-2xl font-headline font-black text-foreground uppercase tracking-tight">COTIZACIÓN</h1>
         <div className="flex items-center gap-4">
-          <span className="text-4xl font-headline font-black text-primary uppercase">{quoteId}</span>
+          <span className="text-xl md:text-2xl font-headline font-black text-primary uppercase">{quoteId}</span>
           {editId && (
-            <Button variant="outline" size="icon" className="h-10 w-10 text-destructive rounded-xl border-destructive/20" onClick={() => router.push('/sales')}>
-              <X className="w-6 h-6" />
+            <Button variant="outline" size="icon" className="h-9 w-9 text-destructive rounded-xl border-destructive/20" onClick={() => router.push('/sales')}>
+              <X className="w-5 h-5" />
             </Button>
           )}
         </div>
@@ -301,7 +324,7 @@ export default function QuotesPage() {
             <div className="relative flex-1">
               <Input 
                 placeholder="" 
-                className="h-11 text-xs font-black uppercase rounded-xl border-primary/10 bg-white shadow-sm focus:ring-primary"
+                className="h-11 text-xs font-black uppercase rounded-xl border-primary/10 bg-white shadow-sm"
                 value={selectedCustomer ? `${selectedCustomer.name} [${selectedCustomer.id}]` : customerQuery}
                 onChange={e => { if (selectedCustomer) setSelectedCustomer(null); setCustomerQuery(e.target.value); }}
               />
@@ -333,7 +356,7 @@ export default function QuotesPage() {
             <Search className="absolute left-3 top-3.5 h-4 w-4 text-primary" />
             <Input 
               placeholder="" 
-              className="pl-9 h-11 rounded-xl border-primary/10 font-black text-xs uppercase bg-white shadow-sm focus:ring-primary" 
+              className="pl-9 h-11 rounded-xl border-primary/10 font-black text-xs uppercase bg-white shadow-sm" 
               value={productQuery} 
               onChange={e => setProductQuery(e.target.value)} 
             />
@@ -368,7 +391,7 @@ export default function QuotesPage() {
                   }}
                 >
                   <Plus className="w-4 h-4 text-primary" />
-                  <span className="text-[10px] font-black uppercase text-foreground">Agregar Prenda Manual: "{productQuery}"</span>
+                  <span className="text-[10px] font-black uppercase text-foreground">Manual: "{productQuery}"</span>
                 </button>
               </div>
             )}
@@ -487,12 +510,12 @@ export default function QuotesPage() {
       <div className="flex flex-col md:flex-row justify-between items-end border-b-4 border-primary pb-6 pt-6 gap-6">
         <div className="w-full md:w-auto space-y-1">
           <div className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">CANTIDAD TOTAL</div>
-          <div className="font-headline font-black text-4xl text-foreground">{items.reduce((acc, i) => acc + Number(i.quantity), 0)} <span className="text-sm">UND</span></div>
+          <div className="font-headline font-black text-3xl md:text-4xl text-foreground">{items.reduce((acc, i) => acc + Number(i.quantity), 0)} <span className="text-sm">UND</span></div>
         </div>
         <div className="w-full md:w-auto text-left md:text-right space-y-4">
           <div className="space-y-1">
             <div className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">MONTO TOTAL NETO</div>
-            <div className="font-headline font-black text-5xl md:text-6xl text-foreground tracking-tighter">S/ {items.reduce((acc, i) => acc + (Number(i.quantity) * Number(i.price) - Number(i.discount)), 0).toFixed(2)}</div>
+            <div className="font-headline font-black text-4xl md:text-6xl text-foreground tracking-tighter">S/ {items.reduce((acc, i) => acc + (Number(i.quantity) * Number(i.price) - Number(i.discount)), 0).toFixed(2)}</div>
           </div>
           <Button 
             className="h-16 w-full md:w-64 bg-primary text-white rounded-2xl font-black text-base uppercase shadow-2xl shadow-primary/30 active:scale-95 transition-all" 
@@ -504,6 +527,7 @@ export default function QuotesPage() {
         </div>
       </div>
 
+      {/* Calculadora y Zoom Diálogos se mantienen igual */}
       <Dialog open={isCalcOpen} onOpenChange={setIsCalcOpen}>
         <DialogContent className="rounded-[2.5rem] border-none shadow-2xl max-w-xs">
           <DialogHeader><DialogTitle className="text-xs font-black text-foreground uppercase tracking-widest">Calculadora de Series</DialogTitle></DialogHeader>
