@@ -156,6 +156,16 @@ export default function SalesPage() {
     }, 500)
   }
 
+  const totalDiscount = React.useMemo(() => {
+    if (!activeReceipt) return 0;
+    return (activeReceipt.items || []).reduce((acc: number, item: any) => acc + (Number(item.discount) || 0), 0);
+  }, [activeReceipt]);
+
+  const totalUnits = React.useMemo(() => {
+    if (!activeReceipt) return 0;
+    return (activeReceipt.items || []).reduce((acc: number, item: any) => acc + (Number(item.quantity) || 0), 0);
+  }, [activeReceipt]);
+
   return (
     <div className="space-y-6 pt-2 pb-32 max-w-4xl mx-auto px-2 md:px-0">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 border-b border-primary/10 pb-6">
@@ -313,60 +323,74 @@ export default function SalesPage() {
       {/* Plantilla de Impresión / Imagen Oculta */}
       <div className="fixed -left-[8000px] top-0 print:static print:left-0 print:w-full print:bg-white">
         {activeReceipt && (
-          <div ref={receiptRef} className="w-[450px] bg-white p-10 text-black font-sans print:p-4 print:w-full">
-            <div className="text-center mb-8 border-b-2 border-black pb-6">
-              <h1 className="text-3xl font-black uppercase tracking-tighter" style={{ color: brandColor }}>{companySettings?.companyName || "STILOSTACK"}</h1>
-              <p className="text-[10px] font-black tracking-[0.3em] uppercase mt-1 opacity-60">Boleta de Venta · {activeReceipt.id}</p>
+          <div ref={receiptRef} className="w-[500px] bg-white p-10 text-black font-sans print:p-4 print:w-full">
+            <div className="text-center mb-10 border-t-2 border-b-2 py-4" style={{ borderColor: brandColor }}>
+              <h1 className="text-4xl font-black uppercase tracking-tight" style={{ color: brandColor }}>{companySettings?.companyName || "STILOSTACK"}</h1>
             </div>
             
-            <div className="mb-8 space-y-1 text-[11px] font-bold uppercase">
-              <div className="flex justify-between">
-                <span className="opacity-40">CLIENTE:</span>
-                <span>{activeReceipt.customerName}</span>
+            <div className="flex justify-between items-start mb-10">
+              <div className="space-y-1">
+                <span className="text-[10px] font-black text-black/40 block">CLIENTE:</span>
+                <div className="text-2xl font-black uppercase leading-none">{activeReceipt.customerName}</div>
+                <div className="text-[11px] font-medium text-black/40">{activeReceipt.customerId}</div>
               </div>
-              <div className="flex justify-between">
-                <span className="opacity-40">FECHA:</span>
-                <span>{activeReceipt.createdAt?.toDate ? format(activeReceipt.createdAt.toDate(), "dd/MM/yyyy HH:mm") : ""}</span>
+              <div className="text-right">
+                <div className="text-3xl font-black mb-1" style={{ color: brandColor }}>{activeReceipt.id}</div>
+                <div className="text-[11px] font-bold text-black/60">
+                  {activeReceipt.createdAt?.toDate ? format(activeReceipt.createdAt.toDate(), "dd-MM-yyyy") : ""}
+                </div>
               </div>
             </div>
 
-            <table className="w-full text-[10px] mb-8 border-collapse">
-              <thead className="border-b-2 border-black">
-                <tr className="font-black text-left uppercase">
-                  <th className="py-2 w-full">PRENDA</th>
-                  <th className="py-2 text-center whitespace-nowrap px-4">CANT</th>
-                  <th className="py-2 text-right whitespace-nowrap">SUBTOTAL</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-black/10">
-                {activeReceipt.items?.map((item: any, i: number) => (
-                  <tr key={i} className="font-medium">
-                    <td className="py-3 uppercase text-[9px] leading-tight">
-                      <div className="font-black">{item.name}</div>
-                      <div className="text-[7px] opacity-40">{item.productId}</div>
-                    </td>
-                    <td className="py-3 text-center font-black">{item.quantity}</td>
-                    <td className="py-3 text-right font-black">
-                      S/ {((Number(item.price) * Number(item.quantity)) - Number(item.discount)).toFixed(2)}
-                    </td>
+            <div className="rounded-t-2xl overflow-hidden mb-8 border border-black/10">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="text-white text-[10px] font-black uppercase" style={{ backgroundColor: brandColor }}>
+                    <th className="py-3 px-4 w-10">N</th>
+                    <th className="py-3 px-4">NOMBRE</th>
+                    <th className="py-3 px-4 text-center">P.U.</th>
+                    <th className="py-3 px-4 text-center">CANT</th>
+                    <th className="py-3 px-4 text-right">SUB. TOTAL</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-
-            <div className="border-t-2 border-black pt-6 space-y-2">
-              <div className="flex justify-between text-[11px] font-bold uppercase opacity-60">
-                <span>SUBTOTAL:</span>
-                <span>S/ {Number(activeReceipt.subtotal).toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between text-xl font-black uppercase">
-                <span>TOTAL NETO:</span>
-                <span style={{ color: brandColor }}>S/ {Number(activeReceipt.total).toFixed(2)}</span>
-              </div>
+                </thead>
+                <tbody className="text-[11px] font-medium uppercase divide-y divide-black/5">
+                  {activeReceipt.items?.map((item: any, i: number) => (
+                    <tr key={i} className="align-top">
+                      <td className="py-4 px-4 text-black/40">{i + 1}</td>
+                      <td className="py-4 px-4">
+                        <div className="font-black text-black">{item.name}</div>
+                        {item.description && <div className="text-[8px] text-black/40 italic leading-tight mt-1">{item.description}</div>}
+                      </td>
+                      <td className="py-4 px-4 text-center font-bold">{Number(item.price).toFixed(1)}</td>
+                      <td className="py-4 px-4 text-center font-black">{item.quantity}</td>
+                      <td className="py-4 px-4 text-right font-black">
+                        {((Number(item.price) * Number(item.quantity)) - (Number(item.discount) || 0)).toFixed(1)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
 
-            <div className="mt-12 text-center">
-              <p className="text-[8px] font-black uppercase tracking-[0.4em] opacity-30">Gracias por su preferencia</p>
+            <div className="space-y-6">
+              <div className="w-full h-px bg-black/10"></div>
+              
+              <div className="flex justify-between items-end">
+                <div className="text-xl font-black uppercase tracking-tight">
+                  {totalUnits} UNIDADES
+                </div>
+                <div className="text-right space-y-1">
+                  {totalDiscount > 0 && (
+                    <div className="text-[12px] font-bold text-destructive uppercase">
+                      DESCUENTO: - S/ {totalDiscount.toFixed(1)}
+                    </div>
+                  )}
+                  <div className="text-[10px] font-black text-black/40 uppercase tracking-widest">TOTAL:</div>
+                  <div className="text-6xl font-black tracking-tighter" style={{ color: brandColor }}>
+                    S/. {Number(activeReceipt.total).toFixed(1)}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         )}
