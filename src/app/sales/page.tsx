@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -44,7 +45,7 @@ export default function SalesPage() {
   const { toast } = useToast()
   
   const [searchQuery, setSearchQuery] = React.useState("")
-  const [statusFilter, setStatusFilter] = React.useState<string>("active")
+  const [statusFilter, setStatusFilter] = React.useState<string>("all")
   const [confirmAnnulId, setConfirmAnnulId] = React.useState<string | null>(null)
   const [bleDevice, setBleDevice] = React.useState<BluetoothDevice | null>(null)
   const [bleCharacteristic, setBleCharacteristic] = React.useState<BluetoothRemoteGATTCharacteristic | null>(null)
@@ -119,7 +120,6 @@ export default function SalesPage() {
 
   const handlePrintBLE = async (sale: any) => {
     toast({ title: "Conectando impresora..." })
-    // BLE logic...
   }
 
   const handleSendImage = async (sale: any) => {

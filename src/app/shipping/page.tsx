@@ -75,15 +75,12 @@ export default function ShippingPage() {
   const { data: config } = useDoc(configDocRef)
   const brandColor = config?.brandColor || "#FF3399"
 
-  // Clientes para el buscador (siempre cargados)
   const customersQuery = React.useMemo(() => db ? query(collection(db, "customers"), orderBy("id", "desc")) : null, [db])
   const { data: dbCustomers = [] } = useCollection(customersQuery)
 
-  // Boletas activas para sugerencias
-  const activeQuotesQuery = React.useMemo(() => db ? query(collection(db, "quotes"), where("status", "==", "active")) : null, [db])
+  const activeQuotesQuery = React.useMemo(() => db ? query(collection(db, "quotes"), where("status", "in", ["active", "shipped"])) : null, [db])
   const { data: activeQuotes = [] } = useCollection(activeQuotesQuery)
 
-  // Lotes recientes
   const recentLogsQuery = React.useMemo(() => db ? query(collection(db, "logistics"), orderBy("updatedAt", "desc"), limit(5)) : null, [db])
   const { data: recentLogs = [] } = useCollection(recentLogsQuery)
 
@@ -101,7 +98,7 @@ export default function ShippingPage() {
   const handleAddCustomer = async (customer: any) => {
     if (!db || !logisticsDocRef) return
 
-    const customerQuotes = activeQuotes.filter(q => q.customerId === customer.id)
+    const customerQuotes = activeQuotes.filter(q => q.customerId === customer.id && q.status === "active")
     if (customerQuotes.length === 0) {
       toast({ title: "Sin boletas", description: "Este cliente no tiene boletas activas para despacho." })
       return
@@ -125,44 +122,76 @@ export default function ShippingPage() {
       return
     }
 
+    // Guardar en Logística
     await setDoc(logisticsDocRef, {
       date: dateKey,
       entries: [...currentEntries, newEntry],
       updatedAt: serverTimestamp()
     }, { merge: true })
 
+    // Sincronizar estados en Ventas
+    for (const q of customerQuotes) {
+      updateDoc(doc(db, "quotes", q.id), { status: 'shipped' })
+    }
+
     setCustomerSearch("")
     setIsSearchOpen(false)
-    toast({ title: "Cliente Añadido" })
+    toast({ title: "Cliente Añadido", description: "Boletas marcadas como ENVIADAS." })
   }
 
   const handleToggleQuote = async (customerId: string, quoteId: string) => {
     if (!db || !logisticsDocRef || !logData) return
+    
+    let nextStatus = 'active'
     const updatedEntries = logData.entries.map((entry: any) => {
       if (entry.customerId === customerId) {
         return {
           ...entry,
-          quotes: entry.quotes.map((q: any) => 
-            q.quoteId === quoteId ? { ...q, selected: !q.selected } : q
-          )
+          quotes: entry.quotes.map((q: any) => {
+            if (q.quoteId === quoteId) {
+              const isSelected = !q.selected
+              nextStatus = isSelected ? 'shipped' : 'active'
+              return { ...q, selected: isSelected }
+            }
+            return q
+          })
         }
       }
       return entry
     })
+
+    // Actualizar lote
     await updateDoc(logisticsDocRef, { entries: updatedEntries, updatedAt: serverTimestamp() })
+    
+    // Sincronizar estado en colección Quotes
+    await updateDoc(doc(db, "quotes", quoteId), { status: nextStatus })
+    
+    toast({ 
+      title: "Estado Sincronizado", 
+      description: `Boleta ${quoteId} ahora está ${nextStatus === 'shipped' ? 'ENVIADA' : 'ACTIVA'}` 
+    })
   }
 
   const handleDeleteEntry = async () => {
     if (!db || !logisticsDocRef || !logData || !deleteConfirm) return
+    
+    const entryToRemove = logData.entries.find((e: any) => e.customerId === deleteConfirm.id)
+    if (entryToRemove) {
+      // Regresar boletas a estado activo
+      for (const q of entryToRemove.quotes) {
+        updateDoc(doc(db, "quotes", q.quoteId), { status: 'active' })
+      }
+    }
+
     const updatedEntries = logData.entries.filter((e: any) => e.customerId !== deleteConfirm.id)
     await updateDoc(logisticsDocRef, { entries: updatedEntries, updatedAt: serverTimestamp() })
+    
     setDeleteConfirm(null)
-    toast({ title: "Registro Eliminado" })
+    toast({ title: "Registro Eliminado", description: "Las boletas han regresado a estado ACTIVO." })
   }
 
   return (
     <div className="space-y-6 pt-4 pb-24 px-2 md:px-6 max-w-5xl mx-auto">
-      {/* Header Logística */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-b-2 border-primary/10 pb-6">
         <div className="flex items-center gap-4">
           <div className="w-14 h-14 rounded-3xl flex items-center justify-center shadow-xl shadow-primary/20" style={{ backgroundColor: brandColor }}>
@@ -198,7 +227,6 @@ export default function ShippingPage() {
         </div>
       </div>
 
-      {/* Buscador de Clientes */}
       <div className="relative group">
         <div className="absolute left-6 top-1/2 -translate-y-1/2 w-10 h-10 rounded-2xl bg-primary/5 flex items-center justify-center group-focus-within:bg-primary transition-all">
           <Search className="w-5 h-5 text-primary group-focus-within:text-white" />
@@ -243,7 +271,6 @@ export default function ShippingPage() {
         )}
       </div>
 
-      {/* Tabla de Lote Actual */}
       <Card className="rounded-[3rem] border-none shadow-2xl bg-white overflow-hidden">
         <div className="bg-primary/5 border-b border-primary/5 py-5 px-10 flex justify-between items-center">
           <div className="flex items-center gap-3">
@@ -265,7 +292,7 @@ export default function ShippingPage() {
               {logEntries.map((entry: any, index: number) => {
                 const totalAmount = entry.quotes.reduce((acc: number, q: any) => acc + (q.selected ? q.amount : 0), 0)
                 const totalQty = entry.quotes.reduce((acc: number, q: any) => acc + (q.selected ? q.quantity : 0), 0)
-                const hasNewQuotes = activeQuotes.some(q => q.customerId === entry.customerId && !entry.quotes.some((eq: any) => eq.quoteId === q.id))
+                const hasNewQuotes = activeQuotes.some(q => q.customerId === entry.customerId && q.status === "active" && !entry.quotes.some((eq: any) => eq.quoteId === q.id))
 
                 return (
                   <AccordionItem key={entry.customerId} value={entry.customerId} className="border-b last:border-0 border-primary/5 px-4 md:px-8">
@@ -361,7 +388,6 @@ export default function ShippingPage() {
         </CardContent>
       </Card>
 
-      {/* Lotes Recientes */}
       <div className="pt-10 space-y-6">
         <div className="flex items-center gap-3 ml-4">
           <Clock className="w-5 h-5 text-primary/40" />
@@ -384,7 +410,6 @@ export default function ShippingPage() {
         </div>
       </div>
 
-      {/* Dialog Confirmar Eliminación */}
       <Dialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
         <DialogContent className="rounded-[3rem] border-none shadow-2xl max-w-sm overflow-hidden p-0">
           <div className="bg-destructive/10 p-10 flex flex-col items-center text-center space-y-6">
