@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -21,9 +22,7 @@ import {
   Edit2,
   Image as ImageIcon,
   ShoppingBag,
-  History,
   Loader2,
-  Users,
   Plus,
   Printer,
   Bluetooth,
@@ -37,7 +36,7 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu"
 import { useCollection, useFirestore, useDoc } from "@/firebase"
-import { collection, query, orderBy, doc, updateDoc, increment, addDoc, serverTimestamp, where } from "firebase/firestore"
+import { collection, query, orderBy, doc, updateDoc, increment, addDoc, serverTimestamp } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { toJpeg } from 'html-to-image'
@@ -54,7 +53,6 @@ export default function SalesPage() {
   const [statusFilter, setStatusFilter] = React.useState<string>("active")
   const [confirmAnnulId, setConfirmAnnulId] = React.useState<string | null>(null)
   const [activeReceipt, setActiveReceipt] = React.useState<any>(null)
-  const [daysLimit, setDaysLimit] = React.useState(30)
   const [isPrinting, setIsPrinting] = React.useState(false)
   
   const [bleDevice, setBleDevice] = React.useState<any>(null)
@@ -67,17 +65,14 @@ export default function SalesPage() {
   const brandColor = companySettings?.brandColor || "#FF3399"
   const printerWidth = companySettings?.printerWidth || "80"
 
+  // Simplificamos la consulta para evitar errores de índices en el prototipo
   const quotesRef = React.useMemo(() => {
     if (!db) return null
-    const startDate = new Date()
-    startDate.setDate(startDate.getDate() - daysLimit)
-    
     return query(
       collection(db, "quotes"), 
-      where("createdAt", ">=", startDate),
       orderBy("createdAt", "desc")
     )
-  }, [db, daysLimit])
+  }, [db])
 
   const { data: quotes = [], loading } = useCollection(quotesRef)
 
@@ -88,7 +83,7 @@ export default function SalesPage() {
     
     return quotes
       .filter(q => {
-        if (q.status !== 'active' || !q.createdAt?.toDate) return false
+        if (q.status === 'annulled' || !q.createdAt?.toDate) return false
         const date = q.createdAt.toDate()
         return date.getMonth() === currentMonth && date.getFullYear() === currentYear
       })
@@ -99,7 +94,12 @@ export default function SalesPage() {
     const q = searchQuery.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     return quotes.filter(s => {
       const matchesSearch = s.id.toLowerCase().includes(q) || s.customerName?.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(q)
-      const matchesStatus = statusFilter === "all" || s.status === statusFilter
+      
+      let matchesStatus = false
+      if (statusFilter === "all") matchesStatus = true
+      else if (statusFilter === "active") matchesStatus = s.status === "active" || s.status === "shipped"
+      else matchesStatus = s.status === statusFilter
+
       return matchesSearch && matchesStatus
     })
   }, [quotes, searchQuery, statusFilter])
@@ -111,7 +111,7 @@ export default function SalesPage() {
       const dayLabel = date.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }).toUpperCase()
       if (!groups[dayLabel]) groups[dayLabel] = { dateLabel: dayLabel, sales: [], dayTotal: 0 }
       groups[dayLabel].sales.push(sale)
-      if (sale.status === 'active') groups[dayLabel].dayTotal += (sale.total || 0)
+      if (sale.status !== 'annulled') groups[dayLabel].dayTotal += (sale.total || 0)
     })
     return Object.values(groups)
   }, [filteredQuotes])
@@ -369,8 +369,8 @@ export default function SalesPage() {
                       <div className="flex justify-between items-center pr-2">
                         <div className="flex items-center gap-2">
                           <span className="font-black text-[10px] text-foreground uppercase tracking-wide">{s.id}</span>
-                          <Badge variant="outline" className={cn("text-[7px] font-black h-4 px-2 uppercase border-none rounded-md", s.status === 'active' ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600")}>
-                            {s.status === 'active' ? 'VENTA' : 'ANULADO'}
+                          <Badge variant="outline" className={cn("text-[7px] font-black h-4 px-2 uppercase border-none rounded-md", s.status !== 'annulled' ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600")}>
+                            {s.status === 'annulled' ? 'ANULADO' : s.status === 'shipped' ? 'ENVIADO' : 'VENTA'}
                           </Badge>
                         </div>
                         <span className="font-headline font-medium text-[11px] text-foreground">S/ {Number(s.total).toFixed(2)}</span>
