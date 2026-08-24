@@ -116,6 +116,7 @@ export default function QuotesPage() {
   const [currentEntry, setCurrentEntry] = React.useState<QuoteItem>(EMPTY_ENTRY)
   const [items, setItems] = React.useState<QuoteItem[]>([])
   const [oldItems, setOldItems] = React.useState<QuoteItem[]>([])
+  const [editQuoteStatus, setEditQuoteStatus] = React.useState<string | null>(null)
   
   const [isCalcOpen, setIsCalcOpen] = React.useState(false)
   const [calcData, setCalcData] = React.useState({ unidades: "", series: "", libres: "" })
@@ -176,6 +177,7 @@ export default function QuotesPage() {
           setSelectedCustomer({ id: data.customerId, name: data.customerName })
           setItems(data.items || [])
           setOldItems(data.items || [])
+          setEditQuoteStatus(data.status || 'active')
         }
       })
     }
@@ -273,7 +275,9 @@ export default function QuotesPage() {
     }
     setSaving(true)
     try {
-      if (editId && oldItems.length > 0) {
+      // LOGICA DE REINTEGRO: Solo si la boleta estaba ACTIVA o ENVIADA (no anulada)
+      // Si estaba ANULADA, el stock ya está en el inventario, no reintegramos nada.
+      if (editId && oldItems.length > 0 && editQuoteStatus !== 'annulled') {
         for (const item of oldItems) {
           if (item.isRegistered && item.productId !== "MANUAL") {
             const prodRef = doc(db, "products", item.productId)
@@ -286,7 +290,7 @@ export default function QuotesPage() {
               productCode: item.productId,
               type: "return",
               quantity: Number(item.quantity),
-              reason: `REVERSIÓN POR EDICIÓN VENTA ${quoteId}`,
+              reason: `REINTEGRO POR EDICIÓN BOLETA ${quoteId}`,
               timestamp: serverTimestamp(),
               referenceId: quoteId
             }).catch(() => {});
@@ -304,12 +308,13 @@ export default function QuotesPage() {
         items: items,
         subtotal: subtotal,
         total: total,
-        status: 'active',
+        status: 'active', // Al guardar una edición de anulada, vuelve a estar activa
         createdAt: serverTimestamp()
       }
 
       await setDoc(doc(db, "quotes", quoteId), quoteData)
 
+      // LOGICA DE SALIDA: Descontamos los nuevos items
       for (const item of items) {
         if (item.isRegistered && item.productId !== "MANUAL") {
           const prodRef = doc(db, "products", item.productId)
@@ -324,7 +329,7 @@ export default function QuotesPage() {
             productCode: item.productId,
             type: "out",
             quantity: Number(item.quantity),
-            reason: `VENTA ${quoteId} - ${selectedCustomer.name}`,
+            reason: `SALIDA POR VENTA ${quoteId}`,
             timestamp: serverTimestamp(),
             referenceId: quoteId
           }).catch(async () => {

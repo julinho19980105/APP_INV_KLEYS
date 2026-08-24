@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -44,7 +45,6 @@ import {
   Package,
   Plus,
   PackagePlus,
-  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Filter
@@ -288,13 +288,13 @@ export default function InventoryPage() {
 
       <Dialog open={!!selectedProduct} onOpenChange={() => setSelectedProduct(null)}>
         <DialogContent 
-          className="max-w-[95vw] md:max-w-md p-0 border-none rounded-[2rem] overflow-hidden bg-white shadow-2xl"
+          className="max-w-[95vw] md:max-w-md p-0 border-none rounded-[2rem] bg-white shadow-2xl max-h-[90vh] overflow-y-auto scrollbar-hide"
           onCloseAutoFocus={(e) => e.preventDefault()}
         >
           <DialogHeader className="sr-only"><DialogTitle>Detalle</DialogTitle></DialogHeader>
           {selectedProduct && (
-            <div className="flex flex-col">
-              <div className="w-full aspect-square bg-secondary relative group">
+            <div className="flex flex-col pb-8">
+              <div className="w-full aspect-square bg-secondary relative">
                 {selectedProduct.images?.[currentImgIdx] ? (
                   <img src={getDriveThumb(selectedProduct.images[currentImgIdx], 800)} className="w-full h-full object-cover" />
                 ) : (
@@ -304,35 +304,69 @@ export default function InventoryPage() {
                 {selectedProduct.images?.length > 1 && (
                   <>
                     <button 
-                      className="absolute left-4 top-1/2 -translate-y-1/2 p-2 bg-black/20 backdrop-blur-md rounded-full text-white active:scale-90 transition-all"
+                      className="absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-black/30 backdrop-blur-md rounded-full text-white active:scale-90 transition-all z-10"
                       onClick={() => setCurrentImgIdx(prev => (prev > 0 ? prev - 1 : selectedProduct.images.length - 1))}
                     >
-                      <ChevronLeft className="w-6 h-6" />
+                      <ChevronLeft className="w-7 h-7" />
                     </button>
                     <button 
-                      className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-black/20 backdrop-blur-md rounded-full text-white active:scale-90 transition-all"
+                      className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-black/30 backdrop-blur-md rounded-full text-white active:scale-90 transition-all z-10"
                       onClick={() => setCurrentImgIdx(prev => (prev < selectedProduct.images.length - 1 ? prev + 1 : 0))}
                     >
-                      <ChevronRight className="w-6 h-6" />
+                      <ChevronRight className="w-7 h-7" />
                     </button>
-                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-3 py-1 bg-black/20 backdrop-blur-md rounded-full text-[8px] font-black text-white">
+                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-1.5 bg-black/40 backdrop-blur-md rounded-full text-[9px] font-black text-white">
                       {currentImgIdx + 1} / {selectedProduct.images.length}
                     </div>
                   </>
                 )}
-
-                <button className="absolute top-4 right-4 bg-white/20 backdrop-blur-md rounded-full text-white p-2" onClick={() => setSelectedProduct(null)}><X className="w-5 h-5" /></button>
               </div>
-              <div className="p-6 space-y-4">
-                <div className="space-y-1">
-                  <Badge className="bg-primary text-white text-[8px] font-black px-2">{selectedProduct.code}</Badge>
-                  <h2 className="text-xl font-headline font-black text-foreground uppercase">{selectedProduct.name}</h2>
+              
+              <div className="p-6 space-y-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-1">
+                    <Badge className="bg-primary text-white text-[8px] font-black px-2 w-fit">{selectedProduct.code}</Badge>
+                    <h2 className="text-xl font-headline font-black text-foreground uppercase">{selectedProduct.name}</h2>
+                  </div>
+                  <Button 
+                    variant="destructive" 
+                    className="h-10 rounded-xl font-black text-[10px] uppercase shadow-lg shadow-destructive/20 active:scale-95"
+                    onClick={() => setSelectedProduct(null)}
+                  >
+                    CERRAR
+                  </Button>
                 </div>
-                <div className="grid grid-cols-2 gap-4 bg-primary/5 p-4 rounded-xl">
-                  <div><p className="text-[7px] font-black text-primary/40 uppercase tracking-widest">STOCK</p><p className="text-lg font-black text-primary">{selectedProduct.stock} UND</p></div>
-                  <div><p className="text-[7px] font-black text-primary/40 uppercase tracking-widest">P. UNIDAD</p><p className="text-lg font-black text-foreground">S/ {selectedProduct.priceUnidad}</p></div>
+
+                <div className="grid grid-cols-2 gap-4 bg-primary/5 p-5 rounded-2xl border border-primary/10">
+                  <div className="flex flex-col gap-0.5">
+                    <p className="text-[7px] font-black text-primary/50 uppercase tracking-[0.2em]">STOCK FÍSICO</p>
+                    <p className="text-xl font-black text-primary">{selectedProduct.stock} UND</p>
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    <p className="text-[7px] font-black text-primary/50 uppercase tracking-[0.2em]">P. UNIDAD</p>
+                    <p className="text-xl font-black text-foreground">S/ {selectedProduct.priceUnidad}</p>
+                  </div>
                 </div>
-                <p className="text-[10px] font-medium text-muted-foreground italic leading-relaxed">"{selectedProduct.description || 'Sin descripción.'}"</p>
+
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-3 bg-secondary/50 rounded-xl border border-black/5">
+                      <p className="text-[6px] font-black text-muted-foreground uppercase tracking-widest mb-1">CATEGORÍA</p>
+                      <p className="text-[9px] font-black uppercase text-foreground">{selectedProduct.category || 'SIN CATEGORÍA'}</p>
+                    </div>
+                    <div className="p-3 bg-secondary/50 rounded-xl border border-black/5">
+                      <p className="text-[6px] font-black text-muted-foreground uppercase tracking-widest mb-1">COLECCIÓN</p>
+                      <p className="text-[9px] font-black uppercase text-foreground">{selectedProduct.collection || 'SIN COLECCIÓN'}</p>
+                    </div>
+                  </div>
+
+                  <div className="p-5 bg-primary/[0.02] rounded-2xl border border-dashed border-primary/20">
+                    <p className="text-[7px] font-black text-primary/40 uppercase tracking-widest mb-2">DESCRIPCIÓN ESTÉTICA</p>
+                    <p className="text-[11px] font-medium text-muted-foreground italic leading-relaxed text-pretty">
+                      "{selectedProduct.description || 'Esta prenda no cuenta con una descripción detallada registrada.'}"
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           )}
