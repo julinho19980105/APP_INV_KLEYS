@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -47,7 +46,8 @@ import {
   PackagePlus,
   CheckCircle2,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Filter
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useCollection, useFirestore, useDoc } from "@/firebase"
@@ -137,7 +137,7 @@ export default function InventoryPage() {
 
   const onDelete = (id: string) => {
     if (!db) return
-    if (confirm("¿Desea eliminar esta prenda?")) {
+    if (confirm("¿ELIMINAR PRENDA?")) {
       deleteDoc(doc(db, "products", id)).catch(async () => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `products/${id}`, operation: 'delete' }));
       });
@@ -170,50 +170,48 @@ export default function InventoryPage() {
                 placeholder="0"
                 className="h-10 w-24 font-black text-center border-green-200 rounded-xl"
               />
-              <Button className="h-10 bg-green-600 text-white font-black text-[9px] uppercase rounded-xl flex-1 md:flex-none" onClick={handleInMovement} disabled={!addStockQty}><CheckCircle2 className="w-4 h-4 mr-2" />Confirmar</Button>
-              <Button variant="ghost" size="icon" onClick={() => { setAddStockProduct(null); setAddStockQty(""); }}><X className="w-5 h-5" /></Button>
+              <button className="h-10 bg-green-600 text-white font-black text-[9px] uppercase rounded-xl flex-1 md:flex-none px-4" onClick={handleInMovement} disabled={!addStockQty}>Confirmar</button>
+              <button onClick={() => { setAddStockProduct(null); setAddStockQty(""); }} className="p-2 text-muted-foreground"><X className="w-5 h-5" /></button>
             </div>
           </div>
         </div>
       )}
 
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-3 border-b border-primary/10 pb-4">
+      <div className="flex items-center justify-between gap-2 border-b border-primary/10 pb-3">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center shadow-md" style={{ backgroundColor: brandColor }}><Package className="w-4 h-4 text-white" /></div>
-          <div>
-            <h1 className="text-xl font-headline font-black text-foreground uppercase tracking-tight">Inventario</h1>
-            <p className="text-[8px] font-black text-primary uppercase tracking-widest">Lista Maestra</p>
+          <h1 className="text-lg font-headline font-black text-foreground uppercase tracking-tight">Inventario</h1>
+          <div className="flex gap-1 ml-2">
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="h-7 w-7 p-0 rounded-lg border-none shadow-none bg-transparent hover:bg-primary/5">
+                <Filter className="w-3.5 h-3.5 text-primary" />
+                <SelectValue className="hidden" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" className="text-[9px] font-black uppercase">Todas</SelectItem>
+                {masterCategories.map(cat => <SelectItem key={cat} value={cat} className="text-[9px] font-black uppercase">{cat}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={collectionFilter} onValueChange={setCollectionFilter}>
+              <SelectTrigger className="h-7 w-7 p-0 rounded-lg border-none shadow-none bg-transparent hover:bg-primary/5">
+                <Package className="w-3.5 h-3.5 text-primary" />
+                <SelectValue className="hidden" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" className="text-[9px] font-black uppercase">Todas</SelectItem>
+                {masterCollections.map(col => <SelectItem key={col} value={col} className="text-[9px] font-black uppercase">{col}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
         </div>
         
-        <div className="grid grid-cols-2 md:flex md:flex-row w-full md:w-auto gap-2">
-          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="h-9 rounded-lg border-primary/10 font-black text-[8px] uppercase bg-white w-full md:w-32">
-              <SelectValue placeholder="Categorías" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all" className="text-[9px] font-black uppercase">Todas</SelectItem>
-              {masterCategories.map(cat => <SelectItem key={cat} value={cat} className="text-[9px] font-black uppercase">{cat}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={collectionFilter} onValueChange={setCollectionFilter}>
-            <SelectTrigger className="h-9 rounded-lg border-primary/10 font-black text-[8px] uppercase bg-white w-full md:w-32">
-              <SelectValue placeholder="Colecciones" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all" className="text-[9px] font-black uppercase">Todas</SelectItem>
-              {masterCollections.map(col => <SelectItem key={col} value={col} className="text-[9px] font-black uppercase">{col}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <div className="relative w-full md:w-60 col-span-2">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-primary/40" />
-            <Input 
-              placeholder="" 
-              className="pl-9 h-9 rounded-lg border-primary/10 font-black text-[10px] uppercase shadow-sm bg-white"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-            />
-          </div>
+        <div className="relative w-40 md:w-60">
+          <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-primary/40" />
+          <Input 
+            placeholder="" 
+            className="pl-8 h-8 rounded-lg border-primary/10 font-black text-[9px] uppercase shadow-sm bg-white"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+          />
         </div>
       </div>
 
@@ -269,7 +267,7 @@ export default function InventoryPage() {
                   </TableCell>
                   <TableCell className="pr-4 text-right">
                     <DropdownMenu>
-                      <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7"><MoreVertical className="w-3 h-3 text-primary" /></Button></DropdownMenuTrigger>
+                      <DropdownMenuTrigger asChild><button className="h-7 w-7 flex items-center justify-center hover:bg-primary/5 rounded-lg"><MoreVertical className="w-3 h-3 text-primary" /></button></DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="rounded-xl p-1 shadow-xl w-40">
                         <DropdownMenuItem className="text-[9px] font-black uppercase gap-2.5 p-2.5 text-green-600" onClick={() => { setAddStockProduct(p); window.scrollTo({ top: 0, behavior: 'smooth' }); }}><Plus className="w-3 h-3" /> Stock</DropdownMenuItem>
                         <DropdownMenuItem className="text-[9px] font-black uppercase gap-2.5 p-2.5" onClick={() => router.push(`/registry?edit=${p.id}`)}><Edit2 className="w-3.5 h-3.5" /> Editar</DropdownMenuItem>
@@ -323,7 +321,7 @@ export default function InventoryPage() {
                   </>
                 )}
 
-                <Button variant="ghost" size="icon" className="absolute top-4 right-4 bg-white/20 backdrop-blur-md rounded-full text-white" onClick={() => setSelectedProduct(null)}><X className="w-5 h-5" /></Button>
+                <button className="absolute top-4 right-4 bg-white/20 backdrop-blur-md rounded-full text-white p-2" onClick={() => setSelectedProduct(null)}><X className="w-5 h-5" /></button>
               </div>
               <div className="p-6 space-y-4">
                 <div className="space-y-1">

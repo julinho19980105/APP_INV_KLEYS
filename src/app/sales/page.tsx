@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -212,12 +211,15 @@ export default function SalesPage() {
         ...encoder.encode(separator)
       ])
 
+      let totalQty = 0
       for (const item of sale.items) {
-        const sub = ((Number(item.price) * Number(item.quantity)) - (Number(item.discount) || 0)).toFixed(2)
+        const qty = Number(item.quantity)
+        totalQty += qty
+        const sub = ((Number(item.price) * qty) - (Number(item.discount) || 0)).toFixed(2)
         commands = new Uint8Array([
           ...commands,
           ...encoder.encode(`${item.name.substring(0, charWidth)}\n`),
-          ...encoder.encode(`${item.quantity} x S/ ${item.price} = S/ ${sub}\n`)
+          ...encoder.encode(`${qty} x S/ ${item.price} = S/ ${sub}\n`)
         ])
       }
 
@@ -225,8 +227,11 @@ export default function SalesPage() {
         ...commands,
         ...encoder.encode(separator),
         ...esc.right,
-        ...esc.tripleSize,
+        ...esc.normalSize,
         ...esc.boldOn,
+        ...encoder.encode(`CANT. TOTAL: ${totalQty} UND\n`),
+        ...encoder.encode(`MONTO NETO: S/ ${Number(sale.total).toFixed(2)}\n`),
+        ...esc.tripleSize,
         ...encoder.encode(`TOTAL: S/ ${Number(sale.total).toFixed(2)}\n`),
         ...esc.normalSize,
         ...esc.boldOff,
@@ -443,21 +448,33 @@ export default function SalesPage() {
               </div>
             </div>
             <table className="w-full text-left mb-10">
-              <thead className="text-[16px] font-black uppercase text-white" style={{ backgroundColor: brandColor }}>
-                <tr><th className="py-4 px-6 rounded-l-2xl">PRENDA</th><th className="py-4 text-center">CANT</th><th className="py-4 text-right pr-8 rounded-r-2xl">TOTAL</th></tr>
+              <thead className="text-[14px] font-black uppercase text-white" style={{ backgroundColor: brandColor }}>
+                <tr>
+                  <th className="py-4 px-6 rounded-l-2xl">PRENDA</th>
+                  <th className="py-4 text-center">P. UNIT</th>
+                  <th className="py-4 text-center">CANT</th>
+                  <th className="py-4 text-center">DESC</th>
+                  <th className="py-4 text-right pr-8 rounded-r-2xl">SUBTOTAL</th>
+                </tr>
               </thead>
-              <tbody className="text-xl font-medium uppercase">
-                {activeReceipt.items?.map((item: any, i: number) => (
-                  <tr key={i} className="border-b border-black/5">
-                    <td className="py-6 px-6"><div className="font-black text-2xl">{item.name}</div>{item.description && <div className="text-lg text-black/50 italic">{item.description}</div>}</td>
-                    <td className="py-6 text-center font-black text-2xl">{item.quantity}</td>
-                    <td className="py-6 text-right pr-8 font-black text-2xl">{((Number(item.price) * Number(item.quantity)) - (Number(item.discount) || 0)).toFixed(2)}</td>
-                  </tr>
-                ))}
+              <tbody className="text-lg font-medium uppercase">
+                {activeReceipt.items?.map((item: any, i: number) => {
+                  const sub = (Number(item.price) * Number(item.quantity)) - (Number(item.discount) || 0)
+                  return (
+                    <tr key={i} className="border-b border-black/5">
+                      <td className="py-6 px-6"><div className="font-black text-xl">{item.name}</div>{item.description && <div className="text-sm text-black/50 italic">{item.description}</div>}</td>
+                      <td className="py-6 text-center font-black">S/ {item.price}</td>
+                      <td className="py-6 text-center font-black">{item.quantity}</td>
+                      <td className="py-6 text-center text-destructive font-black">S/ {item.discount || 0}</td>
+                      <td className="py-6 text-right pr-8 font-black text-xl">S/ {sub.toFixed(2)}</td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
-            <div className="flex justify-between items-center px-6">
-              <div className="text-5xl font-black" style={{ color: brandColor }}>TOTAL S/ {Number(activeReceipt.total).toFixed(2)}</div>
+            <div className="flex flex-col items-end px-6 gap-2">
+              <div className="text-xl font-black text-black/40">CANTIDAD TOTAL: {activeReceipt.items?.reduce((acc: number, i: any) => acc + (Number(i.quantity) || 0), 0)} UND</div>
+              <div className="text-6xl font-black" style={{ color: brandColor }}>TOTAL S/ {Number(activeReceipt.total).toFixed(2)}</div>
             </div>
           </div>
         )}
