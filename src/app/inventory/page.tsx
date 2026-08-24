@@ -48,7 +48,8 @@ import {
   History,
   Plus,
   PackagePlus,
-  Calendar
+  Calendar,
+  CheckCircle2
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useCollection, useFirestore, useDoc } from "@/firebase"
@@ -81,16 +82,6 @@ export default function InventoryPage() {
   const [selectedProduct, setSelectedProduct] = React.useState<any>(null)
   const [addStockProduct, setAddStockProduct] = React.useState<any>(null)
   const [addStockQty, setAddStockQty] = React.useState("")
-  const [currentTime, setCurrentTime] = React.useState("")
-
-  React.useEffect(() => {
-    if (addStockProduct) {
-      setCurrentTime(new Date().toLocaleString('es-ES', { 
-        day: '2-digit', month: '2-digit', year: 'numeric', 
-        hour: '2-digit', minute: '2-digit', second: '2-digit' 
-      }))
-    }
-  }, [addStockProduct])
 
   const configDocRef = React.useMemo(() => db ? doc(db, "config", "global") : null, [db])
   const { data: config } = useDoc(configDocRef)
@@ -174,6 +165,52 @@ export default function InventoryPage() {
 
   return (
     <div className="space-y-4 pt-2 pb-32 px-2 md:px-4">
+      {/* PANEL DE INGRESO RÁPIDO - REEMPLAZA AL DIALOG */}
+      {addStockProduct && (
+        <div className="bg-white border-2 border-green-500/20 rounded-[2rem] p-6 shadow-2xl animate-in slide-in-from-top-4 duration-300">
+          <div className="flex flex-col md:flex-row gap-6 items-center">
+            <div className="flex-1 flex items-center gap-4">
+              <div className="w-16 h-16 rounded-2xl bg-green-50 flex items-center justify-center shrink-0 border border-green-100">
+                <PackagePlus className="w-8 h-8 text-green-600" />
+              </div>
+              <div>
+                <h3 className="text-sm font-black uppercase text-foreground">Ingreso de Stock</h3>
+                <p className="text-[11px] font-black text-green-600 uppercase tracking-widest">{addStockProduct.name}</p>
+                <p className="text-[9px] font-medium text-muted-foreground uppercase">{addStockProduct.code}</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4 w-full md:w-auto">
+              <div className="flex-1 md:w-32">
+                <Input 
+                  type="number" 
+                  value={addStockQty} 
+                  onChange={e => setAddStockQty(e.target.value)}
+                  placeholder="Cantidad"
+                  className="h-14 font-black text-center text-xl border-green-200 bg-green-50 rounded-2xl focus:ring-green-500 shadow-inner"
+                />
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <Button 
+                  className="h-14 px-6 rounded-2xl bg-green-600 text-white font-black text-[10px] uppercase shadow-lg hover:bg-green-700 transition-all"
+                  onClick={handleInMovement}
+                  disabled={!addStockQty || Number(addStockQty) <= 0}
+                >
+                  <CheckCircle2 className="w-4 h-4 mr-2" /> Confirmar
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="h-14 w-14 rounded-2xl border-red-100 text-red-500 hover:bg-red-50"
+                  onClick={() => { setAddStockProduct(null); setAddStockQty(""); }}
+                >
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-primary/10 pb-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-md shadow-primary/20" style={{ backgroundColor: brandColor }}>
@@ -300,7 +337,7 @@ export default function InventoryPage() {
                         <DropdownMenuItem className="text-[10px] font-black uppercase gap-3 cursor-pointer p-3 rounded-lg" onClick={() => setSelectedProduct(p)}>
                           <Eye className="w-3.5 h-3.5 text-primary" /> Ver Detalles
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="text-[10px] font-black uppercase gap-3 cursor-pointer p-3 rounded-lg bg-green-50 text-green-700" onClick={() => setAddStockProduct(p)}>
+                        <DropdownMenuItem className="text-[10px] font-black uppercase gap-3 cursor-pointer p-3 rounded-lg bg-green-50 text-green-700" onClick={() => { setAddStockProduct(p); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
                           <PackagePlus className="w-3.5 h-3.5" /> Agregar Ingreso
                         </DropdownMenuItem>
                         <DropdownMenuItem className="text-[10px] font-black uppercase gap-3 cursor-pointer p-3 rounded-lg" onClick={() => router.push(`/registry?edit=${p.id}`)}>
@@ -387,57 +424,6 @@ export default function InventoryPage() {
               </div>
             </div>
           )}
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={!!addStockProduct} onOpenChange={() => setAddStockProduct(null)}>
-        <DialogContent className="rounded-[2.5rem] border-none shadow-2xl max-w-sm">
-          <DialogHeader><DialogTitle className="text-sm font-black text-foreground uppercase tracking-widest">Registrar Ingreso de Stock</DialogTitle></DialogHeader>
-          <div className="space-y-6 pt-4">
-            <div className="bg-primary/5 p-4 rounded-2xl border border-primary/10">
-              <span className="text-[8px] font-black text-primary/40 uppercase block mb-1">Prenda Seleccionada</span>
-              <span className="text-[12px] font-black uppercase text-foreground leading-tight">{addStockProduct?.name}</span>
-              <span className="block text-[8px] font-black text-primary/40 mt-1">{addStockProduct?.code}</span>
-            </div>
-            
-            <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Cantidad a Ingresar *</Label>
-              <Input 
-                type="number" 
-                value={addStockQty} 
-                onChange={e => setAddStockQty(e.target.value)}
-                placeholder=""
-                className="h-16 font-black text-center text-2xl border-green-200 bg-green-50 rounded-2xl focus:ring-green-500 shadow-inner"
-              />
-            </div>
-
-            <div className="bg-secondary/30 p-5 rounded-2xl space-y-3">
-              <div className="flex items-center justify-between border-b border-white/40 pb-2">
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-3.5 h-3.5 text-primary/40" />
-                  <span className="text-[8px] font-black uppercase text-muted-foreground">Registro Temporal</span>
-                </div>
-                <span className="text-[10px] font-black text-foreground">{currentTime}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex flex-col">
-                  <span className="text-[8px] font-black uppercase text-muted-foreground">Stock Actual</span>
-                  <span className="text-sm font-black text-foreground">{addStockProduct?.stock} UND</span>
-                </div>
-                <div className="text-right">
-                  <span className="text-[8px] font-black uppercase text-muted-foreground">Stock Final</span>
-                  <div className="text-xl font-black text-green-700">{(Number(addStockProduct?.stock || 0) + Number(addStockQty || 0))} UND</div>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 pt-2">
-              <Button variant="outline" className="h-14 rounded-2xl font-black text-[10px] uppercase border-primary/10" onClick={() => setAddStockProduct(null)}>CANCELAR</Button>
-              <Button className="h-14 rounded-2xl bg-green-600 text-white font-black text-[10px] uppercase shadow-lg shadow-green-200 hover:opacity-90 active:scale-95 transition-all" onClick={handleInMovement} disabled={!addStockQty || Number(addStockQty) <= 0}>
-                CONFIRMAR INGRESO
-              </Button>
-            </div>
-          </div>
         </DialogContent>
       </Dialog>
     </div>
