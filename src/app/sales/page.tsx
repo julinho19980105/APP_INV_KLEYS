@@ -169,6 +169,18 @@ export default function SalesPage() {
     }
   }
 
+  // Función para limpiar texto para la impresora
+  const sanitizeForPrinter = (text: string) => {
+    if (!text) return "";
+    return text
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "") // Elimina acentos
+      .replace(/ñ/g, "n")
+      .replace(/Ñ/g, "N")
+      .replace(/[^a-zA-Z0-9\s\-\.\:\$\#\/\(\)\,\=\+\*]/g, "") // Mantiene solo caracteres básicos
+      .toUpperCase();
+  };
+
   const handleBluetoothPrint = async (sale: any) => {
     if (!printCharacteristic) {
       await connectPrinter()
@@ -192,12 +204,16 @@ export default function SalesPage() {
     try {
       const charWidth = printerWidth === "58" ? 32 : 48
       const separator = "-".repeat(charWidth) + "\n"
+      
+      const cleanCompanyName = sanitizeForPrinter(companySettings?.companyName || "STILOSTACK");
+      const cleanCustomerName = sanitizeForPrinter(sale.customerName);
+      
       let commands = new Uint8Array([
         ...esc.init,
         ...esc.center,
         ...esc.tripleSize,
         ...esc.boldOn,
-        ...encoder.encode((companySettings?.companyName || "STILOSTACK").toUpperCase() + "\n"),
+        ...encoder.encode(cleanCompanyName + "\n"),
         ...esc.normalSize,
         ...esc.boldOff,
         ...encoder.encode("BOLETA INTERNA\n"),
@@ -210,7 +226,7 @@ export default function SalesPage() {
       commands = new Uint8Array([
         ...commands,
         ...esc.boldOn,
-        ...encoder.encode(`CLIENTE: ${sale.customerName.toUpperCase()}\n`),
+        ...encoder.encode(`CLIENTE: ${cleanCustomerName}\n`),
         ...encoder.encode(`FECHA: ${dateStr}\n`),
         ...esc.boldOff,
         ...encoder.encode(separator)
@@ -221,10 +237,11 @@ export default function SalesPage() {
         const qty = Number(item.quantity)
         totalQty += qty
         const sub = ((Number(item.price) * qty) - (Number(item.discount) || 0)).toFixed(2)
+        const cleanItemName = sanitizeForPrinter(item.name);
         
         commands = new Uint8Array([
           ...commands,
-          ...encoder.encode(`${idx + 1}- ${item.name.substring(0, charWidth - 4)}\n`)
+          ...encoder.encode(`${idx + 1}- ${cleanItemName.substring(0, charWidth - 4)}\n`)
         ])
         
         const subLine = `${qty} x S/ ${item.price} = S/ ${sub}`;
