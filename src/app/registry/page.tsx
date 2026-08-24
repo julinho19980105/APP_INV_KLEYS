@@ -36,6 +36,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { cn } from "@/lib/utils"
 
 function getDriveThumb(url: string, size: number = 400) {
   if (!url) return "";
