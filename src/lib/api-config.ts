@@ -1,7 +1,6 @@
+
 export const API_CONFIG = {
-  // Script original para imágenes (NO TOCAR)
-  WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbwVA4hEiBqdkwyCaGb_nhY652LZzJfAC7U750VtwKo2AtXc2ZHZ28kBhxyh73p5yNs3/exec', 
-  // Nueva URL del script del Sheet de Inventario (4 columnas de fotos)
-  INVENTORY_SHEET_URL: 'https://script.google.com/macros/s/AKfycbzzIdwNqXHNtCRKC0UGy7Ztk126xSZZINb2jmbyqp3e3xgej2KvpRMIWpU4e7Ws5BFSlA/exec',
-  DRIVE_FOLDER_ID: '1eiNwGNeMfRcP7yd6-XkhLLzTCoxC4uOT'
+  // Script Unificado para Imágenes y Sheets (Adaptado a tu versión funcional)
+  WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbx9XRd-Vmv7iwIhOK7Uc4nf9G6DpxASADw-eXos3Ghxi-HvoIC52vj3DbtU5npPOJlp/exec',
+  DRIVE_FOLDER_ID: '1L5QnQnJq8FLnYyca5eYJkptwkVzDJJJb'
 };

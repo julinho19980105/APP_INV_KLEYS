@@ -22,7 +22,8 @@ import {
   Edit2,
   Plus,
   ArrowLeft,
-  Settings2
+  Settings2,
+  AlertCircle
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useFirestore, useDoc, useCollection } from "@/firebase"
@@ -37,7 +38,10 @@ import {
 import { Input } from "@/components/ui/input"
 
 function getDriveThumb(url: string, size: number = 400) {
-  if (!url || !url.includes('drive.google.com')) return url;
+  if (!url) return "";
+  if (url.startsWith('data:') || url.startsWith('blob:')) return url;
+  if (!url.includes('drive.google.com')) return url;
+  
   let fileId = '';
   const idMatch = url.match(/[?&]id=([^&]+)/);
   if (idMatch && idMatch[1]) fileId = idMatch[1];
@@ -78,7 +82,10 @@ export default function RegistryPage() {
     priceMayor: "", 
     priceUnidad: "" 
   })
-  const [localImagePreviews, setLocalImagePreviews] = React.useState<string[]>([])
+  
+  // Array de imágenes que pueden ser URL finales o Base64 temporales
+  const [images, setImages] = React.useState<string[]>([])
+  const [uploadingIdx, setUploadingIdx] = React.useState<number | null>(null)
   
   const [isTagManagerOpen, setIsTagManagerOpen] = React.useState(false)
   const [tagManagerConfig, setTagManagerConfig] = React.useState<{ type: 'category' | 'collection', title: string }>({ type: 'category', title: '' })
@@ -123,13 +130,21 @@ export default function RegistryPage() {
         priceMayor: editingProduct.priceMayor?.toString() || "",
         priceUnidad: editingProduct.priceUnidad?.toString() || "",
       })
-      setLocalImagePreviews(editingProduct.images || [])
+      setImages(editingProduct.images || [])
       setNextId(editingProduct.code)
     }
   }, [editingProduct])
 
+  // Verificar si hay alguna imagen que aún sea Base64
+  const hasPendingUploads = images.some(img => img.startsWith('data:'));
+
   const handleSave = async () => {
     if (!db || !form.name) return
+    if (hasPendingUploads) {
+      toast({ variant: "destructive", title: "ESPERE A QUE LAS FOTOS SUBAN" });
+      return;
+    }
+    
     setSaving(true)
     const productCode = nextId.toUpperCase()
     try {
@@ -143,7 +158,7 @@ export default function RegistryPage() {
         priceFardo: Number(form.priceFardo || 0),
         priceMayor: Number(form.priceMayor || 0),
         priceUnidad: Number(form.priceUnidad || 0),
-        images: localImagePreviews,
+        images: images, // Aquí ya son todas URLs de Drive
         updatedAt: serverTimestamp()
       }
       
@@ -156,6 +171,40 @@ export default function RegistryPage() {
     }
     finally { setSaving(false) }
   }
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || images.length >= 4) return;
+
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const base64 = reader.result as string;
+      const tempIdx = images.length;
+      
+      // Añadir temporalmente como base64 para previsualización
+      setImages(prev => [...prev, base64]);
+      setUploadingIdx(tempIdx);
+
+      try {
+        const driveUrl = await uploadImageToDrive(base64, `${nextId}_${Date.now()}.jpg`);
+        
+        // Reemplazar el Base64 por la URL real de Drive
+        setImages(prev => {
+          const newImgs = [...prev];
+          newImgs[tempIdx] = driveUrl;
+          return newImgs;
+        });
+        toast({ title: "Foto lista en Drive" });
+      } catch (err) {
+        // Si falla, quitar la imagen para que no intente guardarse el Base64
+        setImages(prev => prev.filter((_, i) => i !== tempIdx));
+        toast({ variant: "destructive", title: "Error al subir a Drive" });
+      } finally {
+        setUploadingIdx(null);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleAddNewTag = async () => {
     if (!db || !newTagName.trim()) return
@@ -339,39 +388,46 @@ export default function RegistryPage() {
           <Card className="border-none shadow-2xl bg-white rounded-[3rem] overflow-hidden">
             <div className="bg-primary/5 p-6 border-b border-primary/5 flex items-center justify-between">
               <span className="text-[11px] font-black uppercase text-primary tracking-widest">Galería Drive</span>
-              <span className="text-[10px] font-black text-primary/40">{localImagePreviews.length} / 4 FOTOS</span>
+              <span className="text-[10px] font-black text-primary/40">{images.length} / 4 FOTOS</span>
             </div>
             <CardContent className="pt-6 grid grid-cols-2 gap-4 px-6 pb-6">
-              {localImagePreviews.map((img, idx) => (
-                <div key={idx} className="relative aspect-square rounded-2xl overflow-hidden border-2 border-primary/5 shadow-md group">
-                  <img src={getDriveThumb(img, 400)} className="w-full h-full object-cover" alt="Previa" />
-                  <button onClick={() => setLocalImagePreviews(localImagePreviews.filter((_, i) => i !== idx))} className="absolute top-2 right-2 p-2 bg-destructive rounded-full text-white shadow-xl opacity-0 group-hover:opacity-100 transition-opacity"><X className="w-4 h-4" /></button>
+              {images.map((img, idx) => (
+                <div key={idx} className="relative aspect-square rounded-2xl overflow-hidden border-2 border-primary/5 shadow-md group bg-secondary">
+                  <img src={getDriveThumb(img, 400)} className={cn("w-full h-full object-cover", img.startsWith('data:') && "opacity-50")} alt="Previa" />
+                  
+                  {img.startsWith('data:') ? (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                      <Loader2 className="w-8 h-8 text-white animate-spin" />
+                    </div>
+                  ) : (
+                    <button onClick={() => setImages(images.filter((_, i) => i !== idx))} className="absolute top-2 right-2 p-2 bg-destructive rounded-full text-white shadow-xl opacity-0 group-hover:opacity-100 transition-opacity">
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               ))}
-              {localImagePreviews.length < 4 && (
+              {images.length < 4 && (
                 <button onClick={() => fileInputRef.current?.click()} className="aspect-square rounded-2xl border-2 border-dashed border-primary/20 flex flex-col items-center justify-center gap-3 bg-primary/5 hover:bg-primary/10 transition-all group">
                   <ImagePlus className="w-8 h-8 text-primary group-hover:scale-110 transition-transform" />
                   <span className="text-[9px] font-black uppercase text-primary/40">Agregar Foto</span>
                 </button>
               )}
-              <input type="file" hidden ref={fileInputRef} onChange={async e => {
-                const f = e.target.files?.[0];
-                if (f) {
-                  const r = new FileReader();
-                  r.onloadend = async () => {
-                    toast({ title: "Subiendo imagen..." });
-                    const url = await uploadImageToDrive(r.result as string, `${nextId}_${Date.now()}.jpg`);
-                    setLocalImagePreviews(p => [...p, url]);
-                    toast({ title: "Imagen Lista" });
-                  };
-                  r.readAsDataURL(f);
-                }
-              }} />
+              <input type="file" hidden ref={fileInputRef} onChange={handleFileUpload} accept="image/*" />
             </CardContent>
           </Card>
 
           <div className="flex flex-col gap-4">
-            <Button className="h-20 rounded-[2.5rem] bg-primary text-white font-black text-xl shadow-2xl shadow-primary/20 hover:opacity-90 active:scale-95 transition-all" onClick={handleSave} disabled={saving}>
+            {hasPendingUploads && (
+              <div className="bg-orange-50 border border-orange-200 p-4 rounded-2xl flex items-center gap-3 animate-pulse">
+                <AlertCircle className="w-5 h-5 text-orange-600" />
+                <span className="text-[10px] font-black uppercase text-orange-700">Subiendo fotos a Drive...</span>
+              </div>
+            )}
+            <Button 
+              className="h-20 rounded-[2.5rem] bg-primary text-white font-black text-xl shadow-2xl shadow-primary/20 hover:opacity-90 active:scale-95 transition-all" 
+              onClick={handleSave} 
+              disabled={saving || hasPendingUploads}
+            >
               {saving ? <Loader2 className="animate-spin w-6 h-6" /> : <Save className="mr-3 w-6 h-6" />} 
               {editId ? "ACTUALIZAR FICHA" : "GUARDAR PRENDA"}
             </Button>
