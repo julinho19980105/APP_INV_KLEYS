@@ -24,14 +24,14 @@ import {
   SelectValue 
 } from "@/components/ui/select"
 import { useCollection, useFirestore, useDoc } from "@/firebase"
-import { collection, query, orderBy, where, doc, limit } from "firebase/firestore"
+import { collection, query, orderBy, where, doc } from "firebase/firestore"
 import { cn } from "@/lib/utils"
 
 export default function MovementsPage() {
   const db = useFirestore()
   const [searchQuery, setSearchQuery] = React.useState("")
   const [typeFilter, setTypeFilter] = React.useState("all")
-  const [daysLimit, setDaysLimit] = React.useState(7)
+  const [daysLimit, setDaysLimit] = React.useState(15)
   
   const configDocRef = React.useMemo(() => db ? doc(db, "config", "global") : null, [db])
   const { data: config } = useDoc(configDocRef)
@@ -158,9 +158,9 @@ export default function MovementsPage() {
               <Button 
                 variant="outline" 
                 className="h-10 rounded-xl border-primary/20 text-primary font-black uppercase text-[9px] tracking-[0.2em] px-8 bg-white shadow-sm hover:bg-primary/5"
-                onClick={() => setDaysLimit(prev => prev + 7)}
+                onClick={() => setDaysLimit(prev => prev + 15)}
               >
-                <ChevronDown className="w-4 h-4 mr-2" /> Cargar 7 días anteriores
+                <ChevronDown className="w-4 h-4 mr-2" /> Cargar 15 días anteriores
               </Button>
             </div>
           </>

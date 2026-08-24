@@ -6,7 +6,8 @@ import {
   Package, 
   ShoppingBag,
   History,
-  Settings
+  Settings,
+  BookOpen
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -30,6 +31,7 @@ import { doc } from "firebase/firestore"
 const navItems = [
   { name: "Ventas", href: "/sales", icon: ShoppingBag },
   { name: "Inventario", href: "/inventory", icon: Package },
+  { name: "Catálogos", href: "/catalogo", icon: BookOpen },
   { name: "Movimientos", href: "/movements", icon: History },
   { name: "Ajustes", href: "/settings", icon: Settings },
 ]

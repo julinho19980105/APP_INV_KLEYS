@@ -27,7 +27,8 @@ import {
   Printer,
   Bluetooth,
   BluetoothConnected,
-  Search
+  Search,
+  ChevronDown
 } from "lucide-react"
 import { 
   DropdownMenu, 
@@ -36,7 +37,7 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu"
 import { useCollection, useFirestore, useDoc } from "@/firebase"
-import { collection, query, orderBy, doc, updateDoc, increment, addDoc, serverTimestamp } from "firebase/firestore"
+import { collection, query, orderBy, doc, updateDoc, increment, addDoc, serverTimestamp, where } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { toJpeg } from 'html-to-image'
@@ -51,6 +52,7 @@ export default function SalesPage() {
   
   const [searchQuery, setSearchQuery] = React.useState("")
   const [statusFilter, setStatusFilter] = React.useState<string>("active")
+  const [daysLimit, setDaysLimit] = React.useState(30)
   const [confirmAnnulId, setConfirmAnnulId] = React.useState<string | null>(null)
   const [activeReceipt, setActiveReceipt] = React.useState<any>(null)
   const [isPrinting, setIsPrinting] = React.useState(false)
@@ -67,11 +69,15 @@ export default function SalesPage() {
 
   const quotesRef = React.useMemo(() => {
     if (!db) return null
+    const startDate = new Date()
+    startDate.setDate(startDate.getDate() - daysLimit)
+    
     return query(
       collection(db, "quotes"), 
+      where("createdAt", ">=", startDate),
       orderBy("createdAt", "desc")
     )
-  }, [db])
+  }, [db, daysLimit])
 
   const { data: quotes = [], loading } = useCollection(quotesRef)
 
@@ -432,6 +438,16 @@ export default function SalesPage() {
             </div>
           </div>
         ))}
+        
+        <div className="flex justify-center pt-6 pb-12">
+          <Button 
+            variant="outline" 
+            className="h-10 rounded-xl border-primary/20 text-primary font-black uppercase text-[9px] tracking-[0.2em] px-8 bg-white shadow-sm hover:bg-primary/5"
+            onClick={() => setDaysLimit(prev => prev + 30)}
+          >
+            <ChevronDown className="w-4 h-4 mr-2" /> Ver 30 días anteriores
+          </Button>
+        </div>
       </div>
 
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">

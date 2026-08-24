@@ -5,8 +5,8 @@ import * as React from "react"
 import { 
   BookOpen, 
   ExternalLink,
-  Loader2,
-  AlertTriangle
+  FileText,
+  Globe
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useFirestore, useDoc } from "@/firebase"
@@ -17,65 +17,57 @@ export default function CatalogoPage() {
   
   const configDocRef = React.useMemo(() => db ? doc(db, "config", "global") : null, [db])
   const { data: config } = useDoc(configDocRef)
-  
   const brandColor = config?.brandColor || "#FF3399"
-  const catalogUrl = config?.catalogUrl || ""
 
-  const [loading, setLoading] = React.useState(true)
-
-  React.useEffect(() => {
-    setLoading(true)
-  }, [catalogUrl])
+  const links = [
+    {
+      title: "MENÚ CATÁLOGO PDF",
+      url: "https://script.google.com/macros/s/AKfycbwC92DCBZY0rOmJ0MuE6uGgj1cGrzahyDyJZoWrIQQz9xU8BwyX8b3yWQawBt_co7JA/exec",
+      icon: FileText,
+      color: "bg-red-500"
+    },
+    {
+      title: "CATÁLOGO WEB",
+      url: "https://kleys-catalogo.vercel.app/",
+      icon: Globe,
+      color: "bg-blue-500"
+    }
+  ]
 
   return (
-    <div className="space-y-6 pt-2 pb-24 max-w-7xl mx-auto px-2 md:px-0 h-[calc(100vh-140px)] flex flex-col">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 border-b-2 border-primary/10 pb-4 shrink-0">
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-3xl flex items-center justify-center shadow-lg shadow-primary/20" style={{ backgroundColor: brandColor }}>
-            <BookOpen className="w-7 h-7 text-white" />
-          </div>
-          <div>
-            <h1 className="text-4xl font-headline font-black text-foreground uppercase tracking-tight">Catálogo Industrial</h1>
-            <p className="text-[10px] font-black text-primary uppercase tracking-[0.3em] ml-1 mt-1">Implementación Dinámica</p>
-          </div>
+    <div className="space-y-8 pt-6 pb-24 max-w-4xl mx-auto px-4 flex flex-col items-center">
+      <div className="text-center space-y-2">
+        <div className="w-16 h-16 rounded-[2rem] flex items-center justify-center shadow-xl shadow-primary/20 mx-auto mb-4" style={{ backgroundColor: brandColor }}>
+          <BookOpen className="w-8 h-8 text-white" />
         </div>
-        
-        <div className="flex gap-3">
-          <Button 
-            variant="outline" 
-            className="h-12 rounded-2xl border-primary/20 text-primary font-black text-[11px] uppercase gap-3 bg-white shadow-sm hover:bg-primary/5 transition-all"
-            onClick={() => window.open(catalogUrl, '_blank')}
-          >
-            <ExternalLink className="w-4 h-4" /> Abrir en Ventana Nueva
-          </Button>
-        </div>
+        <h1 className="text-4xl font-headline font-black text-foreground uppercase tracking-tight">Catálogos Disponibles</h1>
+        <p className="text-[10px] font-black text-primary uppercase tracking-[0.3em]">Acceso a Herramientas de Ventas</p>
       </div>
 
-      <div className="relative flex-1 w-full rounded-[2.5rem] border-4 border-primary/5 bg-white shadow-2xl overflow-hidden min-h-[500px]">
-        {!catalogUrl || catalogUrl.trim() === "" ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-white z-10 gap-4 p-8 text-center">
-            <AlertTriangle className="w-16 h-16 text-amber-500" />
-            <h2 className="text-xl font-black uppercase text-foreground">URL de Catálogo no configurada</h2>
-            <p className="text-sm text-muted-foreground uppercase max-w-md">Por favor, ve a Ajustes y configura la URL de tu implementación.</p>
-          </div>
-        ) : (
-          <>
-            {loading && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-white z-10 gap-4">
-                <Loader2 className="w-12 h-12 animate-spin" style={{ color: brandColor }} />
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/40">Conectando con Servidor...</span>
-              </div>
-            )}
-            <iframe 
-              src={catalogUrl}
-              className="w-full h-full border-none"
-              onLoad={() => setLoading(false)}
-              title="Catálogo Industrial"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-            />
-          </>
-        )}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
+        {links.map((link) => (
+          <Button
+            key={link.title}
+            className="h-40 rounded-[2.5rem] bg-white border-2 border-primary/10 shadow-xl hover:shadow-2xl hover:scale-105 active:scale-95 transition-all flex flex-col items-center justify-center gap-4 group"
+            onClick={() => window.open(link.url, '_blank')}
+          >
+            <div className={`w-14 h-14 rounded-2xl ${link.color} flex items-center justify-center text-white shadow-lg`}>
+              <link.icon className="w-7 h-7" />
+            </div>
+            <div className="space-y-1">
+              <span className="text-lg font-black text-black uppercase block">{link.title}</span>
+              <span className="text-[9px] font-black text-primary/40 uppercase tracking-widest flex items-center justify-center gap-2">
+                ABRIR ENLACE <ExternalLink className="w-3 h-3" />
+              </span>
+            </div>
+          </Button>
+        ))}
+      </div>
+
+      <div className="p-8 bg-primary/5 rounded-[2.5rem] border border-dashed border-primary/20 text-center max-w-md w-full">
+        <p className="text-[11px] font-medium text-muted-foreground uppercase leading-relaxed">
+          Estos enlaces dirigen a las herramientas de visualización actualizadas para tus clientes.
+        </p>
       </div>
     </div>
   )

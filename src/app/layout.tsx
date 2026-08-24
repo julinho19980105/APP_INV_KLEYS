@@ -5,6 +5,7 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { AppShell } from "@/components/layout/app-shell";
 import { FirebaseClientProvider } from "@/firebase";
+import { PasswordGuard } from "@/components/PasswordGuard";
 
 const inter = Inter({
   subsets: ['latin'],
@@ -32,9 +33,11 @@ export default function RootLayout({
     <html lang="es" className={`${inter.variable} ${spaceGrotesk.variable} dark`}>
       <body className="font-body antialiased bg-background text-foreground">
         <FirebaseClientProvider>
-          <AppShell>
-            {children}
-          </AppShell>
+          <PasswordGuard>
+            <AppShell>
+              {children}
+            </AppShell>
+          </PasswordGuard>
           <Toaster />
         </FirebaseClientProvider>
       </body>
