@@ -15,7 +15,6 @@ import {
   SelectValue 
 } from "@/components/ui/select"
 import { 
-  Search, 
   Ban, 
   MoreVertical,
   Check,
@@ -29,7 +28,8 @@ import {
   Plus,
   Printer,
   Bluetooth,
-  BluetoothConnected
+  BluetoothConnected,
+  Search
 } from "lucide-react"
 import { 
   DropdownMenu, 
@@ -43,6 +43,8 @@ import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { toJpeg } from 'html-to-image'
 import { format } from "date-fns"
+import { errorEmitter } from '@/firebase/error-emitter'
+import { FirestorePermissionError } from '@/firebase/errors'
 
 export default function SalesPage() {
   const router = useRouter()
@@ -56,7 +58,6 @@ export default function SalesPage() {
   const [daysLimit, setDaysLimit] = React.useState(30)
   const [isPrinting, setIsPrinting] = React.useState(false)
   
-  // Bluetooth State
   const [bleDevice, setBleDevice] = React.useState<any>(null)
   const [printCharacteristic, setPrintCharacteristic] = React.useState<any>(null)
 
@@ -96,9 +97,9 @@ export default function SalesPage() {
   }, [quotes])
 
   const filteredQuotes = React.useMemo(() => {
-    const q = searchQuery.toLowerCase()
+    const q = searchQuery.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     return quotes.filter(s => {
-      const matchesSearch = s.id.toLowerCase().includes(q) || s.customerName?.toLowerCase().includes(q)
+      const matchesSearch = s.id.toLowerCase().includes(q) || s.customerName?.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(q)
       const matchesStatus = statusFilter === "all" || s.status === statusFilter
       return matchesSearch && matchesStatus
     })
@@ -116,54 +117,34 @@ export default function SalesPage() {
     return Object.values(groups)
   }, [filteredQuotes])
 
-  // Improved Bluetooth Connection Logic (BLE Focus)
   const connectPrinter = async () => {
     try {
       const device = await (navigator as any).bluetooth.requestDevice({
         filters: [
           { services: ['000018f0-0000-1000-8000-00805f9b34fb'] },
-          { services: ['0000ff00-0000-1000-8000-00805f9b34fb'] },
-          { namePrefix: 'Printer' },
-          { namePrefix: 'TP' },
-          { namePrefix: 'MTP' },
-          { namePrefix: 'Inner' }
+          { namePrefix: 'Printer' }
         ],
-        optionalServices: [
-          '000018f0-0000-1000-8000-00805f9b34fb',
-          '0000ff00-0000-1000-8000-00805f9b34fb',
-          '00001800-0000-1000-8000-00805f9b34fb',
-          '00001801-0000-1000-8000-00805f9b34fb',
-          '00004953-5343-4c45-4e49-585345525649' // Some thermal printers service
-        ]
+        optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb']
       })
       
       const server = await device.gatt?.connect()
-      
-      // Buscamos exhaustivamente en todos los servicios primarios
       const services = await server?.getPrimaryServices()
-      if (!services || services.length === 0) throw new Error("No se encontraron servicios de impresión")
+      if (!services || services.length === 0) throw new Error("No services found")
       
       let foundCharacteristic = null
       for (const service of services) {
         try {
           const characteristics = await service.getCharacteristics()
-          const writeChar = characteristics.find((c: any) => 
-            c.properties.write || c.properties.writeWithoutResponse
-          )
-          if (writeChar) {
-            foundCharacteristic = writeChar
-            break
-          }
-        } catch (e) {
-          continue // Algunos servicios pueden no ser accesibles
-        }
+          const writeChar = characteristics.find((c: any) => c.properties.write || c.properties.writeWithoutResponse)
+          if (writeChar) { foundCharacteristic = writeChar; break; }
+        } catch (e) { continue; }
       }
       
-      if (!foundCharacteristic) throw new Error("No se encontró característica de escritura compatible")
+      if (!foundCharacteristic) throw new Error("No characteristic found")
       
       setBleDevice(device)
       setPrintCharacteristic(foundCharacteristic)
-      toast({ title: "Impresora Conectada Correctamente" })
+      toast({ title: "Impresora Conectada" })
       
       device.addEventListener('gattserverdisconnected', () => {
         setBleDevice(null)
@@ -171,8 +152,7 @@ export default function SalesPage() {
         toast({ variant: "destructive", title: "Impresora Desconectada" })
       })
     } catch (e) {
-      console.error(e)
-      toast({ variant: "destructive", title: "No se captó el dispositivo Bluetooth. Revisa que esté encendido y visible." })
+      toast({ variant: "destructive", title: "Error conexión Bluetooth" })
     }
   }
 
@@ -190,7 +170,6 @@ export default function SalesPage() {
       await connectPrinter()
       if (!printCharacteristic) return
     }
-
     setIsPrinting(true)
     const encoder = new TextEncoder()
     const esc = {
@@ -209,7 +188,6 @@ export default function SalesPage() {
     try {
       const charWidth = printerWidth === "58" ? 32 : 48
       const separator = "-".repeat(charWidth) + "\n"
-      
       let commands = new Uint8Array([
         ...esc.init,
         ...esc.center,
@@ -225,44 +203,23 @@ export default function SalesPage() {
       ])
 
       const dateStr = format(sale.createdAt?.toDate ? sale.createdAt.toDate() : new Date(), "dd/MM/yy HH:mm")
-      const nameHeader = "NOMBRE".padEnd(charWidth / 2)
-      const dateHeader = "FECHA".padStart(charWidth / 2)
-      
       commands = new Uint8Array([
         ...commands,
         ...esc.boldOn,
-        ...encoder.encode(`${nameHeader}${dateHeader}\n`),
+        ...encoder.encode(`CLIENTE: ${sale.customerName.toUpperCase()}\n`),
+        ...encoder.encode(`FECHA: ${dateStr}\n`),
         ...esc.boldOff,
-        ...encoder.encode(`${sale.customerName.toUpperCase().substring(0, charWidth / 2 - 1).padEnd(charWidth / 2)}${dateStr.padStart(charWidth / 2)}\n`),
-        ...encoder.encode(`ID: ${sale.customerId.toUpperCase()}\n`),
-        ...encoder.encode(separator),
-        ...esc.boldOn,
-        ...encoder.encode(`PRODUCTOS\n`),
-        ...esc.boldOff
+        ...encoder.encode(separator)
       ])
 
-      for (let i = 0; i < sale.items.length; i++) {
-        const item = sale.items[i]
-        const subtotal = (Number(item.price) * Number(item.quantity)) - (Number(item.discount) || 0)
-        
-        const itemLine = `${i + 1}- ${item.name} ${item.description || ""}\n`
-        const valuesLine = `    CANT: ${item.quantity}  P.U: S/ ${item.price}  SUB: S/ ${subtotal.toFixed(2)}\n`
-        
+      for (const item of sale.items) {
+        const sub = ((Number(item.price) * Number(item.quantity)) - (Number(item.discount) || 0)).toFixed(2)
         commands = new Uint8Array([
           ...commands,
-          ...encoder.encode(itemLine),
-          ...encoder.encode(valuesLine)
+          ...encoder.encode(`${item.name.substring(0, charWidth)}\n`),
+          ...encoder.encode(`${item.quantity} x S/ ${item.price} = S/ ${sub}\n`)
         ])
-        
-        if (Number(item.discount) > 0) {
-          commands = new Uint8Array([
-            ...commands,
-            ...encoder.encode(`    DESC: -S/ ${Number(item.discount).toFixed(2)}\n`)
-          ])
-        }
       }
-
-      const totalUnits = (sale.items || []).reduce((acc: number, i: any) => acc + (Number(i.quantity) || 0), 0)
 
       commands = new Uint8Array([
         ...commands,
@@ -270,11 +227,9 @@ export default function SalesPage() {
         ...esc.right,
         ...esc.tripleSize,
         ...esc.boldOn,
-        ...encoder.encode(`UND: ${totalUnits}  TOTAL: S/ ${Number(sale.total).toFixed(2)}\n`),
+        ...encoder.encode(`TOTAL: S/ ${Number(sale.total).toFixed(2)}\n`),
         ...esc.normalSize,
         ...esc.boldOff,
-        ...esc.center,
-        ...encoder.encode("\nGRACIAS POR SU COMPRA\n"),
         ...esc.feed,
         ...esc.cut
       ])
@@ -282,7 +237,6 @@ export default function SalesPage() {
       await sendEscPos(commands)
       toast({ title: "Ticket Impreso" })
     } catch (e) {
-      console.error(e)
       toast({ variant: "destructive", title: "Error al imprimir" })
     } finally {
       setIsPrinting(false)
@@ -294,22 +248,15 @@ export default function SalesPage() {
     setTimeout(async () => {
       if (receiptRef.current) {
         try {
-          const dataUrl = await toJpeg(receiptRef.current, { 
-            quality: 0.95, 
-            backgroundColor: '#ffffff',
-            pixelRatio: 2
-          })
+          const dataUrl = await toJpeg(receiptRef.current, { quality: 1, backgroundColor: '#ffffff', pixelRatio: 2 })
           const blob = await (await fetch(dataUrl)).blob()
           const file = new File([blob], `Boleta_${sale.id}.jpg`, { type: 'image/jpeg' })
-          if (navigator.share) {
-            await navigator.share({ files: [file], title: `Boleta ${sale.id}` })
-          } else {
+          if (navigator.share) await navigator.share({ files: [file] })
+          else {
             const link = document.createElement('a')
-            link.download = `Boleta_${sale.id}.jpg`
-            link.href = dataUrl
-            link.click()
+            link.download = `Boleta_${sale.id}.jpg`; link.href = dataUrl; link.click()
           }
-        } catch (err) { toast({ variant: "destructive", title: "ERROR AL GENERAR IMAGEN" }) }
+        } catch (err) { toast({ variant: "destructive", title: "Error imagen" }) }
       }
     }, 500)
   }
@@ -318,21 +265,32 @@ export default function SalesPage() {
     if (!db) return
     try {
       await updateDoc(doc(db, "quotes", quote.id), { status: 'annulled' })
+      
       for (const item of quote.items) {
         if (item.isRegistered && item.productId !== "MANUAL") {
-          await updateDoc(doc(db, "products", item.productId), { stock: increment(item.quantity) })
-          await addDoc(collection(db, "movements"), {
+          const prodRef = doc(db, "products", item.productId)
+          updateDoc(prodRef, {
+            stock: increment(Number(item.quantity)),
+            updatedAt: serverTimestamp()
+          }).catch(async () => {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({ path: prodRef.path, operation: 'update' }));
+          });
+
+          addDoc(collection(db, "movements"), {
             productCode: item.productId,
             type: "return",
-            quantity: item.quantity,
+            quantity: Number(item.quantity),
             reason: `ANULACIÓN BOLETA ${quote.id}`,
-            timestamp: serverTimestamp()
-          })
+            timestamp: serverTimestamp(),
+            referenceId: quote.id
+          }).catch(async () => {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'movements', operation: 'create' }));
+          });
         }
       }
-      toast({ title: "BOLETA ANULADA" })
+      toast({ title: "BOLETA ANULADA Y STOCK DEVUELTO" })
       setConfirmAnnulId(null)
-    } catch (e) { toast({ variant: "destructive", title: "ERROR" }) }
+    } catch (e) { toast({ variant: "destructive", title: "Error al anular" }) }
   }
 
   return (
@@ -352,17 +310,14 @@ export default function SalesPage() {
         <div className="flex w-full md:w-auto gap-2">
           <Button 
             variant="outline"
-            className={cn(
-              "h-10 px-4 rounded-xl border-primary/10 font-black text-[9px] uppercase gap-2 bg-white",
-              bleDevice ? "text-green-600 border-green-200 bg-green-50" : "text-primary"
-            )}
+            className={cn("h-10 px-4 rounded-xl border-primary/10 font-black text-[9px] uppercase gap-2 bg-white", bleDevice && "text-green-600 border-green-200 bg-green-50")}
             onClick={connectPrinter}
           >
             {bleDevice ? <BluetoothConnected className="w-4 h-4" /> : <Bluetooth className="w-4 h-4" />}
-            {bleDevice ? "Impresora Lista" : "Conectar Bluetooth"}
+            {bleDevice ? "Lista" : "Conectar"}
           </Button>
           <div className="relative flex-1 md:w-48">
-            <Search className="absolute left-3 top-3 h-4 w-4" style={{ color: brandColor }} />
+            <Search className="absolute left-3 top-3 h-4 w-4 text-primary/40" />
             <Input 
               placeholder="" 
               className="pl-9 h-10 rounded-xl border-primary/10 font-black text-[11px] uppercase bg-white shadow-sm"
@@ -380,14 +335,6 @@ export default function SalesPage() {
               <SelectItem value="annulled" className="text-[9px] font-black uppercase">Anulados</SelectItem>
             </SelectContent>
           </Select>
-          <Button 
-            variant="outline"
-            className="h-10 px-4 rounded-xl border-primary/10 font-black text-[9px] uppercase gap-2 bg-white"
-            onClick={() => router.push('/customers')}
-          >
-            <Users className="w-3.5 h-3.5" style={{ color: brandColor }} />
-            Clientes
-          </Button>
         </div>
       </div>
 
@@ -417,22 +364,14 @@ export default function SalesPage() {
                       <div className="flex justify-between items-center pr-2">
                         <div className="flex items-center gap-2">
                           <span className="font-black text-[10px] text-foreground uppercase tracking-wide">{s.id}</span>
-                          <Badge 
-                            variant="outline" 
-                            className={cn(
-                              "text-[7px] font-black h-4 px-2 uppercase border-none rounded-md", 
-                              s.status === 'active' ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600"
-                            )}
-                          >
+                          <Badge variant="outline" className={cn("text-[7px] font-black h-4 px-2 uppercase border-none rounded-md", s.status === 'active' ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600")}>
                             {s.status === 'active' ? 'VENTA' : 'ANULADO'}
                           </Badge>
                         </div>
                         <span className="font-headline font-medium text-[11px] text-foreground">S/ {Number(s.total).toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between items-center pr-2">
-                        <span className="text-[10px] font-normal text-foreground uppercase truncate max-w-[140px]">
-                          {s.customerName}
-                        </span>
+                        <span className="text-[10px] font-normal text-foreground uppercase truncate max-w-[140px]">{s.customerName}</span>
                         <span className="text-[8px] font-medium text-muted-foreground uppercase bg-secondary px-1.5 py-0.5 rounded">
                           {s.items?.reduce((acc: number, item: any) => acc + (Number(item.quantity) || 0), 0)} UND
                         </span>
@@ -456,12 +395,8 @@ export default function SalesPage() {
                             <DropdownMenuItem className="text-[10px] font-black uppercase gap-2.5 p-2.5 rounded-lg" onClick={() => router.push(`/quotes?edit=${s.id}`)}>
                               <Edit2 className="w-3.5 h-3.5" style={{ color: brandColor }} /> Editar Venta
                             </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              className="text-[10px] font-black uppercase gap-2.5 p-2.5 rounded-lg" 
-                              onClick={() => handleBluetoothPrint(s)}
-                              disabled={isPrinting}
-                            >
-                              <Printer className="w-3.5 h-3.5" style={{ color: brandColor }} /> {isPrinting ? "Imprimiendo..." : "Imprimir Ticket BLE"}
+                            <DropdownMenuItem className="text-[10px] font-black uppercase gap-2.5 p-2.5 rounded-lg" onClick={() => handleBluetoothPrint(s)} disabled={isPrinting}>
+                              <Printer className="w-3.5 h-3.5" style={{ color: brandColor }} /> Imprimir Ticket
                             </DropdownMenuItem>
                             <DropdownMenuItem className="text-[10px] font-black uppercase gap-2.5 p-2.5 rounded-lg" onClick={() => handleSendImage(s)}>
                               <ImageIcon className="w-3.5 h-3.5" style={{ color: brandColor }} /> Compartir Imagen
@@ -479,128 +414,50 @@ export default function SalesPage() {
             </div>
           </div>
         ))}
-
-        {!loading && (
-          <div className="flex justify-center pt-4 pb-8">
-            <Button 
-              variant="outline" 
-              className="h-9 rounded-xl border-primary/20 text-primary font-black uppercase text-[8px] tracking-[0.2em] px-6 shadow-sm"
-              onClick={() => setDaysLimit(prev => prev + 30)}
-            >
-              <History className="w-3 h-3 mr-2" /> Cargar 30 días anteriores
-            </Button>
-          </div>
-        )}
       </div>
 
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
-        <Button 
-          onClick={() => router.push('/quotes')}
-          className="h-20 w-20 rounded-full shadow-2xl flex flex-col gap-1 items-center justify-center text-white active:scale-90 transition-transform"
-          style={{ backgroundColor: brandColor }}
-        >
+        <Button onClick={() => router.push('/quotes')} className="h-20 w-20 rounded-full shadow-2xl flex flex-col gap-1 items-center justify-center text-white active:scale-90 transition-transform" style={{ backgroundColor: brandColor }}>
           <Plus className="w-8 h-8" />
           <span className="text-[9px] font-black uppercase">COTIZACIÓN</span>
         </Button>
       </div>
 
-      {/* Blinded Receipt Image Template (Fixed Design) */}
       <div className="fixed -left-[8000px] top-0">
         {activeReceipt && (
-          <div 
-            ref={receiptRef} 
-            className="bg-white p-12 w-[800px] text-black font-sans relative"
-          >
-            {/* Cabecera con líneas dobles blindada */}
+          <div ref={receiptRef} className="bg-white p-12 w-[800px] text-black font-sans relative">
             <div className="border-t-[6px] mb-2" style={{ borderColor: brandColor }}></div>
-            <div className="border-t-[6px] mb-6" style={{ borderColor: brandColor }}></div>
-            
-            <div className="text-center mb-4">
-              <h1 className="text-8xl font-black uppercase tracking-tighter" style={{ color: brandColor }}>
-                {companySettings?.companyName || "STILOSTACK"}
-              </h1>
-              <div className="text-2xl font-black uppercase text-black/40 mt-2 tracking-[0.5em]">BOLETA INTERNA</div>
+            <div className="text-center mb-6">
+              <h1 className="text-7xl font-black uppercase tracking-tighter" style={{ color: brandColor }}>{companySettings?.companyName || "STILOSTACK"}</h1>
+              <div className="text-xl font-black text-black/40 mt-2 tracking-[0.5em]">BOLETA INTERNA</div>
               <div className="text-4xl font-black text-black mt-2">{activeReceipt.id}</div>
             </div>
-            
-            <div className="border-t-[6px] mb-10" style={{ borderColor: brandColor }}></div>
-
-            <div className="grid grid-cols-2 gap-12 mb-12 px-4">
-              <div className="space-y-4">
-                <div className="text-xl font-black text-black/30 uppercase tracking-[0.2em]">NOMBRE</div>
-                <div className="space-y-1">
-                  <div className="text-4xl font-black uppercase leading-tight">{activeReceipt.customerName}</div>
-                  <div className="text-2xl font-bold text-black/50 uppercase">ID: {activeReceipt.customerId}</div>
-                </div>
+            <div className="grid grid-cols-2 gap-12 mb-10 px-4">
+              <div>
+                <div className="text-lg font-black text-black/30 uppercase tracking-[0.2em]">CLIENTE</div>
+                <div className="text-3xl font-black uppercase leading-tight">{activeReceipt.customerName}</div>
               </div>
-              <div className="space-y-4 text-right">
-                <div className="text-xl font-black text-black/30 uppercase tracking-[0.2em]">FECHA</div>
-                <div className="text-4xl font-black">
-                  {activeReceipt.createdAt?.toDate ? format(activeReceipt.createdAt.toDate(), "dd / MM / yyyy") : ""}
-                </div>
+              <div className="text-right">
+                <div className="text-lg font-black text-black/30 uppercase tracking-[0.2em]">FECHA</div>
+                <div className="text-3xl font-black">{activeReceipt.createdAt?.toDate ? format(activeReceipt.createdAt.toDate(), "dd/MM/yyyy") : ""}</div>
               </div>
             </div>
-
-            <div className="w-full mb-12">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="text-[18px] font-black uppercase text-white" style={{ backgroundColor: brandColor }}>
-                    <th className="py-6 px-6 rounded-l-3xl w-16">Nº</th>
-                    <th className="py-6">PRODUCTO Y DESCRIPCIÓN</th>
-                    <th className="py-6 text-center w-24">CANT.</th>
-                    <th className="py-6 text-right pr-8 rounded-r-3xl w-32">TOTAL</th>
+            <table className="w-full text-left mb-10">
+              <thead className="text-[16px] font-black uppercase text-white" style={{ backgroundColor: brandColor }}>
+                <tr><th className="py-4 px-6 rounded-l-2xl">PRENDA</th><th className="py-4 text-center">CANT</th><th className="py-4 text-right pr-8 rounded-r-2xl">TOTAL</th></tr>
+              </thead>
+              <tbody className="text-xl font-medium uppercase">
+                {activeReceipt.items?.map((item: any, i: number) => (
+                  <tr key={i} className="border-b border-black/5">
+                    <td className="py-6 px-6"><div className="font-black text-2xl">{item.name}</div>{item.description && <div className="text-lg text-black/50 italic">{item.description}</div>}</td>
+                    <td className="py-6 text-center font-black text-2xl">{item.quantity}</td>
+                    <td className="py-6 text-right pr-8 font-black text-2xl">{((Number(item.price) * Number(item.quantity)) - (Number(item.discount) || 0)).toFixed(2)}</td>
                   </tr>
-                </thead>
-                <tbody className="text-xl font-medium uppercase">
-                  {activeReceipt.items?.map((item: any, i: number) => (
-                    <React.Fragment key={i}>
-                      <tr className="align-top">
-                        <td className="py-8 px-6 text-black/30 font-black">{i + 1}-</td>
-                        <td className="py-8">
-                          <div className="font-black text-black text-2xl mb-1">{item.name}</div>
-                          {item.description && <div className="text-lg text-black/50 italic leading-snug">{item.description}</div>}
-                          {Number(item.discount) > 0 && (
-                            <div className="text-lg font-black text-destructive mt-3 uppercase tracking-tight">
-                              DESC: -S/ {Number(item.discount).toFixed(2)}
-                            </div>
-                          )}
-                        </td>
-                        <td className="py-8 text-center font-black text-2xl">{item.quantity}</td>
-                        <td className="py-8 text-right pr-8 font-black text-2xl">
-                          {((Number(item.price) * Number(item.quantity)) - (Number(item.discount) || 0)).toFixed(2)}
-                        </td>
-                      </tr>
-                      <tr>
-                        <td colSpan={4} className="border-b-2 border-black/5"></td>
-                      </tr>
-                    </React.Fragment>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="border-t-[6px] mb-8" style={{ borderColor: brandColor }}></div>
-
-            {/* Totales Ajustados Blindados (Mitad del tamaño del título) */}
-            <div className="flex justify-between items-center px-6 mb-8">
-              <div className="flex flex-col items-start">
-                <div className="text-xl font-black uppercase text-black/30 tracking-widest">CANTIDAD TOTAL</div>
-                <div className="text-5xl font-black text-black">
-                  {(activeReceipt.items || []).reduce((acc: number, item: any) => acc + (Number(item.quantity) || 0), 0)} UND
-                </div>
-              </div>
-              <div className="flex flex-col items-end">
-                <div className="text-xl font-black uppercase text-black/30 tracking-widest">TOTAL A PAGAR</div>
-                <div className="text-5xl font-black" style={{ color: brandColor }}>
-                  S/. {Number(activeReceipt.total).toFixed(2)}
-                </div>
-              </div>
-            </div>
-
-            <div className="text-center mt-6">
-              <div className="text-2xl font-black uppercase text-black/40 tracking-[0.3em]">
-                GRACIAS POR SU COMPRA
-              </div>
+                ))}
+              </tbody>
+            </table>
+            <div className="flex justify-between items-center px-6">
+              <div className="text-5xl font-black" style={{ color: brandColor }}>TOTAL S/ {Number(activeReceipt.total).toFixed(2)}</div>
             </div>
           </div>
         )}

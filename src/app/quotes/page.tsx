@@ -43,6 +43,8 @@ import {
   setDoc,
   getDoc
 } from "firebase/firestore"
+import { errorEmitter } from '@/firebase/error-emitter'
+import { FirestorePermissionError } from '@/firebase/errors'
 import { cn } from "@/lib/utils"
 
 interface QuoteItem {
@@ -242,22 +244,24 @@ export default function QuotesPage() {
     }
     setSaving(true)
     try {
-      // 1. SI ES EDICIÓN: REVERSIÓN DE STOCK (Solo ocurre al guardar para evitar errores si se cancela)
+      // 1. SI ES EDICIÓN: REVERSIÓN DE STOCK (Solo de productos registrados)
       if (editId && oldItems.length > 0) {
         for (const item of oldItems) {
           if (item.isRegistered && item.productId !== "MANUAL") {
             const prodRef = doc(db, "products", item.productId)
-            await updateDoc(prodRef, {
+            updateDoc(prodRef, {
               stock: increment(Number(item.quantity)),
               updatedAt: serverTimestamp()
-            })
-            await addDoc(collection(db, "movements"), {
+            }).catch(() => {});
+            
+            addDoc(collection(db, "movements"), {
               productCode: item.productId,
               type: "return",
               quantity: Number(item.quantity),
               reason: `REVERSIÓN POR EDICIÓN VENTA ${quoteId}`,
-              timestamp: serverTimestamp()
-            })
+              timestamp: serverTimestamp(),
+              referenceId: quoteId
+            }).catch(() => {});
           }
         }
       }
@@ -279,21 +283,27 @@ export default function QuotesPage() {
 
       await setDoc(doc(db, "quotes", quoteId), quoteData)
 
-      // 3. PROCESAR NUEVAS SALIDAS
+      // 3. PROCESAR SALIDAS DE STOCK (Solo de productos registrados)
       for (const item of items) {
         if (item.isRegistered && item.productId !== "MANUAL") {
           const prodRef = doc(db, "products", item.productId)
-          await updateDoc(prodRef, {
+          updateDoc(prodRef, {
             stock: increment(-Number(item.quantity)),
             updatedAt: serverTimestamp()
-          })
-          await addDoc(collection(db, "movements"), {
+          }).catch(async () => {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({ path: prodRef.path, operation: 'update' }));
+          });
+
+          addDoc(collection(db, "movements"), {
             productCode: item.productId,
             type: "out",
             quantity: Number(item.quantity),
             reason: `VENTA ${quoteId} - ${selectedCustomer.name}`,
-            timestamp: serverTimestamp()
-          })
+            timestamp: serverTimestamp(),
+            referenceId: quoteId
+          }).catch(async () => {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'movements', operation: 'create' }));
+          });
         }
       }
 
