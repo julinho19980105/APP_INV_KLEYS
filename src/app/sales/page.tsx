@@ -65,7 +65,6 @@ export default function SalesPage() {
   const brandColor = companySettings?.brandColor || "#FF3399"
   const printerWidth = companySettings?.printerWidth || "80"
 
-  // Simplificamos la consulta para evitar errores de índices en el prototipo
   const quotesRef = React.useMemo(() => {
     if (!db) return null
     return query(
@@ -226,15 +225,21 @@ export default function SalesPage() {
       commands = new Uint8Array([
         ...commands,
         ...encoder.encode(separator),
-        ...esc.right,
+        ...esc.left,
         ...esc.normalSize,
+        ...encoder.encode(`TOTAL CANTIDAD\n`),
         ...esc.boldOn,
-        ...encoder.encode(`CANT. TOTAL: ${totalQty} UND\n`),
-        ...encoder.encode(`MONTO NETO: S/ ${Number(sale.total).toFixed(2)}\n`),
-        ...esc.tripleSize,
-        ...encoder.encode(`TOTAL: S/ ${Number(sale.total).toFixed(2)}\n`),
-        ...esc.normalSize,
+        ...encoder.encode(`${totalQty} UND\n`),
+        ...esc.right,
         ...esc.boldOff,
+        ...encoder.encode(`TOTAL\n`),
+        ...esc.tripleSize,
+        ...esc.boldOn,
+        ...encoder.encode(`S/ ${Number(sale.total).toFixed(2)}\n`),
+        ...esc.normalSize,
+        ...esc.center,
+        ...esc.boldOff,
+        ...encoder.encode("\nGRACIAS POR SU COMPRA\n"),
         ...esc.feed,
         ...esc.cut
       ])
@@ -465,16 +470,22 @@ export default function SalesPage() {
                       <td className="py-6 px-6"><div className="font-black text-xl">{item.name}</div>{item.description && <div className="text-sm text-black/50 italic">{item.description}</div>}</td>
                       <td className="py-6 text-center font-black">S/ {item.price}</td>
                       <td className="py-6 text-center font-black">{item.quantity}</td>
-                      <td className="py-6 text-center text-destructive font-black">S/ {item.discount || 0}</td>
+                      <td className="py-6 text-center text-destructive font-black">{Number(item.discount) > 0 ? `S/ ${item.discount}` : ""}</td>
                       <td className="py-6 text-right pr-8 font-black text-xl">S/ {sub.toFixed(2)}</td>
                     </tr>
                   )
                 })}
               </tbody>
             </table>
-            <div className="flex flex-col items-end px-6 gap-2">
-              <div className="text-xl font-black text-black/40">CANTIDAD TOTAL: {activeReceipt.items?.reduce((acc: number, i: any) => acc + (Number(i.quantity) || 0), 0)} UND</div>
-              <div className="text-6xl font-black" style={{ color: brandColor }}>TOTAL S/ {Number(activeReceipt.total).toFixed(2)}</div>
+            <div className="flex justify-between items-end px-6 pt-6 border-t-2 border-black/5">
+              <div className="flex flex-col items-start">
+                <div className="text-xl font-black text-black/40 uppercase tracking-widest">TOTAL CANTIDAD</div>
+                <div className="text-4xl font-black">{activeReceipt.items?.reduce((acc: number, i: any) => acc + (Number(i.quantity) || 0), 0)} UND</div>
+              </div>
+              <div className="flex flex-col items-end">
+                <div className="text-xl font-black text-black/40 uppercase tracking-widest">TOTAL</div>
+                <div className="text-6xl font-black" style={{ color: brandColor }}>S/ {Number(activeReceipt.total).toFixed(2)}</div>
+              </div>
             </div>
           </div>
         )}
