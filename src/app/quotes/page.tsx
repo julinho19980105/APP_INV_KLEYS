@@ -128,7 +128,6 @@ export default function QuotesPage() {
   const { data: dbProducts = [] } = useCollection(productsRef)
   const { data: dbCustomers = [] } = useCollection(customersRef)
 
-  // Persistencia: Cargar borrador al montar
   React.useEffect(() => {
     if (typeof window !== "undefined" && !editId) {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -138,15 +137,12 @@ export default function QuotesPage() {
           setSelectedCustomer(parsed.selectedCustomer);
           setItems(parsed.items);
           setQuoteId(parsed.quoteId);
-        } catch (e) {
-          console.error("Error loading draft", e);
-        }
+        } catch (e) {}
       }
     }
     setIsInitialized(true);
   }, [editId]);
 
-  // Persistencia: Guardar borrador al cambiar datos
   React.useEffect(() => {
     if (isInitialized && !editId && typeof window !== "undefined") {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
@@ -298,8 +294,8 @@ export default function QuotesPage() {
         }
       }
 
-      const subtotal = items.reduce((acc, i) => acc + (Number(i.quantity) * Number(i.price)), 0)
       const total = items.reduce((acc, i) => acc + (Number(i.quantity) * Number(i.price) - Number(i.discount)), 0)
+      const subtotal = items.reduce((acc, i) => acc + (Number(i.quantity) * Number(i.price)), 0)
       
       const quoteData = {
         id: quoteId,
@@ -340,7 +336,7 @@ export default function QuotesPage() {
       if (typeof window !== "undefined") {
         localStorage.removeItem(STORAGE_KEY);
       }
-      toast({ title: editId ? "BOLETA ACTUALIZADA" : "VENTA REGISTRADA" })
+      toast({ title: editId ? "VENTA ACTUALIZADA" : "VENTA REGISTRADA" })
       router.push('/sales')
     } catch (e) {
       toast({ variant: "destructive", title: "ERROR AL GUARDAR" })

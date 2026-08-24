@@ -23,7 +23,6 @@ import {
   Plus,
   ArrowLeft,
   Settings2,
-  AlertCircle,
   ChevronLeft,
   ChevronRight,
   Trash2
@@ -39,9 +38,9 @@ import {
   serverTimestamp, 
   getDocs, 
   limit, 
-  writeBatch, 
   addDoc,
-  deleteDoc
+  deleteDoc,
+  writeBatch
 } from "firebase/firestore"
 import { uploadImageToDrive } from "@/services/sheets-service"
 import { 
@@ -156,6 +155,7 @@ export default function RegistryPage() {
     setSaving(true)
     const productCode = nextId.toUpperCase()
     try {
+      const isNew = !editId;
       const productData = {
         name: form.name.toUpperCase(),
         code: productCode,
@@ -172,7 +172,7 @@ export default function RegistryPage() {
       
       await setDoc(doc(db, "products", productCode), productData, { merge: true })
 
-      if (!editId && Number(form.stock) > 0) {
+      if (isNew && Number(form.stock) > 0) {
         addDoc(collection(db, "movements"), {
           productCode: productCode,
           type: "in",
@@ -182,7 +182,7 @@ export default function RegistryPage() {
         });
       }
       
-      toast({ title: editId ? "PRENDA ACTUALIZADA" : "PRENDA REGISTRADA" })
+      toast({ title: isNew ? "PRENDA REGISTRADA" : "PRENDA ACTUALIZADA" })
       router.push('/inventory')
     } catch (e) { 
       toast({ variant: "destructive", title: "Error al guardar en base de datos" }) 
@@ -250,9 +250,7 @@ export default function RegistryPage() {
     const collName = type === 'category' ? 'categories' : 'collections'
 
     try {
-      const batch = writeBatch(db)
-      batch.update(doc(db, collName, editingTagName.id), { name: newName })
-      await batch.commit()
+      await setDoc(doc(db, collName, editingTagName.id), { name: newName }, { merge: true })
       toast({ title: "Nombre actualizado" })
       setEditingTagName(null)
     } catch (e) {
