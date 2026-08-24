@@ -23,7 +23,9 @@ import {
   Plus,
   ArrowLeft,
   Settings2,
-  AlertCircle
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useFirestore, useDoc, useCollection } from "@/firebase"
@@ -206,6 +208,14 @@ export default function RegistryPage() {
     reader.readAsDataURL(file);
   };
 
+  const moveImage = (index: number, direction: 'left' | 'right') => {
+    const newImages = [...images];
+    const newIdx = direction === 'left' ? index - 1 : index + 1;
+    if (newIdx < 0 || newIdx >= images.length) return;
+    [newImages[index], newImages[newIdx]] = [newImages[newIdx], newImages[index]];
+    setImages(newImages);
+  };
+
   const handleAddNewTag = async () => {
     if (!db || !newTagName.trim()) return
     const tag = newTagName.toUpperCase().trim()
@@ -261,7 +271,7 @@ export default function RegistryPage() {
           <Button variant="ghost" size="icon" onClick={() => router.push('/inventory')} className="h-12 w-12 rounded-2xl hover:bg-primary/5">
             <ArrowLeft className="w-6 h-6 text-primary" />
           </Button>
-          <h1 className="text-3xl font-headline font-black text-foreground uppercase tracking-tight">Registro de productos</h1>
+          <h1 className="text-3xl font-headline font-black text-foreground uppercase tracking-tight">Registro</h1>
         </div>
         <div className="bg-primary text-white px-8 py-2 rounded-2xl font-black text-2xl shadow-xl shadow-primary/20">{nextId}</div>
       </div>
@@ -286,7 +296,7 @@ export default function RegistryPage() {
                     <div className="flex items-center justify-between ml-1 pr-1">
                       <Label className="text-[11px] uppercase font-black text-primary tracking-widest">Categoría *</Label>
                       <button 
-                        className="text-primary/40 hover:text-primary transition-colors" 
+                        className="text-primary/40 hover:text-primary transition-colors p-1" 
                         onClick={() => { setTagManagerConfig({ type: 'category', title: 'Gestionar Categorías' }); setIsTagManagerOpen(true); }}
                       >
                         <Settings2 className="w-4 h-4" />
@@ -294,7 +304,7 @@ export default function RegistryPage() {
                     </div>
                     <Select value={form.category} onValueChange={v => setForm({...form, category: v})}>
                       <SelectTrigger className="h-14 border-primary/10 rounded-2xl font-black text-[12px] uppercase shadow-sm bg-white">
-                        <SelectValue placeholder="" />
+                        <SelectValue placeholder="Seleccionar" />
                       </SelectTrigger>
                       <SelectContent className="rounded-2xl">
                         {uniqueCategories.map(cat => (
@@ -308,7 +318,7 @@ export default function RegistryPage() {
                     <div className="flex items-center justify-between ml-1 pr-1">
                       <Label className="text-[11px] uppercase font-black text-primary tracking-widest">Colección *</Label>
                       <button 
-                        className="text-primary/40 hover:text-primary transition-colors" 
+                        className="text-primary/40 hover:text-primary transition-colors p-1" 
                         onClick={() => { setTagManagerConfig({ type: 'collection', title: 'Gestionar Colecciones' }); setIsTagManagerOpen(true); }}
                       >
                         <Settings2 className="w-4 h-4" />
@@ -316,7 +326,7 @@ export default function RegistryPage() {
                     </div>
                     <Select value={form.collection} onValueChange={v => setForm({...form, collection: v})}>
                       <SelectTrigger className="h-14 border-primary/10 rounded-2xl font-black text-[12px] uppercase shadow-sm bg-white">
-                        <SelectValue placeholder="" />
+                        <SelectValue placeholder="Seleccionar" />
                       </SelectTrigger>
                       <SelectContent className="rounded-2xl">
                         {uniqueCollections.map(col => (
@@ -335,7 +345,6 @@ export default function RegistryPage() {
                     type="number" 
                     value={form.stock} 
                     onChange={e => setForm({...form, stock: e.target.value})} 
-                    placeholder=""
                     className="h-14 rounded-2xl font-black text-lg text-center border-green-200 bg-green-50 text-green-700 shadow-sm" 
                   />
                 </div>
@@ -345,7 +354,6 @@ export default function RegistryPage() {
                     type="number" 
                     value={form.priceFardo} 
                     onChange={e => setForm({...form, priceFardo: e.target.value})} 
-                    placeholder=""
                     className="h-14 rounded-2xl font-black text-lg text-center border-orange-100 bg-orange-50 text-orange-600 shadow-sm" 
                   />
                 </div>
@@ -355,7 +363,6 @@ export default function RegistryPage() {
                     type="number" 
                     value={form.priceMayor} 
                     onChange={e => setForm({...form, priceMayor: e.target.value})} 
-                    placeholder=""
                     className="h-14 rounded-2xl font-black text-lg text-center border-orange-100 bg-orange-50 text-orange-600 shadow-sm" 
                   />
                 </div>
@@ -365,7 +372,6 @@ export default function RegistryPage() {
                     type="number" 
                     value={form.priceUnidad} 
                     onChange={e => setForm({...form, priceUnidad: e.target.value})} 
-                    placeholder=""
                     className="h-14 rounded-2xl font-black text-lg text-center border-orange-100 bg-orange-50 text-orange-600 shadow-sm" 
                   />
                 </div>
@@ -376,7 +382,6 @@ export default function RegistryPage() {
                 <Textarea 
                   value={form.description} 
                   onChange={e => setForm({...form, description: e.target.value})} 
-                  placeholder=""
                   className="min-h-[120px] rounded-[2rem] bg-primary/5 p-6 text-sm font-medium border-none text-foreground focus:ring-primary shadow-inner" 
                 />
               </div>
@@ -400,9 +405,34 @@ export default function RegistryPage() {
                       <Loader2 className="w-8 h-8 text-white animate-spin" />
                     </div>
                   ) : (
-                    <button onClick={() => setImages(images.filter((_, i) => i !== idx))} className="absolute top-2 right-2 p-2 bg-destructive rounded-full text-white shadow-xl opacity-0 group-hover:opacity-100 transition-opacity">
-                      <X className="w-4 h-4" />
-                    </button>
+                    <>
+                      <button 
+                        onClick={() => setImages(images.filter((_, i) => i !== idx))} 
+                        className="absolute top-2 right-2 p-2 bg-destructive rounded-full text-white shadow-xl opacity-0 group-hover:opacity-100 transition-opacity z-20"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                      
+                      {/* CONTROLES DE ORDEN - MÓVIL AMIGABLE */}
+                      <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-2 px-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                        {idx > 0 && (
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); moveImage(idx, 'left'); }}
+                            className="bg-black/60 text-white p-2 rounded-xl hover:bg-black"
+                          >
+                            <ChevronLeft className="w-5 h-5" />
+                          </button>
+                        )}
+                        {idx < images.length - 1 && (
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); moveImage(idx, 'right'); }}
+                            className="bg-black/60 text-white p-2 rounded-xl hover:bg-black"
+                          >
+                            <ChevronRight className="w-5 h-5" />
+                          </button>
+                        )}
+                      </div>
+                    </>
                   )}
                 </div>
               ))}
@@ -420,16 +450,16 @@ export default function RegistryPage() {
             {hasPendingUploads && (
               <div className="bg-orange-50 border border-orange-200 p-4 rounded-2xl flex items-center gap-3 animate-pulse">
                 <AlertCircle className="w-5 h-5 text-orange-600" />
-                <span className="text-[10px] font-black uppercase text-orange-700">Subiendo fotos a Drive...</span>
+                <span className="text-[10px] font-black uppercase text-orange-700">Subiendo a Drive...</span>
               </div>
             )}
             <Button 
-              className="h-20 rounded-[2.5rem] bg-primary text-white font-black text-xl shadow-2xl shadow-primary/20 hover:opacity-90 active:scale-95 transition-all" 
+              className="h-20 rounded-[2.5rem] bg-primary text-white font-black text-xl shadow-2xl shadow-primary/20 hover:opacity-90 active:scale-95 transition-all w-full" 
               onClick={handleSave} 
               disabled={saving || hasPendingUploads}
             >
               {saving ? <Loader2 className="animate-spin w-6 h-6" /> : <Save className="mr-3 w-6 h-6" />} 
-              {editId ? "ACTUALIZAR FICHA" : "GUARDAR PRENDA"}
+              {editId ? "ACTUALIZAR" : "GUARDAR"}
             </Button>
           </div>
         </div>
@@ -447,7 +477,6 @@ export default function RegistryPage() {
                 <Input 
                   value={newTagName} 
                   onChange={e => setNewTagName(e.target.value)}
-                  placeholder=""
                   className="h-12 font-black uppercase border-primary/10 rounded-xl"
                 />
                 <Button className="h-12 w-12 rounded-xl bg-primary text-white shadow-lg" onClick={handleAddNewTag}>
@@ -457,10 +486,10 @@ export default function RegistryPage() {
             </div>
 
             <div className="space-y-3">
-              <Label className="text-[10px] font-black uppercase text-primary/40 ml-1">Lista de Existentes</Label>
+              <Label className="text-[10px] font-black uppercase text-primary/40 ml-1">Existentes</Label>
               <div className="max-h-[300px] overflow-y-auto pr-2 space-y-2 scrollbar-hide">
                 {currentTagsList.length > 0 ? currentTagsList.map(tag => (
-                  <div key={tag} className="flex items-center justify-between p-4 bg-primary/5 rounded-2xl border border-primary/5 group">
+                  <div key={tag} className="flex items-center justify-between p-4 bg-primary/5 rounded-2xl border border-primary/5">
                     <span className="font-black text-xs uppercase text-foreground">{tag}</span>
                     <Button 
                       variant="ghost" 
@@ -483,26 +512,21 @@ export default function RegistryPage() {
       <Dialog open={!!editingTagName} onOpenChange={() => setEditingTagName(null)}>
         <DialogContent className="rounded-[3rem] border-none shadow-2xl max-w-sm">
           <DialogHeader>
-            <DialogTitle className="text-sm font-black text-primary uppercase tracking-widest text-center">Corregir Nombre</DialogTitle>
+            <DialogTitle className="text-sm font-black text-primary uppercase tracking-widest text-center">Corregir</DialogTitle>
           </DialogHeader>
           <div className="space-y-6 pt-4">
-            <div className="bg-primary/5 p-6 rounded-2xl border border-primary/10 text-center">
-              <span className="text-[10px] font-black uppercase text-primary/40 block mb-1">Actual</span>
-              <span className="text-xl font-headline font-black text-foreground uppercase">{editingTagName?.old || ''}</span>
-            </div>
             <div className="space-y-2">
               <Label className="text-[10px] font-black uppercase text-primary/40 ml-1">Nuevo Nombre</Label>
               <Input 
                 value={editingTagName?.new || ''} 
                 onChange={e => setEditingTagName(prev => prev ? ({ ...prev, new: e.target.value.toUpperCase() }) : null)}
-                placeholder=""
                 className="h-14 font-black uppercase text-center border-primary/10 rounded-2xl shadow-inner"
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <Button variant="outline" className="h-14 rounded-2xl font-black text-[10px] uppercase border-primary/10" onClick={() => setEditingTagName(null)}>CANCELAR</Button>
-              <Button className="h-14 rounded-2xl bg-primary text-white font-black text-[10px] uppercase shadow-lg shadow-primary/20" onClick={handleRenameTag} disabled={saving || !editingTagName?.new.trim()}>
-                {saving ? <Loader2 className="animate-spin" /> : "ACTUALIZAR TODO"}
+              <Button variant="outline" className="h-14 rounded-2xl font-black text-[10px] uppercase" onClick={() => setEditingTagName(null)}>CANCELAR</Button>
+              <Button className="h-14 rounded-2xl bg-primary text-white font-black text-[10px] uppercase" onClick={handleRenameTag} disabled={saving || !editingTagName?.new.trim()}>
+                {saving ? <Loader2 className="animate-spin" /> : "CAMBIAR TODO"}
               </Button>
             </div>
           </div>
