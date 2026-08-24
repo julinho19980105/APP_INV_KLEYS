@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from "react"
-import { Settings, Save, Building2, Upload, LayoutGrid, Layers, X, Loader2, Printer, Link as LinkIcon } from "lucide-react"
+import { Settings, Save, Building2, Upload, X, Loader2, Printer } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -25,8 +25,7 @@ export default function SettingsPage() {
     companyLogo: "",
     brandColor: "#FF3399",
     inventoryViewMode: "collection",
-    printerWidth: "80",
-    catalogUrl: ""
+    printerWidth: "80"
   })
   const [saving, setSaving] = React.useState(false)
 
@@ -37,8 +36,7 @@ export default function SettingsPage() {
         companyLogo: dbConfig.companyLogo || "",
         brandColor: dbConfig.brandColor || "#FF3399",
         inventoryViewMode: dbConfig.inventoryViewMode || "collection",
-        printerWidth: dbConfig.printerWidth || "80",
-        catalogUrl: dbConfig.catalogUrl || ""
+        printerWidth: dbConfig.printerWidth || "80"
       })
     }
   }, [dbConfig])
@@ -79,7 +77,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 pt-2 pb-24">
+    <div className="max-w-4xl mx-auto space-y-6 pt-2 pb-24 px-2 md:px-0">
       <div className="flex items-center gap-3 border-b-2 border-black pb-4">
         <div className="w-12 h-12 bg-black rounded-2xl flex items-center justify-center border border-black/10">
           <Settings className="w-6 h-6 text-white" />
@@ -157,18 +155,6 @@ export default function SettingsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-8 space-y-8">
-             <div className="space-y-1.5">
-               <Label className="text-[9px] font-black uppercase text-black ml-1 flex items-center gap-2">
-                 <LinkIcon className="w-3 h-3" /> URL Catálogo Externo
-               </Label>
-               <Input 
-                 value={form.catalogUrl}
-                 onChange={e => setForm({...form, catalogUrl: e.target.value})}
-                 placeholder="https://script.google.com/macros/s/..."
-                 className="h-12 font-medium border-black/10 rounded-xl text-xs bg-black/5" 
-               />
-             </div>
-
              <div className="space-y-4">
                <Label className="text-[9px] font-black uppercase text-black ml-1">Ancho de Ticket</Label>
                <RadioGroup 

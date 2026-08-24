@@ -47,7 +47,8 @@ import {
   PackagePlus,
   ChevronLeft,
   ChevronRight,
-  Filter
+  Filter,
+  Upload
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useCollection, useFirestore, useDoc } from "@/firebase"
@@ -55,6 +56,7 @@ import { collection, query, orderBy, doc, deleteDoc, serverTimestamp, updateDoc,
 import { useToast } from "@/hooks/use-toast"
 import { errorEmitter } from '@/firebase/error-emitter'
 import { FirestorePermissionError } from '@/firebase/errors'
+import { syncCatalogToDrive } from "@/services/sheets-service"
 
 function getDriveThumb(url: string, size: number = 400) {
   if (!url || !url.includes('drive.google.com')) return url;
@@ -80,6 +82,7 @@ export default function InventoryPage() {
   const [currentImgIdx, setCurrentImgIdx] = React.useState(0)
   const [addStockProduct, setAddStockProduct] = React.useState<any>(null)
   const [addStockQty, setAddStockQty] = React.useState("")
+  const [isExporting, setIsExporting] = React.useState(false)
 
   const configDocRef = React.useMemo(() => db ? doc(db, "config", "global") : null, [db])
   const { data: config } = useDoc(configDocRef)
@@ -107,6 +110,40 @@ export default function InventoryPage() {
       return matchesSearch && matchesCat && matchesCol
     })
   }, [products, searchQuery, categoryFilter, collectionFilter])
+
+  const handleExport = React.useCallback(async (isAuto = false) => {
+    if (!products || products.length === 0 || isExporting) return
+    setIsExporting(true)
+    try {
+      const activeProducts = products.filter(p => p.stock > 0)
+      await syncCatalogToDrive(activeProducts)
+      if (!isAuto) toast({ title: "SINCRONIZADO CON DRIVE" })
+      localStorage.setItem('last_drive_sync', new Date().toISOString())
+    } catch (e) {
+      if (!isAuto) toast({ variant: "destructive", title: "ERROR DE EXPORTACIÓN" })
+    } finally {
+      setIsExporting(false)
+    }
+  }, [products, isExporting, toast])
+
+  React.useEffect(() => {
+    const checkAutoSync = () => {
+      const now = new Date()
+      const hour = now.getHours()
+      if (hour === 0 || hour === 12) {
+        const lastSyncStr = localStorage.getItem('last_drive_sync')
+        if (lastSyncStr) {
+          const lastSync = new Date(lastSyncStr)
+          const diffMs = now.getTime() - lastSync.getTime()
+          if (diffMs < 3600000) return 
+        }
+        handleExport(true)
+      }
+    }
+    checkAutoSync()
+    const interval = setInterval(checkAutoSync, 600000)
+    return () => clearInterval(interval)
+  }, [handleExport])
 
   const handleInMovement = () => {
     if (!db || !addStockProduct || !addStockQty) return
@@ -177,41 +214,54 @@ export default function InventoryPage() {
         </div>
       )}
 
-      <div className="flex items-center justify-between gap-2 border-b border-primary/10 pb-3">
-        <div className="flex items-center gap-2">
-          <h1 className="text-lg font-headline font-black text-foreground uppercase tracking-tight">Inventario</h1>
-          <div className="flex gap-1 ml-2">
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="h-7 w-7 p-0 rounded-lg border-none shadow-none bg-transparent hover:bg-primary/5">
-                <Filter className="w-3.5 h-3.5 text-primary" />
-                <SelectValue className="hidden" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all" className="text-[9px] font-black uppercase">Todas</SelectItem>
-                {masterCategories.map(cat => <SelectItem key={cat} value={cat} className="text-[9px] font-black uppercase">{cat}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={collectionFilter} onValueChange={setCollectionFilter}>
-              <SelectTrigger className="h-7 w-7 p-0 rounded-lg border-none shadow-none bg-transparent hover:bg-primary/5">
-                <Package className="w-3.5 h-3.5 text-primary" />
-                <SelectValue className="hidden" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all" className="text-[9px] font-black uppercase">Todas</SelectItem>
-                {masterCollections.map(col => <SelectItem key={col} value={col} className="text-[9px] font-black uppercase">{col}</SelectItem>)}
-              </SelectContent>
-            </Select>
+      <div className="flex flex-col gap-3 border-b border-primary/10 pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl font-headline font-black text-foreground uppercase tracking-tight">Inventario</h1>
+            <div className="flex gap-1">
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="h-8 w-8 p-0 rounded-xl border-primary/10 shadow-sm bg-white hover:bg-primary/5 flex items-center justify-center">
+                  <Filter className="w-3.5 h-3.5 text-primary" />
+                  <SelectValue className="hidden" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all" className="text-[9px] font-black uppercase">Todas</SelectItem>
+                  {masterCategories.map(cat => <SelectItem key={cat} value={cat} className="text-[9px] font-black uppercase">{cat}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={collectionFilter} onValueChange={setCollectionFilter}>
+                <SelectTrigger className="h-8 w-8 p-0 rounded-xl border-primary/10 shadow-sm bg-white hover:bg-primary/5 flex items-center justify-center">
+                  <Package className="w-3.5 h-3.5 text-primary" />
+                  <SelectValue className="hidden" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all" className="text-[9px] font-black uppercase">Todas</SelectItem>
+                  {masterCollections.map(col => <SelectItem key={col} value={col} className="text-[9px] font-black uppercase">{col}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
         
-        <div className="relative w-40 md:w-60">
-          <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-primary/40" />
-          <Input 
-            placeholder="" 
-            className="pl-8 h-8 rounded-lg border-primary/10 font-black text-[9px] uppercase shadow-sm bg-white"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-          />
+        <div className="flex items-center gap-2 w-full">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-primary/40" />
+            <Input 
+              placeholder="BUSCAR PRENDA..." 
+              className="pl-9 h-10 rounded-xl border-primary/10 font-black text-[10px] uppercase shadow-sm bg-white"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+            />
+          </div>
+          <Button 
+            variant="outline"
+            onClick={() => handleExport()}
+            disabled={isExporting}
+            className="h-10 px-4 rounded-xl border-primary/20 text-primary font-black text-[10px] uppercase gap-2 bg-white shadow-sm hover:bg-primary/5 active:scale-95 transition-all"
+          >
+            {isExporting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+            EXPORT
+          </Button>
         </div>
       </div>
 

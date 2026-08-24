@@ -216,13 +216,11 @@ export default function SalesPage() {
         totalQty += qty
         const sub = ((Number(item.price) * qty) - (Number(item.discount) || 0)).toFixed(2)
         
-        // Enumeración 1-, 2-, etc.
         commands = new Uint8Array([
           ...commands,
           ...encoder.encode(`${idx + 1}- ${item.name.substring(0, charWidth - 4)}\n`)
         ])
         
-        // Subtotal alineado a la derecha
         const subLine = `${qty} x S/ ${item.price} = S/ ${sub}`;
         commands = new Uint8Array([
           ...commands,
@@ -477,7 +475,7 @@ export default function SalesPage() {
                   const sub = (Number(item.price) * Number(item.quantity)) - (Number(item.discount) || 0)
                   return (
                     <tr key={i} className="border-b border-black/5">
-                      <td className="py-6 px-6"><div className="font-black text-xl">{item.name}</div>{item.description && <div className="text-sm text-black/50 italic">{item.description}</div>}</td>
+                      <td className="py-6 px-6"><div className="font-black text-xl">{i + 1}- {item.name}</div>{item.description && <div className="text-sm text-black/50 italic">{item.description}</div>}</td>
                       <td className="py-6 text-center font-black">S/ {item.price}</td>
                       <td className="py-6 text-center font-black">{item.quantity}</td>
                       <td className="py-6 text-center text-destructive font-black">{Number(item.discount) > 0 ? `S/ ${item.discount}` : ""}</td>

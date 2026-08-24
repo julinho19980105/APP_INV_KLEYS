@@ -5,7 +5,6 @@ import * as React from "react"
 import { 
   Package, 
   ShoppingBag,
-  BookOpen,
   History,
   Settings
 } from "lucide-react"
@@ -32,7 +31,6 @@ const navItems = [
   { name: "Ventas", href: "/sales", icon: ShoppingBag },
   { name: "Inventario", href: "/inventory", icon: Package },
   { name: "Movimientos", href: "/movements", icon: History },
-  { name: "Catálogo", href: "/catalogo", icon: BookOpen },
   { name: "Ajustes", href: "/settings", icon: Settings },
 ]
 
