@@ -71,9 +71,23 @@
         "brandColor": { "type": "string" },
         "inventoryViewMode": { "type": "string" },
         "printerWidth": { "type": "string", "enum": ["58", "80"] },
-        "catalogUrl": { "type": "string", "description": "URL de implementación del Catálogo Externo" },
-        "availableCategories": { "type": "array", "items": { "type": "string" } },
-        "availableCollections": { "type": "array", "items": { "type": "string" } }
+        "catalogUrl": { "type": "string", "description": "URL de implementación del Catálogo Externo" }
+      }
+    },
+    "Category": {
+      "title": "Categoría",
+      "description": "Categoría de producto",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" }
+      }
+    },
+    "Collection": {
+      "title": "Colección",
+      "description": "Colección de temporada",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" }
       }
     }
   },
@@ -100,6 +114,14 @@
     "/config/{configId}": {
       "schema": "AppConfig",
       "description": "Ajustes de identidad y sistema"
+    },
+    "/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "Lista maestra de categorías"
+    },
+    "/collections/{collectionId}": {
+      "schema": "Collection",
+      "description": "Lista maestra de colecciones"
     }
   }
 }

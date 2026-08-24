@@ -25,11 +25,25 @@ import {
   Settings2,
   AlertCircle,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Trash2
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useFirestore, useDoc, useCollection } from "@/firebase"
-import { doc, setDoc, collection, query, orderBy, serverTimestamp, getDocs, limit, writeBatch, updateDoc, arrayUnion } from "firebase/firestore"
+import { 
+  doc, 
+  setDoc, 
+  collection, 
+  query, 
+  orderBy, 
+  serverTimestamp, 
+  getDocs, 
+  limit, 
+  writeBatch, 
+  updateDoc, 
+  addDoc,
+  deleteDoc
+} from "firebase/firestore"
 import { uploadImageToDrive } from "@/services/sheets-service"
 import { 
   Dialog,
@@ -75,6 +89,12 @@ export default function RegistryPage() {
   const productsQuery = React.useMemo(() => db ? query(collection(db, "products"), orderBy("code")) : null, [db])
   const { data: allProducts = [] } = useCollection(productsQuery)
 
+  // NUEVAS CONSULTAS A COLECCIONES MAESTRAS
+  const categoriesRef = React.useMemo(() => db ? query(collection(db, "categories"), orderBy("name")) : null, [db])
+  const collectionsRef = React.useMemo(() => db ? query(collection(db, "collections"), orderBy("name")) : null, [db])
+  const { data: dbCategories = [] } = useCollection(categoriesRef)
+  const { data: dbCollections = [] } = useCollection(collectionsRef)
+
   const [form, setForm] = React.useState({ 
     name: "", 
     category: "", 
@@ -92,19 +112,20 @@ export default function RegistryPage() {
   const [isTagManagerOpen, setIsTagManagerOpen] = React.useState(false)
   const [tagManagerConfig, setTagManagerConfig] = React.useState<{ type: 'category' | 'collection', title: string }>({ type: 'category', title: '' })
   const [newTagName, setNewTagName] = React.useState("")
-  const [editingTagName, setEditingTagName] = React.useState<{ old: string, new: string } | null>(null)
+  const [editingTagName, setEditingTagName] = React.useState<{ id: string, name: string } | null>(null)
 
+  // COMBINACIÓN DE DATOS MAESTROS CON PRODUCTOS EXISTENTES
   const uniqueCategories = React.useMemo(() => {
     const fromProducts = allProducts.map(p => (p.category || '').toUpperCase()).filter(Boolean)
-    const fromConfig = config?.availableCategories || []
-    return Array.from(new Set([...fromProducts, ...fromConfig])).sort()
-  }, [allProducts, config])
+    const fromMaster = dbCategories.map(c => (c.name || '').toUpperCase()).filter(Boolean)
+    return Array.from(new Set([...fromProducts, ...fromMaster])).sort()
+  }, [allProducts, dbCategories])
 
   const uniqueCollections = React.useMemo(() => {
     const fromProducts = allProducts.map(p => (p.collection || '').toUpperCase()).filter(Boolean)
-    const fromConfig = config?.availableCollections || []
-    return Array.from(new Set([...fromProducts, ...fromConfig])).sort()
-  }, [allProducts, config])
+    const fromMaster = dbCollections.map(c => (c.name || '').toUpperCase()).filter(Boolean)
+    return Array.from(new Set([...fromProducts, ...fromMaster])).sort()
+  }, [allProducts, dbCollections])
 
   React.useEffect(() => {
     if (!db || editId) return
@@ -219,41 +240,41 @@ export default function RegistryPage() {
   const handleAddNewTag = async () => {
     if (!db || !newTagName.trim()) return
     const tag = newTagName.toUpperCase().trim()
-    const field = tagManagerConfig.type === 'category' ? 'availableCategories' : 'availableCollections'
+    const collectionName = tagManagerConfig.type === 'category' ? 'categories' : 'collections'
     try {
-      await updateDoc(doc(db, "config", "global"), {
-        [field]: arrayUnion(tag)
+      await addDoc(collection(db, collectionName), {
+        name: tag,
+        createdAt: serverTimestamp()
       })
       setNewTagName("")
-      toast({ title: "Agregado a la lista" })
+      toast({ title: "Agregado a la lista maestra" })
     } catch (e) {
       toast({ variant: "destructive", title: "Error" })
     }
   }
 
   const handleRenameTag = async () => {
-    if (!db || !editingTagName || !editingTagName.new.trim()) return
+    if (!db || !editingTagName || !editingTagName.name.trim()) return
     setSaving(true)
-    const oldTag = editingTagName.old.toUpperCase()
-    const newTag = editingTagName.new.toUpperCase().trim()
+    const oldName = dbCategories.find(c => c.id === editingTagName.id)?.name || dbCollections.find(c => c.id === editingTagName.id)?.name
+    const newName = editingTagName.name.toUpperCase().trim()
     const type = tagManagerConfig.type
+    const collName = type === 'category' ? 'categories' : 'collections'
 
     try {
       const batch = writeBatch(db)
-      const targetProducts = allProducts.filter(p => (p[type] || '').toUpperCase() === oldTag)
       
+      // Actualizar en la colección maestra
+      batch.update(doc(db, collName, editingTagName.id), { name: newName })
+
+      // Actualizar en productos existentes (Opcional, pero recomendado para consistencia)
+      const targetProducts = allProducts.filter(p => (p[type] || '').toUpperCase() === (oldName || '').toUpperCase())
       targetProducts.forEach(p => {
-        const ref = doc(db, "products", p.id)
-        batch.update(ref, { [type]: newTag, updatedAt: serverTimestamp() })
+        batch.update(doc(db, "products", p.id), { [type]: newName, updatedAt: serverTimestamp() })
       })
-      
-      const field = type === 'category' ? 'availableCategories' : 'availableCollections'
-      const currentList = config?.[field] || []
-      const newList = Array.from(new Set(currentList.map((t: string) => t.toUpperCase() === oldTag ? newTag : t.toUpperCase())))
-      batch.update(doc(db, "config", "global"), { [field]: newList })
 
       await batch.commit()
-      toast({ title: "Renombrado Global Exitoso" })
+      toast({ title: "Cambio Global Exitoso" })
       setEditingTagName(null)
     } catch (e) {
       toast({ variant: "destructive", title: "Error" })
@@ -262,7 +283,19 @@ export default function RegistryPage() {
     }
   }
 
-  const currentTagsList = tagManagerConfig.type === 'category' ? uniqueCategories : uniqueCollections
+  const handleRemoveTag = async (tagId: string) => {
+    if (!db) return
+    if (!confirm("¿Desea eliminar esta etiqueta de la lista maestra?")) return
+    const collName = tagManagerConfig.type === 'category' ? 'categories' : 'collections'
+    try {
+      await deleteDoc(doc(db, collName, tagId))
+      toast({ title: "Eliminado de la lista" })
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error" })
+    }
+  }
+
+  const currentTagsList = tagManagerConfig.type === 'category' ? dbCategories : dbCollections
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 pt-4 pb-24 px-2 md:px-0">
@@ -486,19 +519,29 @@ export default function RegistryPage() {
             </div>
 
             <div className="space-y-3">
-              <Label className="text-[10px] font-black uppercase text-primary/40 ml-1">Existentes</Label>
+              <Label className="text-[10px] font-black uppercase text-primary/40 ml-1">Existentes en Lista Maestra</Label>
               <div className="max-h-[300px] overflow-y-auto pr-2 space-y-2 scrollbar-hide">
                 {currentTagsList.length > 0 ? currentTagsList.map(tag => (
-                  <div key={tag} className="flex items-center justify-between p-4 bg-primary/5 rounded-2xl border border-primary/5">
-                    <span className="font-black text-xs uppercase text-foreground">{tag}</span>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-8 w-8 rounded-full text-primary/40 hover:text-primary hover:bg-white"
-                      onClick={() => setEditingTagName({ old: tag, new: tag })}
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </Button>
+                  <div key={tag.id} className="flex items-center justify-between p-4 bg-primary/5 rounded-2xl border border-primary/5">
+                    <span className="font-black text-xs uppercase text-foreground">{tag.name}</span>
+                    <div className="flex gap-1">
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 rounded-full text-primary/40 hover:text-primary hover:bg-white"
+                        onClick={() => setEditingTagName({ id: tag.id, name: tag.name })}
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 rounded-full text-destructive/40 hover:text-destructive hover:bg-white"
+                        onClick={() => handleRemoveTag(tag.id)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
                 )) : (
                   <div className="text-center py-10 opacity-20 font-black text-[10px] uppercase">Lista vacía</div>
@@ -518,14 +561,14 @@ export default function RegistryPage() {
             <div className="space-y-2">
               <Label className="text-[10px] font-black uppercase text-primary/40 ml-1">Nuevo Nombre</Label>
               <Input 
-                value={editingTagName?.new || ''} 
-                onChange={e => setEditingTagName(prev => prev ? ({ ...prev, new: e.target.value.toUpperCase() }) : null)}
+                value={editingTagName?.name || ''} 
+                onChange={e => setEditingTagName(prev => prev ? ({ ...prev, name: e.target.value.toUpperCase() }) : null)}
                 className="h-14 font-black uppercase text-center border-primary/10 rounded-2xl shadow-inner"
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <Button variant="outline" className="h-14 rounded-2xl font-black text-[10px] uppercase" onClick={() => setEditingTagName(null)}>CANCELAR</Button>
-              <Button className="h-14 rounded-2xl bg-primary text-white font-black text-[10px] uppercase" onClick={handleRenameTag} disabled={saving || !editingTagName?.new.trim()}>
+              <Button className="h-14 rounded-2xl bg-primary text-white font-black text-[10px] uppercase" onClick={handleRenameTag} disabled={saving || !editingTagName?.name.trim()}>
                 {saving ? <Loader2 className="animate-spin" /> : "CAMBIAR TODO"}
               </Button>
             </div>
