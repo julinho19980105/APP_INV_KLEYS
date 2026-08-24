@@ -76,7 +76,6 @@ export default function InventoryPage() {
   const [searchQuery, setSearchQuery] = React.useState("")
   const [categoryFilter, setCategoryFilter] = React.useState("all")
   const [collectionFilter, setCollectionFilter] = React.useState("all")
-  const [isRecentSort, setIsRecentSort] = React.useState(true)
   const [selectedProduct, setSelectedProduct] = React.useState<any>(null)
   const [currentImgIdx, setCurrentImgIdx] = React.useState(0)
   const [addStockProduct, setAddStockProduct] = React.useState<any>(null)
@@ -87,8 +86,8 @@ export default function InventoryPage() {
   const brandColor = config?.brandColor || "#FF3399"
   
   const productsRef = React.useMemo(() => 
-    db ? query(collection(db, "products"), orderBy(isRecentSort ? "updatedAt" : "code", isRecentSort ? "desc" : "asc")) : null
-  , [db, isRecentSort])
+    db ? query(collection(db, "products"), orderBy("updatedAt", "desc")) : null
+  , [db])
   const { data: products = [], loading: productsLoading } = useCollection(productsRef)
 
   const categoriesRef = React.useMemo(() => db ? query(collection(db, "categories"), orderBy("name")) : null, [db])
@@ -122,9 +121,7 @@ export default function InventoryPage() {
       quantity: qty,
       reason: "REPOSICIÓN DE STOCK",
       timestamp: serverTimestamp()
-    }).catch(async () => {
-      errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'movements', operation: 'create' }));
-    });
+    }).catch(() => {});
     
     updateDoc(productRef, {
       stock: increment(qty),
@@ -140,11 +137,12 @@ export default function InventoryPage() {
 
   const onDelete = (id: string) => {
     if (!db) return
-    if (!confirm("¿Desea eliminar esta prenda?")) return
-    deleteDoc(doc(db, "products", id)).catch(async () => {
-      errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `products/${id}`, operation: 'delete' }));
-    });
-    toast({ title: "Producto eliminado" })
+    if (confirm("¿Desea eliminar esta prenda?")) {
+      deleteDoc(doc(db, "products", id)).catch(async () => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `products/${id}`, operation: 'delete' }));
+      });
+      toast({ title: "Producto eliminado" })
+    }
   }
 
   const openDetail = (product: any) => {
@@ -292,7 +290,7 @@ export default function InventoryPage() {
 
       <Dialog open={!!selectedProduct} onOpenChange={() => setSelectedProduct(null)}>
         <DialogContent 
-          className="max-w-md p-0 border-none rounded-[2rem] overflow-hidden bg-white shadow-2xl"
+          className="max-w-[95vw] md:max-w-md p-0 border-none rounded-[2rem] overflow-hidden bg-white shadow-2xl"
           onCloseAutoFocus={(e) => e.preventDefault()}
         >
           <DialogHeader className="sr-only"><DialogTitle>Detalle</DialogTitle></DialogHeader>
@@ -337,10 +335,6 @@ export default function InventoryPage() {
                   <div><p className="text-[7px] font-black text-primary/40 uppercase tracking-widest">P. UNIDAD</p><p className="text-lg font-black text-foreground">S/ {selectedProduct.priceUnidad}</p></div>
                 </div>
                 <p className="text-[10px] font-medium text-muted-foreground italic leading-relaxed">"{selectedProduct.description || 'Sin descripción.'}"</p>
-                <div className="grid grid-cols-2 gap-2 pt-2">
-                   <Button variant="outline" className="h-12 rounded-xl border-primary/10 text-primary font-black text-[9px] uppercase" onClick={() => { setSelectedProduct(null); setAddStockProduct(selectedProduct); }}>+ Stock</Button>
-                   <Button className="h-12 rounded-xl bg-primary text-white font-black text-[9px] uppercase" onClick={() => { setSelectedProduct(null); router.push(`/registry?edit=${selectedProduct.id}`); }}><Edit2 className="w-3.5 h-3.5 mr-2" /> Editar</Button>
-                </div>
               </div>
             </div>
           )}

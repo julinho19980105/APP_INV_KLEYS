@@ -6,7 +6,6 @@ import {
   Package, 
   ShoppingBag,
   BookOpen,
-  Heart,
   History,
   Settings
 } from "lucide-react"
@@ -61,7 +60,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 }
 
 function AppSidebar({ pathname }: { pathname: string }) {
-  const { toggleSidebar } = useSidebar()
+  const { toggleSidebar, isMobile, setOpenMobile } = useSidebar()
   const db = useFirestore()
   const configDocRef = React.useMemo(() => db ? doc(db, "config", "global") : null, [db])
   const { data: companySettings } = useDoc(configDocRef)
@@ -70,6 +69,12 @@ function AppSidebar({ pathname }: { pathname: string }) {
     companyName: companySettings?.companyName || "STILOSTACK",
     companyLogo: companySettings?.companyLogo || "",
     brandColor: companySettings?.brandColor || "#FF3399"
+  }
+
+  const handleLinkClick = () => {
+    if (isMobile) {
+      setOpenMobile(false)
+    }
   }
 
   return (
@@ -111,7 +116,7 @@ function AppSidebar({ pathname }: { pathname: string }) {
                     : "hover:bg-primary/5 hover:text-primary"
                 )}
               >
-                <Link href={item.href}>
+                <Link href={item.href} onClick={handleLinkClick}>
                   <item.icon 
                     className={cn("w-5 h-5")} 
                     style={{ color: pathname === item.href ? '#FFFFFF' : settings.brandColor }} 
