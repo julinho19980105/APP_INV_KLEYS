@@ -282,7 +282,10 @@ export default function InventoryPage() {
       </div>
 
       <Dialog open={!!selectedProduct} onOpenChange={() => setSelectedProduct(null)}>
-        <DialogContent className="max-w-md p-0 border-none rounded-[2rem] overflow-hidden bg-white shadow-2xl">
+        <DialogContent 
+          className="max-w-md p-0 border-none rounded-[2rem] overflow-hidden bg-white shadow-2xl"
+          onCloseAutoFocus={(e) => e.preventDefault()}
+        >
           <DialogHeader className="sr-only"><DialogTitle>Detalle</DialogTitle></DialogHeader>
           {selectedProduct && (
             <div className="flex flex-col">

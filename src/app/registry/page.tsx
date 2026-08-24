@@ -99,7 +99,6 @@ export default function RegistryPage() {
   })
   
   const [images, setImages] = React.useState<string[]>([])
-  const [uploadingIdx, setUploadingIdx] = React.useState<number | null>(null)
   
   const [isTagManagerOpen, setIsTagManagerOpen] = React.useState(false)
   const [tagManagerConfig, setTagManagerConfig] = React.useState<{ type: 'category' | 'collection', title: string }>({ type: 'category', title: '' })
@@ -201,7 +200,6 @@ export default function RegistryPage() {
       const tempIdx = images.length;
       
       setImages(prev => [...prev, base64]);
-      setUploadingIdx(tempIdx);
 
       try {
         const driveUrl = await uploadImageToDrive(base64, `${nextId}_${Date.now()}.jpg`);
@@ -213,8 +211,6 @@ export default function RegistryPage() {
       } catch (err: any) {
         setImages(prev => prev.filter((_, i) => i !== tempIdx));
         toast({ variant: "destructive", title: "Error al subir a Drive" });
-      } finally {
-        setUploadingIdx(null);
       }
     };
     reader.readAsDataURL(file);
