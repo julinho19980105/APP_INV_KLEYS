@@ -54,6 +54,8 @@ import { cn } from "@/lib/utils"
 import { useCollection, useFirestore, useDoc } from "@/firebase"
 import { collection, query, orderBy, doc, deleteDoc, serverTimestamp, updateDoc, increment, addDoc } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
+import { errorEmitter } from '@/firebase/error-emitter'
+import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors'
 
 function getDriveThumb(url: string, size: number = 400) {
   if (!url || !url.includes('drive.google.com')) return url;
@@ -118,38 +120,56 @@ export default function InventoryPage() {
     })
   }, [products, searchQuery, categoryFilter, collectionFilter])
 
-  const handleInMovement = async () => {
+  const handleInMovement = () => {
     if (!db || !addStockProduct || !addStockQty) return
     const qty = Number(addStockQty)
     if (isNaN(qty) || qty <= 0) return
 
-    try {
-      addDoc(collection(db, "movements"), {
-        productCode: addStockProduct.code,
-        type: "in",
-        quantity: qty,
-        reason: "REPOSICIÓN DE STOCK MANUAL",
-        timestamp: serverTimestamp()
-      });
-      
-      updateDoc(doc(db, "products", addStockProduct.id), {
-        stock: increment(qty),
-        updatedAt: serverTimestamp()
-      });
+    const productRef = doc(db, "products", addStockProduct.id)
+    const movementRef = collection(db, "movements")
 
-      toast({ title: "Stock Actualizado" })
-      setAddStockProduct(null)
-      setAddStockQty("")
-    } catch (e) { toast({ variant: "destructive", title: "Error" }) }
+    addDoc(movementRef, {
+      productCode: addStockProduct.code,
+      type: "in",
+      quantity: qty,
+      reason: "REPOSICIÓN DE STOCK MANUAL",
+      timestamp: serverTimestamp()
+    }).catch(async (error) => {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: 'movements',
+        operation: 'create',
+        requestResourceData: { productCode: addStockProduct.code, type: 'in', quantity: qty }
+      }));
+    });
+    
+    updateDoc(productRef, {
+      stock: increment(qty),
+      updatedAt: serverTimestamp()
+    }).catch(async (error) => {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: productRef.path,
+        operation: 'update',
+        requestResourceData: { stock: increment(qty) }
+      }));
+    });
+
+    toast({ title: "Stock Actualizado" })
+    setAddStockProduct(null)
+    setAddStockQty("")
   }
 
-  const onDelete = async (id: string) => {
+  const onDelete = (id: string) => {
     if (!db) return
     if (!confirm("¿Desea eliminar esta prenda?")) return
-    try {
-      await deleteDoc(doc(db, "products", id))
-      toast({ title: "Producto Eliminado" })
-    } catch (e) { toast({ variant: "destructive", title: "Error" }) }
+    
+    const productRef = doc(db, "products", id)
+    deleteDoc(productRef).catch(async (error) => {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: productRef.path,
+        operation: 'delete'
+      }));
+    });
+    toast({ title: "Producto Eliminado" })
   }
 
   return (
