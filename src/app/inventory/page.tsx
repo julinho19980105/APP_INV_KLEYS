@@ -43,10 +43,11 @@ import {
   X,
   Loader2,
   Package,
-  Eye,
   Plus,
   PackagePlus,
-  CheckCircle2
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useCollection, useFirestore, useDoc } from "@/firebase"
@@ -77,6 +78,7 @@ export default function InventoryPage() {
   const [collectionFilter, setCollectionFilter] = React.useState("all")
   const [isRecentSort, setIsRecentSort] = React.useState(true)
   const [selectedProduct, setSelectedProduct] = React.useState<any>(null)
+  const [currentImgIdx, setCurrentImgIdx] = React.useState(0)
   const [addStockProduct, setAddStockProduct] = React.useState<any>(null)
   const [addStockQty, setAddStockQty] = React.useState("")
 
@@ -143,6 +145,11 @@ export default function InventoryPage() {
       errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `products/${id}`, operation: 'delete' }));
     });
     toast({ title: "Producto eliminado" })
+  }
+
+  const openDetail = (product: any) => {
+    setSelectedProduct(product)
+    setCurrentImgIdx(0)
   }
 
   return (
@@ -229,9 +236,12 @@ export default function InventoryPage() {
               {productsLoading ? (
                 <TableRow><TableCell colSpan={6} className="h-20 text-center opacity-40 text-[9px] font-black uppercase">Cargando...</TableCell></TableRow>
               ) : filteredProducts.map(p => (
-                <TableRow key={p.id} className="hover:bg-primary/[0.01] border-b last:border-0 h-16 cursor-pointer" onClick={() => setSelectedProduct(p)}>
+                <TableRow key={p.id} className="hover:bg-primary/[0.01] border-b last:border-0 h-16">
                   <TableCell className="pl-4 py-2 w-12">
-                    <div className="w-10 h-10 rounded-lg border overflow-hidden bg-secondary shadow-sm">
+                    <div 
+                      className="w-10 h-10 rounded-lg border overflow-hidden bg-secondary shadow-sm cursor-pointer active:scale-95 transition-transform"
+                      onClick={() => openDetail(p)}
+                    >
                       {p.images?.[0] ? <img src={getDriveThumb(p.images[0], 200)} className="w-full h-full object-cover" /> : <ImageIcon className="w-full h-full p-2 opacity-10" />}
                     </div>
                   </TableCell>
@@ -259,11 +269,10 @@ export default function InventoryPage() {
                       <span className="text-[5px] font-bold">UND</span>
                     </div>
                   </TableCell>
-                  <TableCell className="pr-4 text-right" onClick={e => e.stopPropagation()}>
+                  <TableCell className="pr-4 text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7"><MoreVertical className="w-3 h-3 text-primary" /></Button></DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="rounded-xl p-1 shadow-xl w-40">
-                        <DropdownMenuItem className="text-[9px] font-black uppercase gap-2.5 p-2.5" onClick={() => setSelectedProduct(p)}><Eye className="w-3 h-3" /> Ver</DropdownMenuItem>
                         <DropdownMenuItem className="text-[9px] font-black uppercase gap-2.5 p-2.5 text-green-600" onClick={() => { setAddStockProduct(p); window.scrollTo({ top: 0, behavior: 'smooth' }); }}><Plus className="w-3 h-3" /> Stock</DropdownMenuItem>
                         <DropdownMenuItem className="text-[9px] font-black uppercase gap-2.5 p-2.5" onClick={() => router.push(`/registry?edit=${p.id}`)}><Edit2 className="w-3.5 h-3.5" /> Editar</DropdownMenuItem>
                         <DropdownMenuItem className="text-[9px] font-black uppercase gap-2.5 p-2.5 text-destructive" onClick={() => onDelete(p.id)}><Trash2 className="w-3.5 h-3.5" /> Borrar</DropdownMenuItem>
@@ -289,8 +298,33 @@ export default function InventoryPage() {
           <DialogHeader className="sr-only"><DialogTitle>Detalle</DialogTitle></DialogHeader>
           {selectedProduct && (
             <div className="flex flex-col">
-              <div className="w-full aspect-square bg-secondary relative">
-                {selectedProduct.images?.[0] ? <img src={getDriveThumb(selectedProduct.images[0], 800)} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-primary/20"><ImageIcon className="w-12 h-12" /></div>}
+              <div className="w-full aspect-square bg-secondary relative group">
+                {selectedProduct.images?.[currentImgIdx] ? (
+                  <img src={getDriveThumb(selectedProduct.images[currentImgIdx], 800)} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-primary/20"><ImageIcon className="w-12 h-12" /></div>
+                )}
+                
+                {selectedProduct.images?.length > 1 && (
+                  <>
+                    <button 
+                      className="absolute left-4 top-1/2 -translate-y-1/2 p-2 bg-black/20 backdrop-blur-md rounded-full text-white active:scale-90 transition-all"
+                      onClick={() => setCurrentImgIdx(prev => (prev > 0 ? prev - 1 : selectedProduct.images.length - 1))}
+                    >
+                      <ChevronLeft className="w-6 h-6" />
+                    </button>
+                    <button 
+                      className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-black/20 backdrop-blur-md rounded-full text-white active:scale-90 transition-all"
+                      onClick={() => setCurrentImgIdx(prev => (prev < selectedProduct.images.length - 1 ? prev + 1 : 0))}
+                    >
+                      <ChevronRight className="w-6 h-6" />
+                    </button>
+                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-3 py-1 bg-black/20 backdrop-blur-md rounded-full text-[8px] font-black text-white">
+                      {currentImgIdx + 1} / {selectedProduct.images.length}
+                    </div>
+                  </>
+                )}
+
                 <Button variant="ghost" size="icon" className="absolute top-4 right-4 bg-white/20 backdrop-blur-md rounded-full text-white" onClick={() => setSelectedProduct(null)}><X className="w-5 h-5" /></Button>
               </div>
               <div className="p-6 space-y-4">
@@ -303,7 +337,10 @@ export default function InventoryPage() {
                   <div><p className="text-[7px] font-black text-primary/40 uppercase tracking-widest">P. UNIDAD</p><p className="text-lg font-black text-foreground">S/ {selectedProduct.priceUnidad}</p></div>
                 </div>
                 <p className="text-[10px] font-medium text-muted-foreground italic leading-relaxed">"{selectedProduct.description || 'Sin descripción.'}"</p>
-                <Button className="w-full h-12 rounded-xl bg-primary text-white font-black text-xs uppercase" onClick={() => { setSelectedProduct(null); router.push(`/registry?edit=${selectedProduct.id}`); }}><Edit2 className="w-4 h-4 mr-2" /> Editar Prenda</Button>
+                <div className="grid grid-cols-2 gap-2 pt-2">
+                   <Button variant="outline" className="h-12 rounded-xl border-primary/10 text-primary font-black text-[9px] uppercase" onClick={() => { setSelectedProduct(null); setAddStockProduct(selectedProduct); }}>+ Stock</Button>
+                   <Button className="h-12 rounded-xl bg-primary text-white font-black text-[9px] uppercase" onClick={() => { setSelectedProduct(null); router.push(`/registry?edit=${selectedProduct.id}`); }}><Edit2 className="w-3.5 h-3.5 mr-2" /> Editar</Button>
+                </div>
               </div>
             </div>
           )}
