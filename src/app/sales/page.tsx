@@ -211,16 +211,26 @@ export default function SalesPage() {
       ])
 
       let totalQty = 0
-      for (const item of sale.items) {
+      sale.items.forEach((item: any, idx: number) => {
         const qty = Number(item.quantity)
         totalQty += qty
         const sub = ((Number(item.price) * qty) - (Number(item.discount) || 0)).toFixed(2)
+        
+        // Enumeración 1-, 2-, etc.
         commands = new Uint8Array([
           ...commands,
-          ...encoder.encode(`${item.name.substring(0, charWidth)}\n`),
-          ...encoder.encode(`${qty} x S/ ${item.price} = S/ ${sub}\n`)
+          ...encoder.encode(`${idx + 1}- ${item.name.substring(0, charWidth - 4)}\n`)
         ])
-      }
+        
+        // Subtotal alineado a la derecha
+        const subLine = `${qty} x S/ ${item.price} = S/ ${sub}`;
+        commands = new Uint8Array([
+          ...commands,
+          ...esc.right,
+          ...encoder.encode(subLine + "\n"),
+          ...esc.left
+        ])
+      })
 
       commands = new Uint8Array([
         ...commands,

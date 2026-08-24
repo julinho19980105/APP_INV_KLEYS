@@ -19,7 +19,8 @@ import {
   Calculator,
   ImageIcon,
   UserPlus,
-  ArrowLeft
+  ArrowLeft,
+  RotateCcw
 } from "lucide-react"
 import {
   Dialog,
@@ -93,6 +94,8 @@ function getDriveThumb(url: string, size: number = 400) {
   return fileId ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w${size}` : url;
 }
 
+const STORAGE_KEY = "stilo_quote_draft";
+
 export default function QuotesPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -118,11 +121,41 @@ export default function QuotesPage() {
   const [calcData, setCalcData] = React.useState({ unidades: "", series: "", libres: "" })
   const [zoomImage, setZoomImage] = React.useState<string | null>(null)
   const [registeringCustomer, setRegisteringCustomer] = React.useState(false)
+  const [isInitialized, setIsInitialized] = React.useState(false)
 
   const productsRef = React.useMemo(() => db ? query(collection(db, "products"), orderBy("code")) : null, [db])
   const customersRef = React.useMemo(() => db ? query(collection(db, "customers"), orderBy("id")) : null, [db])
   const { data: dbProducts = [] } = useCollection(productsRef)
   const { data: dbCustomers = [] } = useCollection(customersRef)
+
+  // Persistencia: Cargar borrador al montar
+  React.useEffect(() => {
+    if (typeof window !== "undefined" && !editId) {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          setSelectedCustomer(parsed.selectedCustomer);
+          setItems(parsed.items);
+          setQuoteId(parsed.quoteId);
+        } catch (e) {
+          console.error("Error loading draft", e);
+        }
+      }
+    }
+    setIsInitialized(true);
+  }, [editId]);
+
+  // Persistencia: Guardar borrador al cambiar datos
+  React.useEffect(() => {
+    if (isInitialized && !editId && typeof window !== "undefined") {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        selectedCustomer,
+        items,
+        quoteId
+      }));
+    }
+  }, [selectedCustomer, items, quoteId, isInitialized, editId]);
 
   React.useEffect(() => {
     if (!db || editId) return
@@ -153,7 +186,7 @@ export default function QuotesPage() {
   }, [db, editId])
 
   const customerSuggestions = React.useMemo(() => {
-    if (customerQuery.length < 2) return []
+    if (customerQuery.length < 1) return []
     const q = customerQuery.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     return dbCustomers.filter(c => 
       c.name?.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(q) ||
@@ -244,7 +277,6 @@ export default function QuotesPage() {
     }
     setSaving(true)
     try {
-      // 1. SI ES EDICIÓN: REVERSIÓN DE STOCK (Solo de productos registrados)
       if (editId && oldItems.length > 0) {
         for (const item of oldItems) {
           if (item.isRegistered && item.productId !== "MANUAL") {
@@ -266,7 +298,6 @@ export default function QuotesPage() {
         }
       }
 
-      // 2. GUARDAR BOLETA
       const subtotal = items.reduce((acc, i) => acc + (Number(i.quantity) * Number(i.price)), 0)
       const total = items.reduce((acc, i) => acc + (Number(i.quantity) * Number(i.price) - Number(i.discount)), 0)
       
@@ -283,7 +314,6 @@ export default function QuotesPage() {
 
       await setDoc(doc(db, "quotes", quoteId), quoteData)
 
-      // 3. PROCESAR SALIDAS DE STOCK (Solo de productos registrados)
       for (const item of items) {
         if (item.isRegistered && item.productId !== "MANUAL") {
           const prodRef = doc(db, "products", item.productId)
@@ -307,6 +337,9 @@ export default function QuotesPage() {
         }
       }
 
+      if (typeof window !== "undefined") {
+        localStorage.removeItem(STORAGE_KEY);
+      }
       toast({ title: editId ? "BOLETA ACTUALIZADA" : "VENTA REGISTRADA" })
       router.push('/sales')
     } catch (e) {
@@ -314,6 +347,16 @@ export default function QuotesPage() {
     } finally {
       setSaving(false)
     }
+  }
+
+  const handleDiscard = () => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(STORAGE_KEY);
+    }
+    setSelectedCustomer(null);
+    setItems([]);
+    setQuoteId("B-001");
+    router.push('/sales');
   }
 
   return (
@@ -351,7 +394,7 @@ export default function QuotesPage() {
                 </div>
               )}
             </div>
-            {!selectedCustomer && customerQuery.length >= 2 && customerSuggestions.length === 0 && (
+            {!selectedCustomer && customerQuery.length >= 1 && customerSuggestions.length === 0 && (
               <Button 
                 className="h-11 w-11 rounded-xl bg-primary text-white shadow-lg shadow-primary/20 shrink-0"
                 onClick={handleQuickRegisterCustomer}
@@ -484,7 +527,14 @@ export default function QuotesPage() {
       )}
 
       <Card className="rounded-[2rem] border border-primary/10 shadow-sm bg-white overflow-hidden">
-        <div className="bg-primary/5 border-b border-primary/10 py-3 px-6"><span className="text-[10px] font-black uppercase text-primary tracking-widest">LISTA DE PRODUCTOS</span></div>
+        <div className="bg-primary/5 border-b border-primary/10 py-3 px-6 flex justify-between items-center">
+          <span className="text-[10px] font-black uppercase text-primary tracking-widest">LISTA DE PRODUCTOS</span>
+          {items.length > 0 && (
+             <Button variant="ghost" size="sm" className="h-7 text-[8px] font-black uppercase gap-1.5 text-muted-foreground hover:text-destructive" onClick={() => setItems([])}>
+              <RotateCcw className="w-3 h-3" /> Limpiar Lista
+            </Button>
+          )}
+        </div>
         <div className="divide-y divide-primary/5">
           {items.length === 0 ? (
             <div className="p-12 text-center opacity-20 font-black uppercase text-xs">Sin prendas en la lista</div>
@@ -541,7 +591,7 @@ export default function QuotesPage() {
             <Button 
               variant="outline"
               className="h-12 w-full rounded-xl font-black text-xs uppercase border-primary/10 text-muted-foreground hover:bg-primary/5"
-              onClick={() => router.push('/sales')}
+              onClick={handleDiscard}
             >
               DESCARTAR EDICIÓN
             </Button>
