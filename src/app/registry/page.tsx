@@ -83,7 +83,6 @@ export default function RegistryPage() {
     priceUnidad: "" 
   })
   
-  // Array de imágenes que pueden ser URL finales o Base64 temporales
   const [images, setImages] = React.useState<string[]>([])
   const [uploadingIdx, setUploadingIdx] = React.useState<number | null>(null)
   
@@ -135,13 +134,12 @@ export default function RegistryPage() {
     }
   }, [editingProduct])
 
-  // Verificar si hay alguna imagen que aún sea Base64
   const hasPendingUploads = images.some(img => img.startsWith('data:'));
 
   const handleSave = async () => {
     if (!db || !form.name) return
     if (hasPendingUploads) {
-      toast({ variant: "destructive", title: "ESPERE A QUE LAS FOTOS SUBAN" });
+      toast({ variant: "destructive", title: "ESPERE A QUE LAS FOTOS SUBAN A DRIVE" });
       return;
     }
     
@@ -158,7 +156,7 @@ export default function RegistryPage() {
         priceFardo: Number(form.priceFardo || 0),
         priceMayor: Number(form.priceMayor || 0),
         priceUnidad: Number(form.priceUnidad || 0),
-        images: images, // Aquí ya son todas URLs de Drive
+        images: images, 
         updatedAt: serverTimestamp()
       }
       
@@ -167,7 +165,7 @@ export default function RegistryPage() {
       toast({ title: editId ? "PRENDA ACTUALIZADA" : "PRENDA REGISTRADA" })
       router.push('/inventory')
     } catch (e) { 
-      toast({ variant: "destructive", title: "Error al guardar" }) 
+      toast({ variant: "destructive", title: "Error al guardar en base de datos" }) 
     }
     finally { setSaving(false) }
   }
@@ -181,24 +179,25 @@ export default function RegistryPage() {
       const base64 = reader.result as string;
       const tempIdx = images.length;
       
-      // Añadir temporalmente como base64 para previsualización
       setImages(prev => [...prev, base64]);
       setUploadingIdx(tempIdx);
 
       try {
         const driveUrl = await uploadImageToDrive(base64, `${nextId}_${Date.now()}.jpg`);
         
-        // Reemplazar el Base64 por la URL real de Drive
         setImages(prev => {
           const newImgs = [...prev];
           newImgs[tempIdx] = driveUrl;
           return newImgs;
         });
-        toast({ title: "Foto lista en Drive" });
-      } catch (err) {
-        // Si falla, quitar la imagen para que no intente guardarse el Base64
+        toast({ title: "Imagen subida exitosamente" });
+      } catch (err: any) {
         setImages(prev => prev.filter((_, i) => i !== tempIdx));
-        toast({ variant: "destructive", title: "Error al subir a Drive" });
+        toast({ 
+          variant: "destructive", 
+          title: "Error al subir a Drive",
+          description: err.message || "Verifica la consola para más detalles."
+        });
       } finally {
         setUploadingIdx(null);
       }
