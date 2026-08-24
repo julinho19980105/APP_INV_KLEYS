@@ -82,7 +82,6 @@ export default function RegistryPage() {
   const docRef = React.useMemo(() => (db && editId) ? doc(db, "products", editId) : null, [db, editId])
   const { data: editingProduct } = useDoc(docRef)
   
-  // CONSULTAS A COLECCIONES MAESTRAS (ÚNICA FUENTE DE VERDAD)
   const categoriesRef = React.useMemo(() => db ? query(collection(db, "categories"), orderBy("name")) : null, [db])
   const collectionsRef = React.useMemo(() => db ? query(collection(db, "collections"), orderBy("name")) : null, [db])
   const { data: dbCategories = [] } = useCollection(categoriesRef)
@@ -107,7 +106,6 @@ export default function RegistryPage() {
   const [newTagName, setNewTagName] = React.useState("")
   const [editingTagName, setEditingTagName] = React.useState<{ id: string, name: string } | null>(null)
 
-  // LISTAS FILTRADAS ESTRICTAS DESDE FIREBASE
   const uniqueCategories = React.useMemo(() => {
     return Array.from(new Set(dbCategories.map(c => (c.name || '').toUpperCase()))).filter(Boolean).sort()
   }, [dbCategories])
@@ -174,6 +172,16 @@ export default function RegistryPage() {
       }
       
       await setDoc(doc(db, "products", productCode), productData, { merge: true })
+
+      if (!editId && Number(form.stock) > 0) {
+        addDoc(collection(db, "movements"), {
+          productCode: productCode,
+          type: "in",
+          quantity: Number(form.stock),
+          reason: "STOCK INICIAL AL REGISTRAR",
+          timestamp: serverTimestamp()
+        });
+      }
       
       toast({ title: editId ? "PRENDA ACTUALIZADA" : "PRENDA REGISTRADA" })
       router.push('/inventory')
@@ -241,7 +249,6 @@ export default function RegistryPage() {
   const handleRenameTag = async () => {
     if (!db || !editingTagName || !editingTagName.name.trim()) return
     setSaving(true)
-    const oldName = dbCategories.find(c => c.id === editingTagName.id)?.name || dbCollections.find(c => c.id === editingTagName.id)?.name
     const newName = editingTagName.name.toUpperCase().trim()
     const type = tagManagerConfig.type
     const collName = type === 'category' ? 'categories' : 'collections'

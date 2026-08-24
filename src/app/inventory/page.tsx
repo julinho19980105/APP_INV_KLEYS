@@ -44,8 +44,6 @@ import {
   Loader2,
   Package,
   Eye,
-  LayoutGrid,
-  History,
   Plus,
   PackagePlus,
   CheckCircle2
@@ -91,7 +89,6 @@ export default function InventoryPage() {
   , [db, isRecentSort])
   const { data: products = [], loading: productsLoading } = useCollection(productsRef)
 
-  // LISTAS MAESTRAS PARA FILTROS LIMPIOS
   const categoriesRef = React.useMemo(() => db ? query(collection(db, "categories"), orderBy("name")) : null, [db])
   const collectionsRef = React.useMemo(() => db ? query(collection(db, "collections"), orderBy("name")) : null, [db])
   const { data: dbCategories = [] } = useCollection(categoriesRef)
@@ -115,10 +112,9 @@ export default function InventoryPage() {
     const qty = Number(addStockQty)
     if (isNaN(qty) || qty <= 0) return
 
-    const productRef = doc(db, "products", addStockProduct.id)
-    const movementRef = collection(db, "movements")
+    const productRef = doc(db, "products", addStockProduct.code)
 
-    addDoc(movementRef, {
+    addDoc(collection(db, "movements"), {
       productCode: addStockProduct.code,
       type: "in",
       quantity: qty,
@@ -267,10 +263,10 @@ export default function InventoryPage() {
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7"><MoreVertical className="w-3 h-3 text-primary" /></Button></DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="rounded-xl p-1 shadow-xl w-40">
-                        <DropdownMenuItem className="text-[9px] font-black uppercase gap-2 p-2" onClick={() => setSelectedProduct(p)}><Eye className="w-3 h-3" /> Ver</DropdownMenuItem>
-                        <DropdownMenuItem className="text-[9px] font-black uppercase gap-2 p-2 text-green-600" onClick={() => { setAddStockProduct(p); window.scrollTo({ top: 0, behavior: 'smooth' }); }}><Plus className="w-3 h-3" /> Stock</DropdownMenuItem>
-                        <DropdownMenuItem className="text-[9px] font-black uppercase gap-2 p-2" onClick={() => router.push(`/registry?edit=${p.id}`)}><Edit2 className="w-3 h-3" /> Editar</DropdownMenuItem>
-                        <DropdownMenuItem className="text-[9px] font-black uppercase gap-2 p-2 text-destructive" onClick={() => onDelete(p.id)}><Trash2 className="w-3 h-3" /> Borrar</DropdownMenuItem>
+                        <DropdownMenuItem className="text-[9px] font-black uppercase gap-2.5 p-2.5" onClick={() => setSelectedProduct(p)}><Eye className="w-3 h-3" /> Ver</DropdownMenuItem>
+                        <DropdownMenuItem className="text-[9px] font-black uppercase gap-2.5 p-2.5 text-green-600" onClick={() => { setAddStockProduct(p); window.scrollTo({ top: 0, behavior: 'smooth' }); }}><Plus className="w-3 h-3" /> Stock</DropdownMenuItem>
+                        <DropdownMenuItem className="text-[9px] font-black uppercase gap-2.5 p-2.5" onClick={() => router.push(`/registry?edit=${p.id}`)}><Edit2 className="w-3.5 h-3.5" /> Editar</DropdownMenuItem>
+                        <DropdownMenuItem className="text-[9px] font-black uppercase gap-2.5 p-2.5 text-destructive" onClick={() => onDelete(p.id)}><Trash2 className="w-3.5 h-3.5" /> Borrar</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
