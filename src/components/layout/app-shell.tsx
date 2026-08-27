@@ -5,7 +5,7 @@ import * as React from "react"
 import { 
   Package, 
   ShoppingBag,
-  History,
+  Users,
   Settings,
   BookOpen
 } from "lucide-react"
@@ -31,8 +31,8 @@ import { doc } from "firebase/firestore"
 const navItems = [
   { name: "Ventas", href: "/sales", icon: ShoppingBag },
   { name: "Inventario", href: "/inventory", icon: Package },
+  { name: "Clientes", href: "/customers", icon: Users },
   { name: "Catálogos", href: "/catalogo", icon: BookOpen },
-  { name: "Movimientos", href: "/movements", icon: History },
   { name: "Ajustes", href: "/settings", icon: Settings },
 ]
 
@@ -68,7 +68,7 @@ function AppSidebar({ pathname }: { pathname: string }) {
   const settings = {
     companyName: companySettings?.companyName || "STILOSTACK",
     companyLogo: companySettings?.companyLogo || "",
-    brandColor: companySettings?.brandColor || "#FF3399"
+    brandColor: companySettings?.brandColor || "#0296FF"
   }
 
   const handleLinkClick = () => {
@@ -107,11 +107,11 @@ function AppSidebar({ pathname }: { pathname: string }) {
             <SidebarMenuItem key={item.name}>
               <SidebarMenuButton 
                 asChild 
-                isActive={pathname === item.href}
+                isActive={pathname.startsWith(item.href)}
                 tooltip={item.name}
                 className={cn(
                   "h-12 px-4 rounded-2xl transition-all duration-300 mb-2 border border-transparent",
-                  pathname === item.href 
+                  pathname.startsWith(item.href) 
                     ? "bg-primary text-white shadow-lg shadow-primary/30 scale-105 border-primary/10" 
                     : "hover:bg-primary/5 hover:text-primary"
                 )}
@@ -119,7 +119,7 @@ function AppSidebar({ pathname }: { pathname: string }) {
                 <Link href={item.href} onClick={handleLinkClick}>
                   <item.icon 
                     className={cn("w-5 h-5")} 
-                    style={{ color: pathname === item.href ? '#FFFFFF' : settings.brandColor }} 
+                    style={{ color: pathname.startsWith(item.href) ? '#FFFFFF' : settings.brandColor }} 
                   />
                   <span className="font-black uppercase flex items-center gap-2 text-[11px] tracking-wide">
                     {item.name}
