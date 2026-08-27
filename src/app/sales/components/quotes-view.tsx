@@ -446,6 +446,22 @@ export default function QuotesView() {
                   </button>
                 </div>
               ))}
+              <button 
+                className="w-full text-left px-4 py-5 hover:bg-primary/5 bg-primary/5 border-t flex items-center gap-3"
+                onClick={() => {
+                  setCurrentEntry({
+                    ...EMPTY_ENTRY,
+                    id: Math.random().toString(),
+                    name: productQuery.toUpperCase(),
+                    productId: "MANUAL",
+                    isRegistered: false
+                  });
+                  setProductQuery("");
+                }}
+              >
+                <Plus className="w-4 h-4 text-primary" />
+                <span className="text-[11px] font-black uppercase text-foreground">ENTRADA MANUAL: "{productQuery}"</span>
+              </button>
             </div>
           )}
         </div>
@@ -595,3 +611,4 @@ export default function QuotesView() {
     </div>
   )
 }
+    
