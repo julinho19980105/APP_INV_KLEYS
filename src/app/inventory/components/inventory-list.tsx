@@ -1,6 +1,8 @@
+
 "use client"
 
 import * as React from "react"
+import { useRouter } from "next/navigation"
 import { 
   Plus, 
   Package, 
@@ -12,7 +14,8 @@ import {
   ChevronRight,
   ChevronLeft,
   Upload,
-  Eye
+  Eye,
+  Edit2
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useCollection, useFirestore, useDoc } from "@/firebase"
@@ -52,6 +55,7 @@ function getDriveThumb(url: string, size: number = 400) {
 
 export default function InventoryList() {
   const db = useFirestore()
+  const router = useRouter()
   const { toast } = useToast()
   
   const configDocRef = React.useMemo(() => db ? doc(db, "config", "global") : null, [db])
@@ -135,6 +139,10 @@ export default function InventoryList() {
       });
       toast({ title: "ELIMINADO" })
     }
+  }
+
+  const handleEdit = (p: any) => {
+    router.push(`/inventory?tab=registry&edit=${p.code}`)
   }
 
   const toggleCollection = (col: string) => {
@@ -246,6 +254,9 @@ export default function InventoryList() {
                       <div className="absolute bottom-2 left-2 flex gap-1 items-center opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
                         <Button size="icon" className="h-7 w-7 bg-white/90 text-primary hover:bg-white rounded-lg shadow-md" onClick={() => setAddStockProduct(p)}>
                           <PackagePlus className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button size="icon" className="h-7 w-7 bg-white/90 text-primary hover:bg-white rounded-lg shadow-md" onClick={() => handleEdit(p)}>
+                          <Edit2 className="w-3.5 h-3.5" />
                         </Button>
                         <Button size="icon" className="h-7 w-7 bg-white/90 text-primary hover:bg-white rounded-lg shadow-md" onClick={() => setSelectedProduct(p)}>
                           <Eye className="w-3.5 h-3.5" />
