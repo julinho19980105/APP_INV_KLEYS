@@ -1,4 +1,3 @@
-
 {
   "entities": {
     "Product": {
@@ -93,6 +92,7 @@
       "properties": {
         "date": { "type": "string", "format": "date" },
         "entries": { "type": "array" },
+        "totalAmount": { "type": "number" },
         "updatedAt": { "type": "string", "format": "date-time" }
       }
     },
@@ -133,5 +133,5 @@
     "/logistics/{dateKey}": { "schema": "LogisticsBatch", "description": "Gestión de despachos diarios" },
     "/config/{configId}": { "schema": "AppConfig", "description": "Ajustes de identidad y sistema" }
   },
-  "deployTimestamp": "2024-05-22T10:00:00Z"
+  "deployTimestamp": "2024-05-23T14:30:00Z"
 }
