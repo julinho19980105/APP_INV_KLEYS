@@ -20,8 +20,15 @@ import {
   ImageIcon,
   UserPlus,
   ArrowLeft,
-  RotateCcw
+  MoreVertical,
+  Edit2
 } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import {
   Dialog,
   DialogContent,
@@ -63,6 +70,10 @@ interface QuoteItem {
   calcSeries?: string
   calcLibres?: string
   manualNote?: string
+  // Precios de referencia para la UI
+  refFardo?: number
+  refMayor?: number
+  refUnidad?: number
 }
 
 const EMPTY_ENTRY: QuoteItem = {
@@ -249,7 +260,10 @@ export default function QuotesPage() {
       calcUnidades: "",
       calcSeries: "",
       calcLibres: "",
-      manualNote: ""
+      manualNote: "",
+      refFardo: prod.priceFardo,
+      refMayor: prod.priceMayor,
+      refUnidad: prod.priceUnidad
     })
     setProductQuery("")
   }
@@ -278,7 +292,6 @@ export default function QuotesPage() {
     }
     setSaving(true)
     try {
-      // Si estamos editando y no estaba anulada, primero reintegramos stock
       if (editId && oldItems.length > 0 && editQuoteStatus !== 'annulled') {
         for (const item of oldItems) {
           if (item.isRegistered && item.productId !== "MANUAL") {
@@ -316,7 +329,6 @@ export default function QuotesPage() {
 
       await setDoc(doc(db, "quotes", quoteId), quoteData)
 
-      // Descontar stock del nuevo estado de la venta
       for (const item of items) {
         if (item.isRegistered && item.productId !== "MANUAL") {
           const prodRef = doc(db, "products", item.productId)
@@ -363,6 +375,18 @@ export default function QuotesPage() {
     router.push('/sales');
   }
 
+  const handleEditItem = (item: QuoteItem) => {
+    setCurrentEntry({...item});
+    setItems(items.filter(i => i.id !== item.id));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  const handleDeleteItem = (itemId: string) => {
+    if (confirm("¿Desea eliminar esta prenda de la lista?")) {
+      setItems(items.filter(i => i.id !== itemId));
+    }
+  }
+
   return (
     <div className="max-w-4xl mx-auto space-y-4 pb-24 pt-2 px-2 md:px-0">
       <div className="flex justify-between items-center border-b-2 border-primary/20 pb-4">
@@ -377,7 +401,6 @@ export default function QuotesPage() {
         </div>
       </div>
 
-      {/* 1. SECCIÓN CLIENTE (LÍNEA 1) */}
       <div className="space-y-1">
         <Label className="text-[10px] uppercase text-foreground font-black ml-1 tracking-widest text-primary">CLIENTE</Label>
         <div className="relative flex gap-2">
@@ -410,7 +433,6 @@ export default function QuotesPage() {
         </div>
       </div>
 
-      {/* 2. SECCIÓN BUSCADOR PRODUCTO (LÍNEA 2) */}
       <div className="space-y-1">
         <Label className="text-[10px] uppercase font-black text-foreground ml-1 tracking-widest text-primary">BUSCAR PRENDA</Label>
         <div className="relative">
@@ -458,11 +480,10 @@ export default function QuotesPage() {
         </div>
       </div>
 
-      {/* 3. PLANTILLA DE INGRESO (FIJA SIEMPRE) */}
       <Card className="rounded-[2rem] border-2 border-primary/20 bg-white overflow-hidden shadow-2xl">
         <div className="bg-primary/5 border-b border-primary/10 py-4 px-6 flex justify-between items-center">
           <div className="flex flex-col flex-1">
-            <Label className="text-[8px] font-black text-primary uppercase tracking-widest mb-1">Nombre de Prenda (Editar si es manual)</Label>
+            <Label className="text-[8px] font-black text-primary uppercase tracking-widest mb-1">Nombre de Prenda</Label>
             <Input 
               value={currentEntry.name}
               onChange={e => setCurrentEntry({...currentEntry, name: e.target.value.toUpperCase()})}
@@ -493,6 +514,22 @@ export default function QuotesPage() {
               {currentEntry.img ? <img src={getDriveThumb(currentEntry.img, 400)} className="w-full h-full object-cover" /> : <PackageSearch className="w-10 h-10 opacity-20" />}
             </div>
             <div className="flex-1 space-y-5">
+              {currentEntry.isRegistered && (
+                <div className="flex gap-2 pb-2">
+                  <div className="flex-1 bg-secondary/30 p-2 rounded-lg text-center">
+                    <div className="text-[7px] font-black text-muted-foreground uppercase">Fardo</div>
+                    <div className="text-[10px] font-black">S/ {currentEntry.refFardo}</div>
+                  </div>
+                  <div className="flex-1 bg-primary/10 p-2 rounded-lg text-center border border-primary/20">
+                    <div className="text-[7px] font-black text-primary uppercase">Mayor</div>
+                    <div className="text-[10px] font-black">S/ {currentEntry.refMayor}</div>
+                  </div>
+                  <div className="flex-1 bg-secondary/30 p-2 rounded-lg text-center">
+                    <div className="text-[7px] font-black text-muted-foreground uppercase">Unidad</div>
+                    <div className="text-[10px] font-black">S/ {currentEntry.refUnidad}</div>
+                  </div>
+                </div>
+              )}
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div className="space-y-1">
                   <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1 tracking-widest">PRECIO S/</Label>
@@ -517,7 +554,7 @@ export default function QuotesPage() {
               </div>
               <div className="space-y-1">
                 <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1 tracking-widest">DESCRIPCIÓN / NOTAS</Label>
-                <Input className="h-12 text-[11px] font-medium uppercase bg-secondary/30 border-none rounded-xl" value={currentEntry.description} onChange={e => setCurrentEntry({...currentEntry, description: e.target.value})} placeholder="Ej: TALLA L, COLOR AZUL..." />
+                <Input className="h-12 text-[11px] font-medium bg-secondary/30 border-none rounded-xl" value={currentEntry.description} onChange={e => setCurrentEntry({...currentEntry, description: e.target.value})} placeholder="Ej: Talla L, Color Azul..." />
               </div>
             </div>
           </div>
@@ -540,24 +577,18 @@ export default function QuotesPage() {
         </CardContent>
       </Card>
 
-      {/* 4. LISTA DE PRENDAS AGREGADAS */}
       <Card className="rounded-[2.5rem] border border-primary/10 shadow-sm bg-white overflow-hidden">
-        <div className="bg-primary/5 border-b border-primary/10 py-4 px-8 flex justify-between items-center">
+        <div className="bg-primary/5 border-b border-primary/10 py-4 px-8">
           <span className="text-[11px] font-black uppercase text-primary tracking-widest">RESUMEN DE COTIZACIÓN</span>
-          {items.length > 0 && (
-             <Button variant="ghost" size="sm" className="h-8 text-[9px] font-black uppercase gap-2 text-muted-foreground hover:text-destructive" onClick={() => setItems([])}>
-              <RotateCcw className="w-4 h-4" /> Vaciar Lista
-            </Button>
-          )}
         </div>
         <div className="divide-y divide-primary/5">
           {items.length === 0 ? (
             <div className="p-20 text-center opacity-20 font-black uppercase text-xs tracking-widest">Sin prendas en la lista</div>
-          ) : items.map((item) => (
+          ) : items.map((item, index) => (
             <div key={item.id} className="p-5 md:px-8 hover:bg-primary/[0.01] transition-colors">
               <div className="flex justify-between items-start">
                 <div className="flex items-center gap-2">
-                  <span className="font-black text-[13px] text-foreground uppercase tracking-tight">{item.name}</span>
+                  <span className="font-black text-[13px] text-foreground uppercase tracking-tight">{index + 1}- {item.name}</span>
                   <Badge variant="outline" className="text-[8px] font-black h-4 px-2 uppercase border-primary/10 text-primary">{item.productId}</Badge>
                 </div>
                 <div className="font-headline font-black text-base text-foreground">
@@ -576,16 +607,28 @@ export default function QuotesPage() {
                     )}
                   </div>
                 </div>
-                <Button variant="ghost" size="icon" className="h-10 w-10 text-muted-foreground hover:text-destructive active:scale-90 transition-all" onClick={() => setItems(items.filter(i => i.id !== item.id))}>
-                  <Trash2 className="w-5 h-5" />
-                </Button>
+                
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-10 w-10 text-muted-foreground rounded-xl hover:bg-primary/5">
+                      <MoreVertical className="w-5 h-5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="rounded-xl border-primary/10 p-1.5 w-40">
+                    <DropdownMenuItem className="text-[10px] font-black uppercase gap-2.5 p-2.5 rounded-lg" onClick={() => handleEditItem(item)}>
+                      <Edit2 className="w-3.5 h-3.5 text-primary" /> Editar
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="text-[10px] font-black uppercase gap-2.5 p-2.5 rounded-lg text-destructive" onClick={() => handleDeleteItem(item.id)}>
+                      <Trash2 className="w-3.5 h-3.5" /> Eliminar
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
           ))}
         </div>
       </Card>
 
-      {/* 5. TOTALES Y ACCIONES FINALIZAR */}
       <div className="flex flex-col md:flex-row justify-between items-end border-b-4 border-primary pb-8 pt-8 gap-8">
         <div className="w-full md:w-auto space-y-2">
           <div className="text-[11px] font-black uppercase text-muted-foreground tracking-widest">TOTAL PRENDAS</div>
@@ -615,7 +658,6 @@ export default function QuotesPage() {
         </div>
       </div>
 
-      {/* CALCULADORA DE SERIES */}
       <Dialog open={isCalcOpen} onOpenChange={setIsCalcOpen}>
         <DialogContent className="rounded-[2.5rem] border-none shadow-2xl max-w-[320px] p-8">
           <DialogHeader><DialogTitle className="text-xs font-black text-foreground uppercase tracking-[0.2em] text-center">Cálculo de Series</DialogTitle></DialogHeader>
@@ -637,7 +679,6 @@ export default function QuotesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ZOOM DE IMAGEN */}
       <Dialog open={!!zoomImage} onOpenChange={() => setZoomImage(null)}>
         <DialogContent className="max-w-[95vw] md:max-w-4xl p-0 border-none bg-transparent shadow-none">
           <DialogHeader className="sr-only"><DialogTitle>Vista de Prenda</DialogTitle></DialogHeader>
