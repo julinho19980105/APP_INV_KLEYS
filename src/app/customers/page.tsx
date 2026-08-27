@@ -38,7 +38,7 @@ export default function CustomersHubPage() {
   const [searchQuery, setSearchQuery] = React.useState("")
   
   const configDocRef = React.useMemo(() => db ? doc(db, "config", "global") : null, [db])
-  const { data: config } = useDoc(configDocRef)
+  const config = useDoc(configDocRef).data
   const brandColor = config?.brandColor || "#0296FF"
 
   const customersRef = React.useMemo(() => db ? query(collection(db, "customers"), orderBy("id", "asc")) : null, [db])
@@ -84,7 +84,7 @@ export default function CustomersHubPage() {
     return customerData.filter(c => c.name.toLowerCase().includes(q) || c.id.toLowerCase().includes(q))
   }, [customerData, searchQuery])
 
-  const sections = [
+  const sections = React.useMemo(() => [
     { 
       title: "CUENTAS POR COBRAR", 
       color: "text-red-600", 
@@ -108,16 +108,8 @@ export default function CustomersHubPage() {
       borderColor: "border-green-200",
       icon: CheckCircle2,
       data: filtered.filter(c => Math.abs(c.balance) <= 1)
-    },
-    { 
-      title: "HISTORIAL DE ENVÍOS CERRADOS", 
-      color: "text-slate-600", 
-      bgColor: "bg-slate-50", 
-      borderColor: "border-slate-200",
-      icon: Clock,
-      data: [] // Opcional: Cargar desde logistics si fuera necesario
     }
-  ]
+  ], [filtered])
 
   return (
     <div className="space-y-6 pt-2 pb-24 px-2 md:px-0 max-w-4xl mx-auto">
@@ -160,7 +152,7 @@ export default function CustomersHubPage() {
               </AccordionTrigger>
               <AccordionContent className="bg-white p-0">
                 {section.data.length === 0 ? (
-                  <div className="p-10 text-center opacity-20 font-black text-[10px] uppercase tracking-widest">Sin registros en esta sección</div>
+                  <div className="p-10 text-center opacity-20 font-black text-[10px] uppercase tracking-widest">Sin registros</div>
                 ) : (
                   <div className="divide-y divide-black/5">
                     {section.data.map((c, idx) => (
@@ -171,7 +163,7 @@ export default function CustomersHubPage() {
                               <span className="w-8 h-8 rounded-full bg-black/5 flex items-center justify-center font-black text-[11px] text-black/40">{idx + 1}</span>
                               <div className="flex-1 text-left">
                                 <div className="font-black text-[13px] text-black uppercase">{c.name}</div>
-                                <div className="text-[9px] font-black text-black/40 uppercase tracking-widest">{c.id} • FACTURADO: S/ {c.totalInvoiced.toFixed(1)}</div>
+                                <div className="text-[9px] font-black text-black/40 uppercase tracking-widest">{c.id}</div>
                               </div>
                               <div className={cn("font-headline font-black text-xl", section.color)}>
                                 S/ {Math.abs(c.balance).toFixed(1)}
@@ -184,8 +176,8 @@ export default function CustomersHubPage() {
                                 <thead className="bg-black/5">
                                   <tr>
                                     <th className="px-6 py-3 w-32">FECHA</th>
-                                    <th className="px-6 py-3">COTIZACIÓN</th>
-                                    <th className="px-6 py-3 text-center">PAGOS</th>
+                                    <th className="px-6 py-3">ID</th>
+                                    <th className="px-6 py-3 text-center">TIPO</th>
                                     <th className="px-6 py-3 text-right">BALANCE</th>
                                   </tr>
                                 </thead>
@@ -193,20 +185,11 @@ export default function CustomersHubPage() {
                                   {c.history.map((h, hIdx) => (
                                     <tr key={hIdx} className="border-b border-black/5 last:border-0 h-12">
                                       <td className="px-6 py-0 font-medium text-black/60">{format(h.date, "dd/MM/yy")}</td>
-                                      <td className="px-6 py-0">
-                                        {h.type === 'quote' ? (
-                                          <div className="flex flex-col">
-                                            <span>{h.id}</span>
-                                            <span className="text-[8px] text-red-500">- S/ {h.amount.toFixed(1)}</span>
-                                          </div>
-                                        ) : '-'}
-                                      </td>
+                                      <td className="px-6 py-0">{h.id}</td>
                                       <td className="px-6 py-0 text-center">
-                                        {h.type === 'payment' ? (
-                                          <div className="flex flex-col">
-                                            <span className="text-blue-600">+ S/ {h.amount.toFixed(1)}</span>
-                                          </div>
-                                        ) : '-'}
+                                        <Badge variant="outline" className={cn("text-[7px]", h.type === 'quote' ? "text-red-500 border-red-200" : "text-blue-500 border-blue-200")}>
+                                          {h.type === 'quote' ? 'CARGO' : 'PAGO'}
+                                        </Badge>
                                       </td>
                                       <td className={cn("px-6 py-0 text-right font-headline", h.currentBalance < 0 ? "text-red-600" : "text-blue-600")}>
                                         S/ {h.currentBalance.toFixed(1)}

@@ -84,8 +84,8 @@ export default function RegistryPage() {
   
   const categoriesRef = React.useMemo(() => db ? query(collection(db, "categories"), orderBy("name")) : null, [db])
   const collectionsRef = React.useMemo(() => db ? query(collection(db, "collections"), orderBy("name")) : null, [db])
-  const { data: dbCategories = [] } = useCollection(categoriesRef)
-  const { data: dbCollections = [] } = useCollection(collectionsRef)
+  const dbCategories = useCollection(categoriesRef).data
+  const dbCollections = useCollection(collectionsRef).data
 
   const [form, setForm] = React.useState({ 
     name: "", 
@@ -159,7 +159,6 @@ export default function RegistryPage() {
       const inputBaseStock = Number(form.stock);
       
       if (isNew) {
-        // Registro nuevo
         const productData = {
           name: form.name.toUpperCase(),
           code: productCode,
@@ -186,7 +185,6 @@ export default function RegistryPage() {
           });
         }
       } else {
-        // Edición de producto existente
         const oldBaseStock = editingProduct.baseStock !== undefined ? editingProduct.baseStock : editingProduct.stock;
         const delta = inputBaseStock - oldBaseStock;
 
@@ -196,7 +194,7 @@ export default function RegistryPage() {
           collection: (form.collection || "").toUpperCase(),
           description: form.description,
           baseStock: inputBaseStock,
-          stock: increment(delta), // Solo ajusta la diferencia
+          stock: increment(delta),
           priceFardo: Number(form.priceFardo || 0),
           priceMayor: Number(form.priceMayor || 0),
           priceUnidad: Number(form.priceUnidad || 0),
@@ -204,12 +202,22 @@ export default function RegistryPage() {
           updatedAt: serverTimestamp()
         }
         await updateDoc(doc(db, "products", productCode), updateData)
+
+        if (delta !== 0) {
+          await addDoc(collection(db, "movements"), {
+            productCode: productCode,
+            type: delta > 0 ? "in" : "out",
+            quantity: Math.abs(delta),
+            reason: "AJUSTE DE STOCK BASE",
+            timestamp: serverTimestamp()
+          });
+        }
       }
       
       toast({ title: isNew ? "PRENDA REGISTRADA" : "PRENDA ACTUALIZADA" })
       router.push('/inventory')
     } catch (e) { 
-      toast({ variant: "destructive", title: "Error al guardar en base de datos" }) 
+      toast({ variant: "destructive", title: "Error al guardar" }) 
     }
     finally { setSaving(false) }
   }
@@ -256,31 +264,25 @@ export default function RegistryPage() {
     try {
       await addDoc(collection(db, collectionName), { name: tag, createdAt: serverTimestamp() })
       setNewTagName("")
-      toast({ title: "Agregado correctamente" })
-    } catch (e) { toast({ variant: "destructive", title: "Error" }) }
+    } catch (e) {}
   }
 
   const handleRenameTag = async () => {
     if (!db || !editingTagName || !editingTagName.name.trim()) return
-    setSaving(true)
     const newName = editingTagName.name.toUpperCase().trim()
     const collName = tagManagerConfig.type === 'category' ? 'categories' : 'collections'
     try {
       await updateDoc(doc(db, collName, editingTagName.id), { name: newName })
-      toast({ title: "Nombre actualizado" })
       setEditingTagName(null)
-    } catch (e) { toast({ variant: "destructive", title: "Error" }) }
-    finally { setSaving(false) }
+    } catch (e) {}
   }
 
   const handleRemoveTag = async (tagId: string) => {
-    if (!db) return
-    if (!confirm("¿Eliminar de la lista maestra?")) return
+    if (!db || !confirm("¿Eliminar?")) return
     const collName = tagManagerConfig.type === 'category' ? 'categories' : 'collections'
     try {
       await deleteDoc(doc(db, collName, tagId))
-      toast({ title: "Eliminado" })
-    } catch (e) { toast({ variant: "destructive", title: "Error" }) }
+    } catch (e) {}
   }
 
   const currentTagsList = tagManagerConfig.type === 'category' ? dbCategories : dbCollections
@@ -292,7 +294,7 @@ export default function RegistryPage() {
           <Button variant="ghost" size="icon" onClick={() => router.push('/inventory')} className="h-10 w-10 rounded-xl hover:bg-primary/5">
             <ArrowLeft className="w-5 h-5 text-primary" />
           </Button>
-          <h1 className="text-xl font-headline font-black text-foreground uppercase tracking-tight">Registro</h1>
+          <h1 className="text-xl font-headline font-black text-foreground uppercase tracking-tight">Registro Maestro</h1>
         </div>
         <div className="bg-primary text-white px-6 py-1.5 rounded-xl font-black text-xl shadow-lg shadow-primary/20">{nextId}</div>
       </div>
@@ -350,25 +352,25 @@ export default function RegistryPage() {
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="space-y-1">
-                  <Label className="text-[9px] uppercase font-black text-muted-foreground ml-1">Stock Inicial</Label>
-                  <Input type="number" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} className="h-12 rounded-xl font-black text-center border-green-100 bg-green-50 text-green-700" />
+                  <Label className="text-[9px] uppercase font-black text-muted-foreground ml-1">Stock Inicial (Base)</Label>
+                  <Input type="number" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} className="h-12 rounded-xl font-black text-center border-green-100 bg-green-50 text-green-700 shadow-inner" />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-[9px] uppercase font-black text-muted-foreground ml-1">P. Fardo</Label>
-                  <Input type="number" value={form.priceFardo} onChange={e => setForm({...form, priceFardo: e.target.value})} className="h-12 rounded-xl font-black text-center border-orange-50 bg-orange-50 text-orange-600" />
+                  <Input type="number" value={form.priceFardo} onChange={e => setForm({...form, priceFardo: e.target.value})} className="h-12 rounded-xl font-black text-center border-orange-50 bg-orange-50 text-orange-600 shadow-inner" />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-[9px] uppercase font-black text-muted-foreground ml-1">P. Mayor</Label>
-                  <Input type="number" value={form.priceMayor} onChange={e => setForm({...form, priceMayor: e.target.value})} className="h-12 rounded-xl font-black text-center border-orange-50 bg-orange-50 text-orange-600" />
+                  <Input type="number" value={form.priceMayor} onChange={e => setForm({...form, priceMayor: e.target.value})} className="h-12 rounded-xl font-black text-center border-orange-50 bg-orange-50 text-orange-600 shadow-inner" />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-[9px] uppercase font-black text-muted-foreground ml-1">P. Unidad</Label>
-                  <Input type="number" value={form.priceUnidad} onChange={e => setForm({...form, priceUnidad: e.target.value})} className="h-12 rounded-xl font-black text-center border-orange-50 bg-orange-50 text-orange-600" />
+                  <Input type="number" value={form.priceUnidad} onChange={e => setForm({...form, priceUnidad: e.target.value})} className="h-12 rounded-xl font-black text-center border-orange-50 bg-orange-50 text-orange-600 shadow-inner" />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label className="text-[10px] uppercase font-black ml-1 text-primary">Descripción</Label>
+                <Label className="text-[10px] uppercase font-black ml-1 text-primary">Descripción Industrial</Label>
                 <Textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="min-h-[100px] rounded-2xl bg-primary/5 p-4 text-xs font-medium border-none shadow-inner" />
               </div>
             </CardContent>
@@ -443,20 +445,6 @@ export default function RegistryPage() {
                   </div>
                 </div>
               ))}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={!!editingTagName} onOpenChange={() => setEditingTagName(null)}>
-        <DialogContent className="rounded-[2rem] max-w-xs p-6 border-none">
-          <DialogHeader className="sr-only"><DialogTitle>Editar Nombre de Tag</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <Label className="text-[10px] font-black uppercase text-primary">Editar Nombre</Label>
-            <Input value={editingTagName?.name || ''} onChange={e => setEditingTagName(prev => prev ? ({ ...prev, name: e.target.value }) : null)} className="h-10 text-[10px] font-black uppercase text-center" />
-            <div className="grid grid-cols-2 gap-2">
-              <Button variant="outline" className="rounded-xl h-10 text-[9px] font-black uppercase" onClick={() => setEditingTagName(null)}>CANCELAR</Button>
-              <Button className="bg-primary text-white rounded-xl h-10 text-[9px] font-black uppercase" onClick={handleRenameTag}>GUARDAR</Button>
             </div>
           </div>
         </DialogContent>
