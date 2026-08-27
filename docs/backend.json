@@ -1,4 +1,3 @@
-
 {
   "entities": {
     "Product": {
@@ -76,6 +75,16 @@
         "createdAt": { "type": "string", "format": "date-time" }
       }
     },
+    "DayLock": {
+      "title": "Cierre de Día",
+      "description": "Indica si un día ha sido cuadrado y cerrado",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string", "format": "date" },
+        "isLocked": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
+    },
     "AppConfig": {
       "title": "Configuración de Aplicación",
       "description": "Configuración global de la identidad",
@@ -109,7 +118,8 @@
     "/quotes/{quoteId}": { "schema": "Quote", "description": "Registro de cotizaciones y ventas" },
     "/movements/{movementId}": { "schema": "Movement", "description": "Kardex de stock" },
     "/payments/{paymentId}": { "schema": "Payment", "description": "Registro de cobros" },
+    "/dayLocks/{dateKey}": { "schema": "DayLock", "description": "Estado de cierre contable por fecha" },
     "/config/{configId}": { "schema": "AppConfig", "description": "Ajustes de identidad y sistema" }
   },
-  "deployTimestamp": "2024-05-20T10:00:00Z"
+  "deployTimestamp": "2024-05-21T12:00:00Z"
 }
