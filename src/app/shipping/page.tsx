@@ -105,9 +105,8 @@ export default function ShippingHubPage() {
 
   const batchTotal = React.useMemo(() => {
     return (logData?.entries || []).reduce((acc: number, entry: any) => {
-      const quotesTotal = (entry.quotes || []).reduce((acc: number, q: any) => acc + (q.selected ? Number(q.amount) : 0), 0)
-      const shipping = Number(entry.shippingCost || 0)
-      return acc + quotesTotal + shipping
+      const balance = calculateEntryBalance(entry)
+      return acc + Math.abs(balance)
     }, 0)
   }, [logData])
 
@@ -143,7 +142,7 @@ export default function ShippingHubPage() {
     await setDoc(logisticsDocRef, {
       date: dateKey,
       entries: [...currentEntries, newEntry],
-      totalAmount: batchTotal + newEntry.quotes.reduce((a, q) => a + q.amount, 0),
+      totalAmount: batchTotal,
       updatedAt: serverTimestamp()
     }, { merge: true })
 
@@ -327,14 +326,14 @@ export default function ShippingHubPage() {
                       <AccordionItem key={entry.customerId} value={entry.customerId} className="border-2 border-primary/10 rounded-[2rem] overflow-hidden bg-white hover:border-primary/20 transition-all px-0 shadow-sm">
                         <div className="flex items-center w-full pr-6 pl-4">
                           <span className="w-10 h-10 rounded-full bg-primary/5 text-primary flex items-center justify-center font-black text-[14px] shrink-0 mr-4 shadow-inner">{index + 1}</span>
-                          <AccordionTrigger className="flex-1 hover:no-underline py-8 group [&>svg]:ml-4">
-                            <div className="flex items-center justify-between w-full">
+                          <AccordionTrigger className="flex-1 hover:no-underline py-8 group w-full">
+                            <div className="flex items-center w-full pr-4">
                               <div className="flex flex-col text-left">
                                 <span className="font-black text-[16px] uppercase tracking-tight text-black leading-none">{entry.customerName}</span>
                                 <span className="text-[10px] font-black text-primary/40 uppercase tracking-[0.2em] mt-2">{entry.customerId}</span>
                               </div>
                               <div className={cn(
-                                "px-3 py-1.5 rounded-xl font-black text-[14px] text-white shadow-lg border-2 transition-transform group-hover:scale-105",
+                                "ml-auto px-3 py-1.5 rounded-xl font-black text-[14px] text-white shadow-lg border-2 transition-transform group-hover:scale-105",
                                 balance < -0.1 ? "bg-red-500 border-red-600" : balance > 0.1 ? "bg-blue-500 border-blue-600" : "bg-green-500 border-green-600"
                               )}>
                                 {Math.abs(balance).toFixed(1)}
