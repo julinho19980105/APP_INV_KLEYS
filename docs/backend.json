@@ -55,9 +55,24 @@
         "customerId": { "type": "string" },
         "items": { "type": "array" },
         "subtotal": { "type": "number" },
-        "discount": { "type": "number" },
         "total": { "type": "number" },
-        "status": { "type": "string", "enum": ["active", "annulled"] },
+        "status": { "type": "string", "enum": ["active", "annulled", "shipped"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Payment": {
+      "title": "Pago",
+      "description": "Registro de cobro a cliente",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "customerId": { "type": "string" },
+        "customerName": { "type": "string" },
+        "amount": { "type": "number" },
+        "bankId": { "type": "string" },
+        "bankName": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "isLocked": { "type": "boolean" },
         "createdAt": { "type": "string", "format": "date-time" }
       }
     },
@@ -71,7 +86,17 @@
         "brandColor": { "type": "string" },
         "inventoryViewMode": { "type": "string" },
         "printerWidth": { "type": "string", "enum": ["58", "80"] },
-        "catalogUrl": { "type": "string", "description": "URL de implementación del Catálogo Externo" }
+        "banks": { 
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "isDefault": { "type": "boolean" }
+            }
+          }
+        }
       }
     },
     "Category": {
@@ -110,6 +135,10 @@
     "/movements/{movementId}": {
       "schema": "Movement",
       "description": "Kardex de stock"
+    },
+    "/payments/{paymentId}": {
+      "schema": "Payment",
+      "description": "Registro de cobros"
     },
     "/config/{configId}": {
       "schema": "AppConfig",
