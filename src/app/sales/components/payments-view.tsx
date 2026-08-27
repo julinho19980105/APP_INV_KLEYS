@@ -80,13 +80,15 @@ export default function PaymentsView() {
   const customersRef = React.useMemo(() => db ? query(collection(db, "customers"), orderBy("name")) : null, [db])
   const { data: dbCustomers = [] } = useCollection(customersRef)
 
+  const dayLocksRef = React.useMemo(() => db ? collection(db, "dayLocks") : null, [db])
+  const { data: allDayLocks = [] } = useCollection(dayLocksRef)
+
   const paymentsQuery = React.useMemo(() => {
     if (!db) return null
     return query(collection(db, "payments"), orderBy("date", "desc"), limit(200))
   }, [db])
   const { data: payments = [], loading } = useCollection(paymentsQuery)
 
-  // Carga de borrador solo en el montaje inicial si no se está editando
   React.useEffect(() => {
     if (!editingPayment) {
       const saved = localStorage.getItem(STORAGE_KEY)
@@ -95,7 +97,6 @@ export default function PaymentsView() {
           const parsed = JSON.parse(saved)
           if (parsed.date) setDate(new Date(parsed.date))
           if (parsed.amount) setAmount(parsed.amount)
-          // El banco y cliente se manejan con cuidado para no pisar IDs inexistentes
         } catch (e) {}
       }
     }
@@ -130,12 +131,12 @@ export default function PaymentsView() {
 
   const handleSavePayment = () => {
     if (!db || !selectedCustomer || !amount || !selectedBank) {
-      toast({ variant: "destructive", title: "DATOS INCOMPLETOS", description: "Seleccione cliente, banco y monto." })
+      toast({ variant: "destructive", title: "DATOS INCOMPLETOS" })
       return
     }
 
     if (isDayClosed && !editingPayment) {
-      toast({ variant: "destructive", title: "DÍA CERRADO", description: "Esta fecha ya ha sido cuadrada." })
+      toast({ variant: "destructive", title: "FECHA BLOQUEADA" })
       return
     }
 
@@ -242,7 +243,9 @@ export default function PaymentsView() {
     
     filteredPayments.forEach(p => {
       const label = format(new Date(p.date + "T12:00:00"), "EEEE d 'de' MMMM", { locale: es }).toUpperCase()
-      if (!groups[label]) groups[label] = { label, dateKey: p.date, total: 0, isDayLocked: false, payments: [], bankGroups: [] }
+      const isLocked = allDayLocks.find(l => l.date === p.date)?.isLocked || false
+      
+      if (!groups[label]) groups[label] = { label, dateKey: p.date, total: 0, isDayLocked: isLocked, payments: [], bankGroups: [] }
       groups[label].payments.push(p)
       groups[label].total += p.amount
     })
@@ -263,14 +266,14 @@ export default function PaymentsView() {
     }
 
     return finalGroups
-  }, [filteredPayments, isBankGrouped])
+  }, [filteredPayments, isBankGrouped, allDayLocks])
 
   return (
     <div className="space-y-6 px-2 md:px-0 pb-24">
       {/* Registro de Pago */}
       <Card className={cn(
-        "rounded-[2rem] border-2 bg-white shadow-2xl relative transition-all overflow-hidden",
-        isDayClosed && !editingPayment ? "border-red-100 bg-red-50/10" : "border-primary/20"
+        "rounded-[2.5rem] border-2 bg-white shadow-2xl relative transition-all overflow-hidden",
+        isDayClosed && !editingPayment ? "border-red-500 bg-red-50" : "border-primary/20"
       )}>
         <div className="bg-primary/5 p-4 border-b border-primary/10 flex justify-between items-center">
           <div className="flex items-center gap-2">
@@ -279,6 +282,9 @@ export default function PaymentsView() {
               {editingPayment ? "EDITAR COBRO" : "REGISTRAR COBRO"}
             </h2>
           </div>
+          {isDayClosed && !editingPayment && (
+            <Badge variant="destructive" className="font-black text-[10px] uppercase">Día Bloqueado</Badge>
+          )}
           <Button variant="ghost" size="icon" className="h-9 w-9 text-primary/40 hover:text-primary transition-all" onClick={handleReset}>
             <RotateCcw className="w-5 h-5" />
           </Button>
@@ -341,7 +347,7 @@ export default function PaymentsView() {
                   readOnly={!!editingPayment}
                 />
                 {filteredCustomers.length > 0 && !editingPayment && (
-                  <div className="absolute z-[999] w-full mt-2 bg-white border-2 border-primary/10 rounded-xl shadow-2xl max-h-48 overflow-y-auto">
+                  <div className="absolute z-[9999] w-full mt-2 bg-white border-2 border-primary/10 rounded-xl shadow-2xl max-h-48 overflow-y-auto">
                     {filteredCustomers.map(c => (
                       <button key={c.id} className="w-full text-left px-4 py-4 hover:bg-primary/5 border-b last:border-0 font-black text-[10px] uppercase" onClick={() => { setSelectedCustomer(c); setCustomerSearch(""); }}>
                         {c.name} <span className="text-primary ml-1">[{c.id}]</span>
@@ -380,21 +386,21 @@ export default function PaymentsView() {
         )}
 
         {groupedPayments.map(group => (
-          <div key={group.dateKey} className="space-y-2">
-            <div className="flex justify-between items-center px-4 py-2 bg-primary/5 rounded-xl border border-primary/10">
+          <div key={group.dateKey} className={cn("space-y-2 rounded-2xl p-1 transition-colors", group.isDayLocked && "bg-red-50/50")}>
+            <div className={cn("flex justify-between items-center px-4 py-2 rounded-xl border", group.isDayLocked ? "bg-red-100 border-red-200" : "bg-primary/5 border-primary/10")}>
               <div className="flex items-center gap-3">
                 <button 
                   onClick={() => toggleDayLock(group.dateKey, group.payments, group.isDayLocked)}
-                  className={cn("transition-all", group.isDayLocked ? "text-primary" : "text-muted-foreground/30 hover:text-primary")}
+                  className={cn("transition-all", group.isDayLocked ? "text-red-600" : "text-muted-foreground/30 hover:text-primary")}
                 >
                   {group.isDayLocked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
                 </button>
-                <span className="text-[10px] font-black uppercase text-primary tracking-widest">{group.label}</span>
+                <span className={cn("text-[10px] font-black uppercase tracking-widest", group.isDayLocked ? "text-red-700" : "text-primary")}>{group.label}</span>
               </div>
-              <span className="font-headline font-black text-sm">S/ {group.total.toFixed(1)}</span>
+              <span className={cn("font-headline font-black text-sm", group.isDayLocked && "text-red-700")}>S/ {group.total.toFixed(1)}</span>
             </div>
 
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 px-1">
               {isBankGrouped ? group.bankGroups.map((bg, idx) => (
                 <div key={idx} className="space-y-1.5">
                   <div className="flex items-center justify-between px-6 py-0.5 bg-orange-50/50 rounded-lg border-l-4 border-orange-400">

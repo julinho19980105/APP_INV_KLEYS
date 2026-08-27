@@ -74,8 +74,11 @@ export default function ShippingHubPage() {
   const { data: allPayments = [] } = useCollection(allPaymentsRef)
 
   const activeCustomerSuggestions = React.useMemo(() => {
-    const activeCustIds = new Set(allQuotes.filter(q => q.status === 'active').map(q => q.customerId))
-    return dbCustomers.filter(c => activeCustIds.has(c.id))
+    // Incluir cotizaciones activas y enviadas
+    const activeOrShippedCustIds = new Set(
+      allQuotes.filter(q => q.status === 'active' || q.status === 'shipped').map(q => q.customerId)
+    )
+    return dbCustomers.filter(c => activeOrShippedCustIds.has(c.id))
   }, [dbCustomers, allQuotes])
 
   const filteredSuggestions = React.useMemo(() => {
@@ -96,7 +99,7 @@ export default function ShippingHubPage() {
 
   const handleAddCustomer = async (customer: any) => {
     if (!db || !logisticsDocRef) return
-    const customerQuotes = allQuotes.filter(q => q.customerId === customer.id && q.status === "active")
+    const customerQuotes = allQuotes.filter(q => q.customerId === customer.id && (q.status === "active" || q.status === "shipped"))
     const customerPayments = allPayments.filter(p => p.customerId === customer.id && !p.isLocked)
     const newEntry = {
       customerId: customer.id,
@@ -171,10 +174,12 @@ export default function ShippingHubPage() {
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-primary/40" />
             <Input placeholder="BUSCAR CLIENTE..." className="pl-11 h-11 w-full rounded-xl border-2 border-primary/10 font-black text-xs uppercase shadow-sm" value={customerSearch} onChange={e => setCustomerSearch(e.target.value)} onFocus={() => setIsSearchOpen(true)} />
             {isSearchOpen && (
-              <div className="absolute z-[999] w-full mt-1 bg-white border-2 border-primary/10 rounded-xl shadow-2xl overflow-hidden">
+              <div className="absolute z-[9999] w-full mt-1 bg-white border-2 border-primary/10 rounded-xl shadow-2xl overflow-hidden">
                 <div className="p-2 bg-primary/5 border-b border-primary/5 flex justify-between items-center px-4"><span className="text-[8px] font-black uppercase text-primary tracking-widest">Clientes Activos</span><Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsSearchOpen(false)}><X className="w-3.5 h-3.5" /></Button></div>
                 <div className="max-h-[250px] overflow-y-auto">
-                  {filteredSuggestions.map(c => (
+                  {filteredSuggestions.length === 0 ? (
+                    <div className="p-10 text-center opacity-20 text-[9px] font-black uppercase">Sin clientes pendientes</div>
+                  ) : filteredSuggestions.map(c => (
                     <button key={c.id} className="w-full text-left px-5 py-3 hover:bg-primary/5 border-b last:border-0 flex items-center justify-between" onClick={() => handleAddCustomer(c)}>
                       <div className="flex flex-col"><span className="font-black text-[11px] uppercase">{c.name}</span><span className="text-[8px] font-bold text-primary/40 uppercase">{c.id}</span></div>
                       <Plus className="w-3.5 h-3.5 text-primary" />
@@ -207,10 +212,11 @@ export default function ShippingHubPage() {
                           <div className="relative flex-1"><span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-black text-[9px] text-primary/40">S/</span><Input type="number" value={entry.shippingCost || ""} onChange={e => handleUpdateShippingCost(entry.customerId, e.target.value)} className="h-8 pl-7 text-xs font-black bg-primary/5 border-none w-full" /></div>
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => setDeleteConfirm({ id: entry.customerId, name: entry.customerName })}><Trash2 className="w-4 h-4" /></Button>
                         </div>
-                        <div className="space-y-1.5">
-                          <div className="flex items-center gap-2 px-1 opacity-40"><FileText className="w-3 h-3" /><span className="text-[8px] font-black uppercase">BOLETAS</span></div>
+                        
+                        <div className="space-y-2">
+                          <div className="px-1 border-b border-primary/5 pb-1"><span className="text-[8px] font-black uppercase text-primary/40 tracking-widest">BOLETAS</span></div>
                           {(entry.quotes || []).map((q: any) => (
-                            <div key={q.quoteId} className={cn("flex items-center justify-between h-9 px-3 rounded-md border", q.selected ? "bg-white border-primary/20" : "bg-black/5 opacity-40")}>
+                            <div key={q.quoteId} className={cn("flex items-center justify-between h-9 px-3 rounded-md border transition-all", q.selected ? "bg-white border-primary/20" : "bg-black/5 opacity-40")}>
                               <div className="flex items-center gap-3 flex-1 min-w-0">
                                 <Checkbox checked={q.selected} onCheckedChange={() => handleToggleItem(entry.customerId, q.quoteId, 'quote')} className="h-4 w-4" />
                                 <span className="text-[10px] font-black uppercase truncate">{q.quoteId} | {q.qty} UND</span>
@@ -220,10 +226,11 @@ export default function ShippingHubPage() {
                             </div>
                           ))}
                         </div>
-                        <div className="space-y-1.5">
-                          <div className="flex items-center gap-2 px-1 opacity-40"><CreditCard className="w-3 h-3" /><span className="text-[8px] font-black uppercase">PAGOS</span></div>
+
+                        <div className="space-y-2">
+                          <div className="px-1 border-b border-primary/5 pb-1"><span className="text-[8px] font-black uppercase text-primary/40 tracking-widest">PAGOS</span></div>
                           {(entry.payments || []).map((p: any) => (
-                            <div key={p.paymentId} className={cn("flex items-center justify-between h-9 px-3 rounded-md border", p.selected ? "bg-green-50 border-green-200" : "bg-black/5 opacity-40")}>
+                            <div key={p.paymentId} className={cn("flex items-center justify-between h-9 px-3 rounded-md border transition-all", p.selected ? "bg-green-50 border-green-200" : "bg-black/5 opacity-40")}>
                               <div className="flex items-center gap-3 flex-1">
                                 <Checkbox checked={p.selected} onCheckedChange={() => handleToggleItem(entry.customerId, p.paymentId, 'payment')} className="h-4 w-4" />
                                 <span className="text-[10px] font-black text-green-700 ml-auto">S/ {Number(p.amount).toFixed(1)}</span>
@@ -245,7 +252,11 @@ export default function ShippingHubPage() {
             <div className="space-y-2">
               {historyBatches.map(batch => {
                 let hDebt = false, isZero = true;
-                (batch.entries || []).forEach((e: any) => { const b = calculateEntryBalance(e); if (b < -0.1) { hDebt = true; isZero = false; } else if (b > 0.1) isZero = false; })
+                (batch.entries || []).forEach((e: any) => { 
+                  const b = calculateEntryBalance(e); 
+                  if (b < -0.1) { hDebt = true; isZero = false; } 
+                  else if (b > 0.1) isZero = false; 
+                });
                 return (
                   <Card key={batch.date} className="rounded-xl border border-black/5 bg-white shadow-sm hover:border-primary/20 transition-all">
                     <CardContent className="p-3 flex justify-between items-center">
