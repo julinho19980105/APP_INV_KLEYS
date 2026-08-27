@@ -40,7 +40,8 @@ import {
   limit, 
   addDoc,
   deleteDoc,
-  writeBatch
+  updateDoc,
+  increment
 } from "firebase/firestore"
 import { uploadImageToDrive } from "@/services/sheets-service"
 import { 
@@ -98,7 +99,6 @@ export default function RegistryPage() {
   })
   
   const [images, setImages] = React.useState<string[]>([])
-  
   const [isTagManagerOpen, setIsTagManagerOpen] = React.useState(false)
   const [tagManagerConfig, setTagManagerConfig] = React.useState<{ type: 'category' | 'collection', title: string }>({ type: 'category', title: '' })
   const [newTagName, setNewTagName] = React.useState("")
@@ -133,7 +133,7 @@ export default function RegistryPage() {
         category: editingProduct.category || "",
         collection: editingProduct.collection || "",
         description: editingProduct.description || "",
-        stock: editingProduct.baseStock?.toString() || editingProduct.stock?.toString() || "0",
+        stock: (editingProduct.baseStock !== undefined ? editingProduct.baseStock : (editingProduct.stock || 0)).toString(),
         priceFardo: editingProduct.priceFardo?.toString() || "",
         priceMayor: editingProduct.priceMayor?.toString() || "",
         priceUnidad: editingProduct.priceUnidad?.toString() || "",
@@ -156,41 +156,54 @@ export default function RegistryPage() {
     const productCode = nextId.toUpperCase()
     try {
       const isNew = !editId;
-      const inputStock = Number(form.stock);
-      const oldBase = Number(editingProduct?.baseStock || 0);
-      const currentReal = Number(editingProduct?.stock || 0);
+      const inputBaseStock = Number(form.stock);
       
-      let finalStock = inputStock;
-      if (!isNew) {
-        const diff = inputStock - oldBase;
-        finalStock = currentReal + diff;
-      }
+      if (isNew) {
+        // Registro nuevo
+        const productData = {
+          name: form.name.toUpperCase(),
+          code: productCode,
+          category: (form.category || "").toUpperCase(),
+          collection: (form.collection || "").toUpperCase(),
+          description: form.description,
+          stock: inputBaseStock,
+          baseStock: inputBaseStock,
+          priceFardo: Number(form.priceFardo || 0),
+          priceMayor: Number(form.priceMayor || 0),
+          priceUnidad: Number(form.priceUnidad || 0),
+          images: images, 
+          updatedAt: serverTimestamp()
+        }
+        await setDoc(doc(db, "products", productCode), productData)
+        
+        if (inputBaseStock > 0) {
+          await addDoc(collection(db, "movements"), {
+            productCode: productCode,
+            type: "in",
+            quantity: inputBaseStock,
+            reason: "STOCK INICIAL AL REGISTRAR",
+            timestamp: serverTimestamp()
+          });
+        }
+      } else {
+        // Edición de producto existente
+        const oldBaseStock = editingProduct.baseStock !== undefined ? editingProduct.baseStock : editingProduct.stock;
+        const delta = inputBaseStock - oldBaseStock;
 
-      const productData = {
-        name: form.name.toUpperCase(),
-        code: productCode,
-        category: (form.category || "").toUpperCase(),
-        collection: (form.collection || "").toUpperCase(),
-        description: form.description,
-        stock: finalStock,
-        baseStock: inputStock,
-        priceFardo: Number(form.priceFardo || 0),
-        priceMayor: Number(form.priceMayor || 0),
-        priceUnidad: Number(form.priceUnidad || 0),
-        images: images, 
-        updatedAt: serverTimestamp()
-      }
-      
-      await setDoc(doc(db, "products", productCode), productData, { merge: true })
-
-      if (isNew && inputStock > 0) {
-        addDoc(collection(db, "movements"), {
-          productCode: productCode,
-          type: "in",
-          quantity: inputStock,
-          reason: "STOCK INICIAL AL REGISTRAR",
-          timestamp: serverTimestamp()
-        });
+        const updateData: any = {
+          name: form.name.toUpperCase(),
+          category: (form.category || "").toUpperCase(),
+          collection: (form.collection || "").toUpperCase(),
+          description: form.description,
+          baseStock: inputBaseStock,
+          stock: increment(delta), // Solo ajusta la diferencia
+          priceFardo: Number(form.priceFardo || 0),
+          priceMayor: Number(form.priceMayor || 0),
+          priceUnidad: Number(form.priceUnidad || 0),
+          images: images, 
+          updatedAt: serverTimestamp()
+        }
+        await updateDoc(doc(db, "products", productCode), updateData)
       }
       
       toast({ title: isNew ? "PRENDA REGISTRADA" : "PRENDA ACTUALIZADA" })
@@ -209,7 +222,6 @@ export default function RegistryPage() {
     reader.onloadend = async () => {
       const base64 = reader.result as string;
       const tempIdx = images.length;
-      
       setImages(prev => [...prev, base64]);
 
       try {
@@ -242,33 +254,23 @@ export default function RegistryPage() {
     const tag = newTagName.toUpperCase().trim()
     const collectionName = tagManagerConfig.type === 'category' ? 'categories' : 'collections'
     try {
-      await addDoc(collection(db, collectionName), {
-        name: tag,
-        createdAt: serverTimestamp()
-      })
+      await addDoc(collection(db, collectionName), { name: tag, createdAt: serverTimestamp() })
       setNewTagName("")
       toast({ title: "Agregado correctamente" })
-    } catch (e) {
-      toast({ variant: "destructive", title: "Error" })
-    }
+    } catch (e) { toast({ variant: "destructive", title: "Error" }) }
   }
 
   const handleRenameTag = async () => {
     if (!db || !editingTagName || !editingTagName.name.trim()) return
     setSaving(true)
     const newName = editingTagName.name.toUpperCase().trim()
-    const type = tagManagerConfig.type
-    const collName = type === 'category' ? 'categories' : 'collections'
-
+    const collName = tagManagerConfig.type === 'category' ? 'categories' : 'collections'
     try {
-      await setDoc(doc(db, collName, editingTagName.id), { name: newName }, { merge: true })
+      await updateDoc(doc(db, collName, editingTagName.id), { name: newName })
       toast({ title: "Nombre actualizado" })
       setEditingTagName(null)
-    } catch (e) {
-      toast({ variant: "destructive", title: "Error" })
-    } finally {
-      setSaving(false)
-    }
+    } catch (e) { toast({ variant: "destructive", title: "Error" }) }
+    finally { setSaving(false) }
   }
 
   const handleRemoveTag = async (tagId: string) => {
@@ -278,9 +280,7 @@ export default function RegistryPage() {
     try {
       await deleteDoc(doc(db, collName, tagId))
       toast({ title: "Eliminado" })
-    } catch (e) {
-      toast({ variant: "destructive", title: "Error" })
-    }
+    } catch (e) { toast({ variant: "destructive", title: "Error" }) }
   }
 
   const currentTagsList = tagManagerConfig.type === 'category' ? dbCategories : dbCollections
@@ -350,7 +350,7 @@ export default function RegistryPage() {
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="space-y-1">
-                  <Label className="text-[9px] uppercase font-black text-muted-foreground ml-1">Stock Base</Label>
+                  <Label className="text-[9px] uppercase font-black text-muted-foreground ml-1">Stock Inicial</Label>
                   <Input type="number" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} className="h-12 rounded-xl font-black text-center border-green-100 bg-green-50 text-green-700" />
                 </div>
                 <div className="space-y-1">
@@ -385,7 +385,6 @@ export default function RegistryPage() {
               {images.map((img, idx) => (
                 <div key={idx} className="relative aspect-square rounded-xl overflow-hidden border border-primary/10 group bg-secondary shadow-sm">
                   <img src={getDriveThumb(img, 400)} className={cn("w-full h-full object-cover", img.startsWith('data:') && "opacity-40")} alt="Previa" />
-                  
                   {img.startsWith('data:') ? (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/10">
                       <Loader2 className="w-6 h-6 text-white animate-spin" />

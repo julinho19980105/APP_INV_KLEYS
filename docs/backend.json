@@ -10,12 +10,12 @@
         "name": { "type": "string", "description": "Nombre de la prenda" },
         "category": { "type": "string", "description": "Categoría de moda" },
         "collection": { "type": "string", "description": "Colección de temporada" },
-        "stock": { "type": "number", "description": "Cantidad disponible total" },
+        "stock": { "type": "number", "description": "Cantidad disponible actual" },
         "baseStock": { "type": "number", "description": "Stock inicial o base ajustada" },
         "priceFardo": { "type": "number", "description": "Precio por fardo" },
         "priceMayor": { "type": "number", "description": "Precio al por mayor" },
         "priceUnidad": { "type": "number", "description": "Precio por unidad" },
-        "images": { "type": "array", "items": { "type": "string" }, "description": "URLs de imágenes en Drive" },
+        "images": { "type": "array", "items": { "type": "string" }, "description": "URLs de imágenes" },
         "description": { "type": "string", "description": "Descripción estética" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
@@ -26,7 +26,7 @@
       "description": "Datos de cliente",
       "type": "object",
       "properties": {
-        "id": { "type": "string", "description": "CL-001..." },
+        "id": { "type": "string" },
         "name": { "type": "string" },
         "phone": { "type": "string" },
         "location": { "type": "string" },
@@ -34,92 +34,29 @@
       }
     },
     "Movement": {
-      "title": "Movimiento de Inventario",
-      "description": "Registro de entrada o salida de stock",
+      "title": "Movimiento",
+      "description": "Registro de stock",
       "type": "object",
       "properties": {
         "productCode": { "type": "string" },
         "type": { "type": "string", "enum": ["in", "out", "return"] },
         "quantity": { "type": "number" },
         "reason": { "type": "string" },
-        "timestamp": { "type": "string", "format": "date-time" },
-        "referenceId": { "type": "string", "description": "ID de boleta o referencia" }
+        "timestamp": { "type": "string", "format": "date-time" }
       }
     },
     "Quote": {
-      "title": "Cotización / Venta",
-      "description": "Registro de proforma o venta finalizada",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string", "description": "B-001..." },
-        "customerName": { "type": "string" },
-        "customerId": { "type": "string" },
-        "items": { "type": "array" },
-        "subtotal": { "type": "number" },
-        "total": { "type": "number" },
-        "status": { "type": "string", "enum": ["active", "annulled", "shipped"] },
-        "createdAt": { "type": "string", "format": "date-time" }
-      }
-    },
-    "Payment": {
-      "title": "Pago",
-      "description": "Registro de cobro a cliente",
+      "title": "Venta",
+      "description": "Registro de ventas",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
-        "customerId": { "type": "string" },
         "customerName": { "type": "string" },
-        "amount": { "type": "number" },
-        "bankId": { "type": "string" },
-        "bankName": { "type": "string" },
-        "date": { "type": "string", "format": "date" },
-        "isLocked": { "type": "boolean" },
+        "customerId": { "type": "string" },
+        "items": { "type": "array" },
+        "total": { "type": "number" },
+        "status": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" }
-      }
-    },
-    "DayLock": {
-      "title": "Cierre de Día",
-      "description": "Indica si un día ha sido cuadrado y cerrado",
-      "type": "object",
-      "properties": {
-        "date": { "type": "string", "format": "date" },
-        "isLocked": { "type": "boolean" },
-        "updatedAt": { "type": "string", "format": "date-time" }
-      }
-    },
-    "LogisticsBatch": {
-      "title": "Lote Logístico",
-      "description": "Despacho diario de clientes y documentos",
-      "type": "object",
-      "properties": {
-        "date": { "type": "string", "format": "date" },
-        "entries": { "type": "array" },
-        "totalAmount": { "type": "number" },
-        "updatedAt": { "type": "string", "format": "date-time" }
-      }
-    },
-    "AppConfig": {
-      "title": "Configuración de Aplicación",
-      "description": "Configuración global de la identidad",
-      "type": "object",
-      "properties": {
-        "companyName": { "type": "string" },
-        "companyLogo": { "type": "string" },
-        "brandColor": { "type": "string" },
-        "inventoryViewMode": { "type": "string" },
-        "printerWidth": { "type": "string", "enum": ["58", "80"] },
-        "defaultCategory": { "type": "string", "description": "Categoría por defecto al abrir inventario" },
-        "banks": { 
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "id": { "type": "string" },
-              "name": { "type": "string" },
-              "isDefault": { "type": "boolean" }
-            }
-          }
-        }
       }
     }
   },
@@ -129,12 +66,11 @@
   "firestore": {
     "/products/{productId}": { "schema": "Product", "description": "Inventario maestro" },
     "/customers/{customerId}": { "schema": "Customer", "description": "Cartera de clientes" },
-    "/quotes/{quoteId}": { "schema": "Quote", "description": "Registro de cotizaciones y ventas" },
-    "/movements/{movementId}": { "schema": "Movement", "description": "Kardex de stock" },
+    "/quotes/{quoteId}": { "schema": "Quote", "description": "Registro de ventas" },
+    "/movements/{movementId}": { "schema": "Movement", "description": "Histórico de stock" },
     "/payments/{paymentId}": { "schema": "Payment", "description": "Registro de cobros" },
-    "/dayLocks/{dateKey}": { "schema": "DayLock", "description": "Estado de cierre contable por fecha" },
-    "/logistics/{dateKey}": { "schema": "LogisticsBatch", "description": "Gestión de despachos diarios" },
-    "/config/{configId}": { "schema": "AppConfig", "description": "Ajustes de identidad y sistema" }
-  },
-  "deployTimestamp": "2024-05-23T14:40:00Z"
+    "/dayLocks/{dateKey}": { "schema": "DayLock", "description": "Cierres diarios" },
+    "/logistics/{dateKey}": { "schema": "LogisticsBatch", "description": "Lotes de envío" },
+    "/config/{configId}": { "schema": "AppConfig", "description": "Ajustes globales" }
+  }
 }
