@@ -1,3 +1,4 @@
+
 import type { Metadata, Viewport } from 'next';
 import { Inter, Space_Grotesk } from 'next/font/google';
 import './globals.css';
@@ -27,7 +28,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: 'StiloStack | High-End Fashion & Logistics',
+  title: 'StiloStack | Industrial Management',
   description: 'Sistema Inteligente de Gestión Industrial',
   manifest: '/manifest.json',
   appleWebApp: {
@@ -44,6 +45,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" className={`${inter.variable} ${spaceGrotesk.variable} dark`}>
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#000000" />
+      </head>
       <body className="font-body antialiased bg-background text-foreground">
         <FirebaseClientProvider>
           <PasswordGuard>
