@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
 import { useFirestore, useDoc } from "@/firebase"
 import { doc, setDoc, serverTimestamp } from "firebase/firestore"
@@ -42,7 +41,6 @@ export default function SettingsPage() {
   const [newBankName, setNewBankName] = React.useState("")
   const [editingBank, setEditingBank] = React.useState<{ id: string, name: string } | null>(null)
 
-  // Sincronización inicial desde la DB una sola vez para evitar sobreescritura local
   React.useEffect(() => {
     if (dbConfig && !isInitialized) {
       setForm({
@@ -57,47 +55,56 @@ export default function SettingsPage() {
     }
   }, [dbConfig, isInitialized])
 
-  const handleSave = async () => {
+  // Función para guardar inmediatamente en la base de datos (Garantiza persistencia)
+  const saveToFirestore = async (updatedData: any) => {
     if (!db) return
-    setSaving(true)
     try {
       await setDoc(doc(db, "config", "global"), {
-        ...form,
+        ...updatedData,
         updatedAt: serverTimestamp()
       }, { merge: true })
-      toast({ title: "CONFIGURACIÓN GUARDADA EN NUBE" })
     } catch (e) {
-      toast({ variant: "destructive", title: "ERROR AL GUARDAR" })
-    } finally {
-      setSaving(false)
+      toast({ variant: "destructive", title: "ERROR DE CONEXIÓN CON DB" })
     }
   }
 
-  const addBank = () => {
+  const handleSaveGeneral = async () => {
+    setSaving(true)
+    await saveToFirestore(form)
+    toast({ title: "CONFIGURACIÓN GENERAL GUARDADA" })
+    setSaving(false)
+  }
+
+  const addBank = async () => {
     if (!newBankName.trim()) return
     const newBank = {
       id: Math.random().toString(36).substr(2, 9),
       name: newBankName.toUpperCase().trim(),
       isDefault: form.banks.length === 0
     }
-    setForm(prev => ({ ...prev, banks: [...prev.banks, newBank] }))
+    const updatedBanks = [...form.banks, newBank]
+    setForm(prev => ({ ...prev, banks: updatedBanks }))
+    await saveToFirestore({ ...form, banks: updatedBanks })
     setNewBankName("")
+    toast({ title: "BANCO REGISTRADO EN DB" })
   }
 
-  const handleRenameBank = () => {
+  const handleRenameBank = async () => {
     if (!editingBank || !editingBank.name.trim()) return
-    setForm(prev => ({
-      ...prev,
-      banks: prev.banks.map(b => b.id === editingBank.id ? { ...b, name: editingBank.name.toUpperCase().trim() } : b)
-    }))
+    const updatedBanks = form.banks.map(b => 
+      b.id === editingBank.id ? { ...b, name: editingBank.name.toUpperCase().trim() } : b
+    )
+    setForm(prev => ({ ...prev, banks: updatedBanks }))
+    await saveToFirestore({ ...form, banks: updatedBanks })
     setEditingBank(null)
+    toast({ title: "NOMBRE ACTUALIZADO EN DB" })
   }
 
-  const setDefaultBank = (id: string) => {
-    setForm(prev => ({
-      ...prev,
-      banks: prev.banks.map(b => ({ ...b, isDefault: b.id === id }))
-    }))
+  const setDefaultBank = async (id: string) => {
+    const updatedBanks = form.banks.map(b => ({ ...b, isDefault: b.id === id }))
+    setForm(prev => ({ ...prev, banks: updatedBanks }))
+    await saveToFirestore({ ...form, banks: updatedBanks })
+    toast({ title: "BANCO PREDETERMINADO ACTUALIZADO" })
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -111,7 +118,11 @@ export default function SettingsPage() {
     }
   }
 
-  if (loading && !isInitialized) return <div className="flex items-center justify-center min-h-[60vh]"><Loader2 className="w-10 h-10 animate-spin text-primary" /></div>
+  if (loading && !isInitialized) return (
+    <div className="flex items-center justify-center min-h-[60vh]">
+      <Loader2 className="w-10 h-10 animate-spin text-primary" />
+    </div>
+  )
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 pt-2 pb-24 px-2 md:px-0">
@@ -149,10 +160,10 @@ export default function SettingsPage() {
                 {form.banks.map(bank => (
                   <div key={bank.id} className="flex items-center justify-between p-3 bg-black/5 rounded-xl border group">
                     <div className="flex items-center gap-3">
-                       <Switch checked={bank.isDefault} onCheckedChange={() => setDefaultBank(bank.id)} className="scale-75" />
+                       <button onClick={() => setDefaultBank(bank.id)} className={cn("w-4 h-4 rounded-full border-2", bank.isDefault ? "bg-primary border-primary shadow-[0_0_8px_rgba(255,51,153,0.5)]" : "bg-white border-black/20")} />
                        <span className={cn("text-[10px] font-black uppercase", bank.isDefault && "text-primary")}>{bank.name}</span>
                     </div>
-                    <button className="text-primary/40 hover:text-primary transition-all" onClick={() => setEditingBank(bank)}><Edit2 className="w-3.5 h-3.5" /></button>
+                    <button className="text-primary/40 hover:text-primary transition-all p-2" onClick={() => setEditingBank(bank)}><Edit2 className="w-3.5 h-3.5" /></button>
                   </div>
                 ))}
               </div>
@@ -174,7 +185,7 @@ export default function SettingsPage() {
       </div>
 
       <div className="flex justify-center pt-8">
-        <Button onClick={handleSave} disabled={saving} className="h-16 w-full max-w-lg bg-black text-white font-black rounded-2xl shadow-2xl active:scale-95 transition-all uppercase tracking-widest">{saving ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6 mr-3" />} CONFIRMAR AJUSTES</Button>
+        <Button onClick={handleSaveGeneral} disabled={saving} className="h-16 w-full max-w-lg bg-black text-white font-black rounded-2xl shadow-2xl active:scale-95 transition-all uppercase tracking-widest">{saving ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6 mr-3" />} CONFIRMAR AJUSTES</Button>
       </div>
 
       <Dialog open={!!editingBank} onOpenChange={() => setEditingBank(null)}>

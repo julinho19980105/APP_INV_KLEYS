@@ -38,7 +38,6 @@ export default function PaymentsView() {
   const { data: config } = useDoc(configDocRef)
   
   const banks = React.useMemo(() => config?.banks || [], [config])
-  const defaultBank = React.useMemo(() => banks.find((b: any) => b.isDefault), [banks])
 
   const [saving, setSaving] = React.useState(false)
   const [date, setDate] = React.useState<Date>(new Date())
@@ -81,7 +80,7 @@ export default function PaymentsView() {
     }))
   }, [date, amount, selectedBank, selectedCustomer])
 
-  // Selección automática de banco por defecto
+  // Selección automática de banco por defecto desde Firestore
   React.useEffect(() => {
     if (banks.length > 0 && !selectedBank) {
       const dbDefault = banks.find((b: any) => b.isDefault);
@@ -94,14 +93,15 @@ export default function PaymentsView() {
     setAmount("")
     setSelectedCustomer(null)
     setCustomerSearch("")
-    if (defaultBank) setSelectedBank(defaultBank)
     localStorage.removeItem(STORAGE_KEY)
+    const dbDefault = banks.find((b: any) => b.isDefault);
+    setSelectedBank(dbDefault || (banks.length > 0 ? banks[0] : null))
     toast({ title: "Formulario Reiniciado" })
   }
 
   const handleAddPayment = async () => {
     if (!db || !selectedCustomer || !amount || !selectedBank) {
-      toast({ variant: "destructive", title: "Datos incompletos" })
+      toast({ variant: "destructive", title: "DATOS INCOMPLETOS" })
       return
     }
     setSaving(true)
@@ -117,9 +117,9 @@ export default function PaymentsView() {
         createdAt: serverTimestamp()
       })
       setAmount("")
-      toast({ title: "Pago Registrado con éxito" })
+      toast({ title: "PAGO REGISTRADO EN DB" })
     } catch (e) {
-      toast({ variant: "destructive", title: "Error al registrar pago" })
+      toast({ variant: "destructive", title: "ERROR DE CONEXIÓN" })
     } finally {
       setSaving(false)
     }
@@ -166,18 +166,18 @@ export default function PaymentsView() {
 
   return (
     <div className="space-y-6 px-2 md:px-0 pb-24">
-      {/* Plantilla de Registro */}
+      {/* Plantilla de Registro - FIJA Y VISIBLE */}
       <Card className="rounded-[2.5rem] border-2 border-primary/20 bg-white shadow-2xl overflow-visible relative">
         <div className="bg-primary/5 p-5 border-b border-primary/10 flex justify-between items-center">
           <div className="flex items-center gap-2">
             <CreditCard className="w-5 h-5 text-primary" />
             <h2 className="text-[12px] font-black uppercase text-primary tracking-widest">Registrar Cobranza</h2>
           </div>
-          <Button variant="ghost" size="icon" className="h-9 w-9 text-primary/40 hover:text-primary active:rotate-90 transition-transform" onClick={handleReset}>
+          <Button variant="ghost" size="icon" className="h-9 w-9 text-primary/40 hover:text-primary active:rotate-90 transition-all" onClick={handleReset}>
             <RotateCcw className="w-5 h-5" />
           </Button>
         </div>
-        <CardContent className="p-6 space-y-6">
+        <CardContent className="p-6 space-y-6 overflow-visible">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Fecha de Pago</Label>
@@ -188,7 +188,7 @@ export default function PaymentsView() {
                     {format(date, "dd/MM/yyyy")}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 rounded-2xl" align="start">
+                <PopoverContent className="w-auto p-0 rounded-2xl z-[200]" align="start">
                   <Calendar mode="single" selected={date} onSelect={(d) => d && setDate(d)} initialFocus locale={es} />
                 </PopoverContent>
               </Popover>
@@ -215,8 +215,8 @@ export default function PaymentsView() {
                   key={bank.id}
                   variant={selectedBank?.id === bank.id ? "default" : "outline"}
                   className={cn(
-                    "h-12 rounded-xl font-black text-[10px] uppercase border-primary/10",
-                    selectedBank?.id === bank.id ? "bg-primary text-white shadow-lg shadow-primary/20" : "bg-white text-muted-foreground"
+                    "h-12 rounded-xl font-black text-[10px] uppercase border-primary/10 transition-all",
+                    selectedBank?.id === bank.id ? "bg-primary text-white shadow-lg shadow-primary/20 scale-[1.02]" : "bg-white text-muted-foreground"
                   )}
                   onClick={() => setSelectedBank(bank)}
                 >
@@ -226,7 +226,7 @@ export default function PaymentsView() {
             </div>
           </div>
 
-          <div className="flex gap-2 items-end">
+          <div className="flex gap-2 items-end overflow-visible">
             <div className="flex-1 space-y-1 relative">
               <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Cliente</Label>
               <div className="relative">
@@ -238,11 +238,11 @@ export default function PaymentsView() {
                   onChange={e => { if (selectedCustomer) setSelectedCustomer(null); setCustomerSearch(e.target.value); }}
                 />
                 {filteredCustomers.length > 0 && (
-                  <div className="absolute z-[100] w-full mt-2 bg-white border-2 border-primary/10 rounded-xl shadow-[0_15px_40px_-10px_rgba(0,0,0,0.2)] overflow-hidden max-h-48 overflow-y-auto">
+                  <div className="absolute z-[999] w-full mt-2 bg-white border-2 border-primary/10 rounded-xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] overflow-hidden max-h-48 overflow-y-auto">
                     {filteredCustomers.map(c => (
                       <button 
                         key={c.id} 
-                        className="w-full text-left px-4 py-4 hover:bg-primary/5 border-b last:border-0 font-black text-[10px] uppercase text-foreground"
+                        className="w-full text-left px-4 py-4 hover:bg-primary/5 border-b last:border-0 font-black text-[10px] uppercase text-foreground transition-colors"
                         onClick={() => { setSelectedCustomer(c); setCustomerSearch(""); }}
                       >
                         {c.name} <span className="text-primary ml-1">[{c.id}]</span>
@@ -325,7 +325,7 @@ export default function PaymentsView() {
                         <Unlock className="w-4 h-4 text-green-500/40" />
                         <button 
                           className="opacity-0 group-hover:opacity-100 p-1.5 text-destructive rounded-lg transition-all"
-                          onClick={() => { if(confirm("¿Eliminar pago?")) deleteDoc(doc(db, "payments", p.id)); }}
+                          onClick={() => { if(confirm("¿ELIMINAR PAGO?")) deleteDoc(doc(db, "payments", p.id)); }}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
