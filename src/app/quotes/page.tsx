@@ -129,6 +129,7 @@ export default function QuotesPage() {
   const { data: dbProducts = [] } = useCollection(productsRef)
   const { data: dbCustomers = [] } = useCollection(customersRef)
 
+  // Persistencia de datos al navegar
   React.useEffect(() => {
     if (typeof window !== "undefined" && !editId) {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -154,6 +155,7 @@ export default function QuotesPage() {
     }
   }, [selectedCustomer, items, quoteId, isInitialized, editId]);
 
+  // Generar ID correlativo
   React.useEffect(() => {
     if (!db || editId) return
     const getNextId = async () => {
@@ -168,6 +170,7 @@ export default function QuotesPage() {
     getNextId()
   }, [db, editId])
 
+  // Cargar datos para edición
   React.useEffect(() => {
     if (db && editId) {
       getDoc(doc(db, "quotes", editId)).then(snap => {
@@ -275,6 +278,7 @@ export default function QuotesPage() {
     }
     setSaving(true)
     try {
+      // Si estamos editando y no estaba anulada, primero reintegramos stock
       if (editId && oldItems.length > 0 && editQuoteStatus !== 'annulled') {
         for (const item of oldItems) {
           if (item.isRegistered && item.productId !== "MANUAL") {
@@ -312,6 +316,7 @@ export default function QuotesPage() {
 
       await setDoc(doc(db, "quotes", quoteId), quoteData)
 
+      // Descontar stock del nuevo estado de la venta
       for (const item of items) {
         if (item.isRegistered && item.productId !== "MANUAL") {
           const prodRef = doc(db, "products", item.productId)
@@ -354,6 +359,7 @@ export default function QuotesPage() {
     setSelectedCustomer(null);
     setItems([]);
     setQuoteId("B-001");
+    setCurrentEntry(EMPTY_ENTRY);
     router.push('/sales');
   }
 
@@ -371,7 +377,7 @@ export default function QuotesPage() {
         </div>
       </div>
 
-      {/* SECCIÓN CLIENTE */}
+      {/* 1. SECCIÓN CLIENTE (LÍNEA 1) */}
       <div className="space-y-1">
         <Label className="text-[10px] uppercase text-foreground font-black ml-1 tracking-widest text-primary">CLIENTE</Label>
         <div className="relative flex gap-2">
@@ -404,7 +410,7 @@ export default function QuotesPage() {
         </div>
       </div>
 
-      {/* SECCIÓN BUSCADOR PRODUCTO */}
+      {/* 2. SECCIÓN BUSCADOR PRODUCTO (LÍNEA 2) */}
       <div className="space-y-1">
         <Label className="text-[10px] uppercase font-black text-foreground ml-1 tracking-widest text-primary">BUSCAR PRENDA</Label>
         <div className="relative">
@@ -452,83 +458,89 @@ export default function QuotesPage() {
         </div>
       </div>
 
-      {/* PLANTILLA DE INGRESO (FIJA SI HAY SELECCIÓN) */}
-      {currentEntry.name && (
-        <Card className="rounded-[2rem] border-2 border-primary/20 bg-white overflow-hidden shadow-2xl animate-in fade-in slide-in-from-top-2">
-          <div className="bg-primary/5 border-b border-primary/10 py-4 px-6 flex justify-between items-center">
-            <div className="flex flex-col">
-              <span className="text-[14px] font-black uppercase text-foreground leading-none mb-1">{currentEntry.name}</span>
-              <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">{currentEntry.productId}</span>
-            </div>
-            <div className="flex items-center gap-3">
-              {currentEntry.isRegistered && (
-                <Badge variant="outline" className="font-black text-[10px] px-2.5 h-6 bg-green-50 text-green-600 border-green-200">
-                  STOCK: {currentEntry.stock}
-                </Badge>
-              )}
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => setCurrentEntry(EMPTY_ENTRY)}>
-                <X className="w-5 h-5" />
-              </Button>
-            </div>
+      {/* 3. PLANTILLA DE INGRESO (FIJA SIEMPRE) */}
+      <Card className="rounded-[2rem] border-2 border-primary/20 bg-white overflow-hidden shadow-2xl">
+        <div className="bg-primary/5 border-b border-primary/10 py-4 px-6 flex justify-between items-center">
+          <div className="flex flex-col flex-1">
+            <Label className="text-[8px] font-black text-primary uppercase tracking-widest mb-1">Nombre de Prenda (Editar si es manual)</Label>
+            <Input 
+              value={currentEntry.name}
+              onChange={e => setCurrentEntry({...currentEntry, name: e.target.value.toUpperCase()})}
+              placeholder="NOMBRE DEL PRODUCTO"
+              className="h-10 text-[14px] font-black uppercase text-foreground leading-none bg-transparent border-none p-0 focus-visible:ring-0 shadow-none"
+            />
+            <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">
+              {currentEntry.productId || "PRENDA MANUAL"}
+            </span>
           </div>
-          <CardContent className="p-5 md:p-8 space-y-6">
-            <div className="flex flex-col md:flex-row gap-6">
-              <div 
-                className="w-full md:w-32 aspect-square rounded-2xl overflow-hidden border border-primary/10 shrink-0 bg-muted flex items-center justify-center cursor-pointer hover:ring-2 transition-all shadow-md"
-                onClick={() => setZoomImage(currentEntry.img)}
-              >
-                {currentEntry.img ? <img src={getDriveThumb(currentEntry.img, 400)} className="w-full h-full object-cover" /> : <PackageSearch className="w-10 h-10 opacity-20" />}
-              </div>
-              <div className="flex-1 space-y-5">
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  <div className="space-y-1">
-                    <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1 tracking-widest">PRECIO S/</Label>
-                    <Input type="number" className="h-12 text-sm font-black rounded-xl border-primary/10" value={currentEntry.price} onChange={e => setCurrentEntry({...currentEntry, price: e.target.value})} />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1 tracking-widest">CANTIDAD</Label>
-                    <div className="flex gap-1">
-                      <Input type="number" className="h-12 text-sm font-black rounded-xl border-primary/10" value={currentEntry.quantity} onChange={e => setCurrentEntry({...currentEntry, quantity: e.target.value})} />
-                      <Button variant="outline" size="icon" className="h-12 w-12 shrink-0 rounded-xl border-primary/10 text-primary hover:bg-primary/5" onClick={() => {
-                        setCalcData({ unidades: currentEntry.calcUnidades || "", series: currentEntry.calcSeries || "", libres: currentEntry.calcLibres || "" });
-                        setIsCalcOpen(true);
-                      }}>
-                        <Calculator className="w-5 h-5" />
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="space-y-1 col-span-2 md:col-span-1">
-                    <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1 tracking-widest">DESCUENTO S/</Label>
-                    <Input type="number" className="h-12 text-sm font-black border-orange-200 bg-orange-50 text-orange-600 rounded-xl" value={currentEntry.discount} onChange={e => setCurrentEntry({...currentEntry, discount: e.target.value})} />
-                  </div>
+          <div className="flex items-center gap-3">
+            {currentEntry.isRegistered && (
+              <Badge variant="outline" className="font-black text-[10px] px-2.5 h-6 bg-green-50 text-green-600 border-green-200">
+                STOCK: {currentEntry.stock}
+              </Badge>
+            )}
+            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => setCurrentEntry(EMPTY_ENTRY)}>
+              <X className="w-5 h-5" />
+            </Button>
+          </div>
+        </div>
+        <CardContent className="p-5 md:p-8 space-y-6">
+          <div className="flex flex-col md:flex-row gap-6">
+            <div 
+              className="w-full md:w-32 aspect-square rounded-2xl overflow-hidden border border-primary/10 shrink-0 bg-muted flex items-center justify-center cursor-pointer hover:ring-2 transition-all shadow-md"
+              onClick={() => setZoomImage(currentEntry.img)}
+            >
+              {currentEntry.img ? <img src={getDriveThumb(currentEntry.img, 400)} className="w-full h-full object-cover" /> : <PackageSearch className="w-10 h-10 opacity-20" />}
+            </div>
+            <div className="flex-1 space-y-5">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div className="space-y-1">
+                  <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1 tracking-widest">PRECIO S/</Label>
+                  <Input type="number" className="h-12 text-sm font-black rounded-xl border-primary/10" value={currentEntry.price} onChange={e => setCurrentEntry({...currentEntry, price: e.target.value})} />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1 tracking-widest">DESCRIPCIÓN / NOTAS</Label>
-                  <Input className="h-12 text-[11px] font-medium uppercase bg-secondary/30 border-none rounded-xl" value={currentEntry.description} onChange={e => setCurrentEntry({...currentEntry, description: e.target.value})} placeholder="Ej: TALLA L, COLOR AZUL..." />
+                  <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1 tracking-widest">CANTIDAD</Label>
+                  <div className="flex gap-1">
+                    <Input type="number" className="h-12 text-sm font-black rounded-xl border-primary/10" value={currentEntry.quantity} onChange={e => setCurrentEntry({...currentEntry, quantity: e.target.value})} />
+                    <Button variant="outline" size="icon" className="h-12 w-12 shrink-0 rounded-xl border-primary/10 text-primary hover:bg-primary/5" onClick={() => {
+                      setCalcData({ unidades: currentEntry.calcUnidades || "", series: currentEntry.calcSeries || "", libres: currentEntry.calcLibres || "" });
+                      setIsCalcOpen(true);
+                    }}>
+                      <Calculator className="w-5 h-5" />
+                    </Button>
+                  </div>
+                </div>
+                <div className="space-y-1 col-span-2 md:col-span-1">
+                  <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1 tracking-widest">DESC. S/</Label>
+                  <Input type="number" className="h-12 text-sm font-black border-orange-200 bg-orange-50 text-orange-600 rounded-xl" value={currentEntry.discount} onChange={e => setCurrentEntry({...currentEntry, discount: e.target.value})} />
                 </div>
               </div>
+              <div className="space-y-1">
+                <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1 tracking-widest">DESCRIPCIÓN / NOTAS</Label>
+                <Input className="h-12 text-[11px] font-medium uppercase bg-secondary/30 border-none rounded-xl" value={currentEntry.description} onChange={e => setCurrentEntry({...currentEntry, description: e.target.value})} placeholder="Ej: TALLA L, COLOR AZUL..." />
+              </div>
             </div>
-            
-            <div className="grid grid-cols-2 gap-4 pt-2">
-              <Button variant="outline" className="h-14 rounded-2xl font-black text-[11px] uppercase border-primary/10 text-muted-foreground hover:bg-primary/5" onClick={() => setCurrentEntry(EMPTY_ENTRY)}>
-                <Trash2 className="w-5 h-5 mr-2" /> LIMPIAR
-              </Button>
-              <Button className="h-14 bg-primary text-white rounded-2xl font-black text-[11px] uppercase shadow-xl shadow-primary/20 active:scale-95 transition-all" onClick={() => {
-                if (!currentEntry.name || !currentEntry.price || !currentEntry.quantity) {
-                  toast({ variant: "destructive", title: "CAMPOS INCOMPLETOS" });
-                  return;
-                }
-                setItems([...items, { ...currentEntry }]);
-                setCurrentEntry(EMPTY_ENTRY);
-              }}>
-                <Plus className="w-5 h-5 mr-2" /> AGREGAR A LISTA
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4 pt-2">
+            <Button variant="outline" className="h-14 rounded-2xl font-black text-[11px] uppercase border-primary/10 text-muted-foreground hover:bg-primary/5" onClick={() => setCurrentEntry(EMPTY_ENTRY)}>
+              <Trash2 className="w-5 h-5 mr-2" /> LIMPIAR
+            </Button>
+            <Button className="h-14 bg-primary text-white rounded-2xl font-black text-[11px] uppercase shadow-xl shadow-primary/20 active:scale-95 transition-all" onClick={() => {
+              if (!currentEntry.name || !currentEntry.price || !currentEntry.quantity) {
+                toast({ variant: "destructive", title: "CAMPOS INCOMPLETOS" });
+                return;
+              }
+              setItems([...items, { ...currentEntry }]);
+              setCurrentEntry(EMPTY_ENTRY);
+            }}>
+              <Plus className="w-5 h-5 mr-2" /> AGREGAR A LISTA
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
-      {/* LISTA DE PRENDAS AGREGADAS */}
+      {/* 4. LISTA DE PRENDAS AGREGADAS */}
       <Card className="rounded-[2.5rem] border border-primary/10 shadow-sm bg-white overflow-hidden">
         <div className="bg-primary/5 border-b border-primary/10 py-4 px-8 flex justify-between items-center">
           <span className="text-[11px] font-black uppercase text-primary tracking-widest">RESUMEN DE COTIZACIÓN</span>
@@ -573,7 +585,7 @@ export default function QuotesPage() {
         </div>
       </Card>
 
-      {/* TOTALES Y ACCIONES FINALIZAR */}
+      {/* 5. TOTALES Y ACCIONES FINALIZAR */}
       <div className="flex flex-col md:flex-row justify-between items-end border-b-4 border-primary pb-8 pt-8 gap-8">
         <div className="w-full md:w-auto space-y-2">
           <div className="text-[11px] font-black uppercase text-muted-foreground tracking-widest">TOTAL PRENDAS</div>
@@ -597,7 +609,7 @@ export default function QuotesPage() {
               className="h-14 w-full rounded-2xl font-black text-[11px] uppercase border-primary/10 text-muted-foreground hover:bg-primary/5 active:scale-95"
               onClick={handleDiscard}
             >
-              DESCARTAR EDICIÓN
+              DESCARTAR COTIZACIÓN
             </Button>
           </div>
         </div>
