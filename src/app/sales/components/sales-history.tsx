@@ -134,10 +134,9 @@ export default function SalesHistory() {
           const file = new File([blob], `Venta-${sale.id}.jpg`, { type: 'image/jpeg' })
           
           if (navigator.share) {
+            // Se quitó el título y texto para enviar SOLO la imagen
             await navigator.share({
-              files: [file],
-              title: `Boleta ${sale.id}`,
-              text: `Comprobante de venta - ${companySettings?.companyName || 'StiloStack'}`
+              files: [file]
             })
           } else {
             const link = document.createElement('a')

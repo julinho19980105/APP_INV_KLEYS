@@ -272,7 +272,7 @@ export default function QuotesView() {
     const desc = `${u} UNID X ${s} SERIES${l > 0 ? ` + ${l}` : ''}. `
     setCurrentEntry({ 
       ...currentEntry, 
-      quantity: total.toString(), 
+      quantity: total.toString().slice(0, 4), 
       description: desc + (currentEntry.manualNote || ""),
       calcUnidades: calcData.unidades,
       calcSeries: calcData.series,
@@ -469,21 +469,35 @@ export default function QuotesView() {
              <Button variant="outline" className="flex-1 h-10 text-[9px] font-black uppercase border-primary/10" onClick={() => setCurrentEntry({...currentEntry, price: currentEntry.refUnidad?.toString() || ""})}>Unid: {currentEntry.refUnidad?.toFixed(1) || '-'}</Button>
            </div>
 
-           <div className="grid grid-cols-3 gap-3">
-             <div className="space-y-1">
+           <div className="flex items-end gap-3 w-full">
+             <div className="flex-[2] space-y-1">
                <Label className="text-[9px] font-black text-muted-foreground uppercase ml-1">PRECIO</Label>
                <Input type="number" value={currentEntry.price} onChange={e => setCurrentEntry({...currentEntry, price: e.target.value})} className="h-12 font-black text-sm rounded-xl border-primary/10" />
              </div>
-             <div className="space-y-1">
+             <div className="flex-[2] space-y-1">
                <Label className="text-[9px] font-black text-muted-foreground uppercase ml-1">CANT</Label>
                <div className="flex gap-1">
-                 <Input type="number" value={currentEntry.quantity} onChange={e => setCurrentEntry({...currentEntry, quantity: e.target.value})} className="h-12 font-black text-sm rounded-xl border-primary/10" />
+                 <Input 
+                   type="number" 
+                   value={currentEntry.quantity} 
+                   onChange={e => setCurrentEntry({...currentEntry, quantity: e.target.value.slice(0, 4)})} 
+                   maxLength={4}
+                   inputMode="numeric"
+                   className="h-12 font-black text-sm rounded-xl border-primary/10" 
+                 />
                  <Button variant="outline" size="icon" className="h-12 w-12 shrink-0 rounded-xl" onClick={() => setIsCalcOpen(true)}><Calculator className="w-4 h-4" /></Button>
                </div>
              </div>
-             <div className="space-y-1">
+             <div className="flex-[1] min-w-[60px] space-y-1">
                <Label className="text-[9px] font-black text-muted-foreground uppercase ml-1">DESC.</Label>
-               <Input type="number" value={currentEntry.discount} onChange={e => setCurrentEntry({...currentEntry, discount: e.target.value})} className="h-12 font-black text-sm rounded-xl border-orange-100 bg-orange-50 text-orange-600" />
+               <Input 
+                 type="number" 
+                 value={currentEntry.discount} 
+                 onChange={e => setCurrentEntry({...currentEntry, discount: e.target.value.slice(0, 2)})} 
+                 maxLength={2}
+                 inputMode="numeric"
+                 className="h-12 font-black text-sm rounded-xl border-orange-100 bg-orange-50 text-orange-600 px-2" 
+               />
              </div>
            </div>
 
@@ -505,6 +519,7 @@ export default function QuotesView() {
         </CardContent>
       </Card>
 
+      {/* Lista Items */}
       <Card className="rounded-[2.5rem] border border-primary/10 shadow-sm bg-white overflow-hidden">
         <div className="bg-primary/5 p-4 border-b border-primary/10">
           <span className="text-[10px] font-black uppercase text-primary tracking-widest">RESUMEN</span>

@@ -272,7 +272,7 @@ export default function QuotesPage() {
     const desc = `${u} UNID X ${s} SERIES${l > 0 ? ` + ${l}` : ''}. `
     setCurrentEntry({ 
       ...currentEntry, 
-      quantity: total.toString(), 
+      quantity: total.toString().slice(0, 4), 
       description: desc + (currentEntry.manualNote || ""),
       calcUnidades: calcData.unidades,
       calcSeries: calcData.series,
@@ -395,6 +395,7 @@ export default function QuotesPage() {
         </div>
       </div>
 
+      {/* Selector Cliente */}
       <div className="space-y-1">
         <Label className="text-[10px] uppercase text-foreground font-black ml-1 tracking-widest text-primary">CLIENTE</Label>
         <div className="relative flex gap-2">
@@ -427,6 +428,7 @@ export default function QuotesPage() {
         </div>
       </div>
 
+      {/* Buscador Productos */}
       <div className="space-y-1">
         <Label className="text-[10px] uppercase font-black text-foreground ml-1 tracking-widest text-primary">BUSCAR PRENDA</Label>
         <div className="relative">
@@ -474,6 +476,7 @@ export default function QuotesPage() {
         </div>
       </div>
 
+      {/* Formulario Entrada */}
       <Card className="rounded-[2rem] border-2 border-primary/20 bg-white overflow-hidden shadow-2xl">
         <div className="bg-primary/5 border-b border-primary/10 py-4 px-6 flex justify-between items-center">
           <div className="flex flex-col flex-1">
@@ -502,7 +505,7 @@ export default function QuotesPage() {
         <CardContent className="p-5 md:p-8 space-y-6">
           <div className="flex flex-col md:flex-row gap-6">
             <div 
-              className="w-full md:w-32 aspect-square rounded-2xl overflow-hidden border border-primary/10 shrink-0 bg-muted flex items-center justify-center cursor-pointer hover:ring-2 transition-all shadow-md"
+              className="w-full md:w-32 aspect-square rounded-2xl overflow-hidden border border-primary/10 shrink-0 bg-muted flex items-center justify-center cursor-pointer hover:ring-2 transition-all shadow-md mx-auto md:mx-0"
               onClick={() => setZoomImage(currentEntry.img)}
             >
               {currentEntry.img ? <img src={getDriveThumb(currentEntry.img, 400)} className="w-full h-full object-cover" /> : <PackageSearch className="w-10 h-10 opacity-20" />}
@@ -515,33 +518,46 @@ export default function QuotesPage() {
                     onClick={() => setCurrentEntry({ ...currentEntry, price: currentEntry.refFardo?.toString() || "" })}
                   >
                     <div className="text-[7px] font-black text-muted-foreground uppercase">Fardo</div>
-                    <div className="text-[10px] font-black">S/ {currentEntry.refFardo.toFixed(1)}</div>
+                    <div className="text-[10px] font-black">S/ {currentEntry.refFardo?.toFixed(1) || '-'}</div>
                   </button>
                   <button 
                     className="flex-1 bg-primary/10 p-2 rounded-lg text-center border border-primary/20 hover:bg-primary/20 transition-colors"
                     onClick={() => setCurrentEntry({ ...currentEntry, price: currentEntry.refMayor?.toString() || "" })}
                   >
                     <div className="text-[7px] font-black text-primary uppercase">Mayor</div>
-                    <div className="text-[10px] font-black">S/ {currentEntry.refMayor.toFixed(1)}</div>
+                    <div className="text-[10px] font-black">S/ {currentEntry.refMayor?.toFixed(1) || '-'}</div>
                   </button>
                   <button 
                     className="flex-1 bg-secondary/30 p-2 rounded-lg text-center hover:bg-secondary/50 transition-colors"
                     onClick={() => setCurrentEntry({ ...currentEntry, price: currentEntry.refUnidad?.toString() || "" })}
                   >
                     <div className="text-[7px] font-black text-muted-foreground uppercase">Unidad</div>
-                    <div className="text-[10px] font-black">S/ {currentEntry.refUnidad.toFixed(1)}</div>
+                    <div className="text-[10px] font-black">S/ {currentEntry.refUnidad?.toFixed(1) || '-'}</div>
                   </button>
                 </div>
               )}
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                <div className="space-y-1">
+              
+              <div className="flex items-end gap-3 w-full">
+                <div className="flex-[2] space-y-1">
                   <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1 tracking-widest">PRECIO S/</Label>
-                  <Input type="number" className="h-12 text-sm font-black rounded-xl border-primary/10" value={currentEntry.price} onChange={e => setCurrentEntry({...currentEntry, price: e.target.value})} />
+                  <Input 
+                    type="number" 
+                    className="h-12 text-sm font-black rounded-xl border-primary/10" 
+                    value={currentEntry.price} 
+                    onChange={e => setCurrentEntry({...currentEntry, price: e.target.value})} 
+                  />
                 </div>
-                <div className="space-y-1">
+                <div className="flex-[2] space-y-1">
                   <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1 tracking-widest">CANTIDAD</Label>
                   <div className="flex gap-1">
-                    <Input type="number" className="h-12 text-sm font-black rounded-xl border-primary/10" value={currentEntry.quantity} onChange={e => setCurrentEntry({...currentEntry, quantity: e.target.value})} />
+                    <Input 
+                      type="number" 
+                      className="h-12 text-sm font-black rounded-xl border-primary/10" 
+                      value={currentEntry.quantity} 
+                      onChange={e => setCurrentEntry({...currentEntry, quantity: e.target.value.slice(0, 4)})} 
+                      maxLength={4}
+                      inputMode="numeric"
+                    />
                     <Button variant="outline" size="icon" className="h-12 w-12 shrink-0 rounded-xl border-primary/10 text-primary hover:bg-primary/5" onClick={() => {
                       setCalcData({ unidades: currentEntry.calcUnidades || "", series: currentEntry.calcSeries || "", libres: currentEntry.calcLibres || "" });
                       setIsCalcOpen(true);
@@ -550,11 +566,19 @@ export default function QuotesPage() {
                     </Button>
                   </div>
                 </div>
-                <div className="space-y-1 col-span-2 md:col-span-1">
-                  <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1 tracking-widest">DESC. S/</Label>
-                  <Input type="number" className="h-12 text-sm font-black border-orange-200 bg-orange-50 text-orange-600 rounded-xl" value={currentEntry.discount} onChange={e => setCurrentEntry({...currentEntry, discount: e.target.value})} />
+                <div className="flex-[1] min-w-[60px] space-y-1">
+                  <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1 tracking-widest">DESC.</Label>
+                  <Input 
+                    type="number" 
+                    className="h-12 text-sm font-black border-orange-200 bg-orange-50 text-orange-600 rounded-xl px-2" 
+                    value={currentEntry.discount} 
+                    onChange={e => setCurrentEntry({...currentEntry, discount: e.target.value.slice(0, 2)})} 
+                    maxLength={2}
+                    inputMode="numeric"
+                  />
                 </div>
               </div>
+
               <div className="space-y-1">
                 <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1 tracking-widest">DESCRIPCIÓN / NOTAS</Label>
                 <Input className="h-12 text-[11px] font-medium bg-secondary/30 border-none rounded-xl" value={currentEntry.description} onChange={e => setCurrentEntry({...currentEntry, description: e.target.value})} placeholder="Ej: Talla L, Color Azul..." />
@@ -580,6 +604,7 @@ export default function QuotesPage() {
         </CardContent>
       </Card>
 
+      {/* Resumen */}
       <Card className="rounded-[2.5rem] border border-primary/10 shadow-sm bg-white overflow-hidden">
         <div className="bg-primary/5 border-b border-primary/10 py-4 px-8">
           <span className="text-[11px] font-black uppercase text-primary tracking-widest">RESUMEN DE COTIZACIÓN</span>
@@ -632,6 +657,7 @@ export default function QuotesPage() {
         </div>
       </Card>
 
+      {/* Totales y Guardar */}
       <div className="border-b-4 border-primary pb-8 pt-8">
         <div className="flex flex-row justify-between items-center gap-4">
           <div className="flex-1 space-y-1">
@@ -666,6 +692,7 @@ export default function QuotesPage() {
         </div>
       </div>
 
+      {/* Calculadora */}
       <Dialog open={isCalcOpen} onOpenChange={setIsCalcOpen}>
         <DialogContent className="rounded-[2.5rem] border-none shadow-2xl max-w-[320px] p-8">
           <DialogHeader><DialogTitle className="text-xs font-black text-foreground uppercase tracking-[0.2em] text-center">Cálculo de Series</DialogTitle></DialogHeader>

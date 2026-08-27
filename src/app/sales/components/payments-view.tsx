@@ -82,10 +82,11 @@ export default function PaymentsView() {
 
   const paymentsQuery = React.useMemo(() => {
     if (!db) return null
-    return query(collection(db, "payments"), orderBy("date", "desc"), orderBy("createdAt", "desc"), limit(100))
+    return query(collection(db, "payments"), orderBy("date", "desc"), limit(200))
   }, [db])
   const { data: payments = [], loading } = useCollection(paymentsQuery)
 
+  // Carga de borrador solo en el montaje inicial si no se está editando
   React.useEffect(() => {
     if (!editingPayment) {
       const saved = localStorage.getItem(STORAGE_KEY)
@@ -94,8 +95,7 @@ export default function PaymentsView() {
           const parsed = JSON.parse(saved)
           if (parsed.date) setDate(new Date(parsed.date))
           if (parsed.amount) setAmount(parsed.amount)
-          if (parsed.selectedBank) setSelectedBank(parsed.selectedBank)
-          if (parsed.selectedCustomer) setSelectedCustomer(parsed.selectedCustomer)
+          // El banco y cliente se manejan con cuidado para no pisar IDs inexistentes
         } catch (e) {}
       }
     }
@@ -105,12 +105,10 @@ export default function PaymentsView() {
     if (!editingPayment) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         date: date.toISOString(),
-        amount,
-        selectedBank,
-        selectedCustomer
+        amount
       }))
     }
-  }, [date, amount, selectedBank, selectedCustomer, editingPayment])
+  }, [date, amount, editingPayment])
 
   React.useEffect(() => {
     if (banks.length > 0 && !selectedBank) {
@@ -132,12 +130,12 @@ export default function PaymentsView() {
 
   const handleSavePayment = () => {
     if (!db || !selectedCustomer || !amount || !selectedBank) {
-      toast({ variant: "destructive", title: "DATOS INCOMPLETOS" })
+      toast({ variant: "destructive", title: "DATOS INCOMPLETOS", description: "Seleccione cliente, banco y monto." })
       return
     }
 
     if (isDayClosed && !editingPayment) {
-      toast({ variant: "destructive", title: "DÍA CERRADO", description: "No se pueden agregar más cobros para esta fecha." })
+      toast({ variant: "destructive", title: "DÍA CERRADO", description: "Esta fecha ya ha sido cuadrada." })
       return
     }
 
@@ -155,9 +153,13 @@ export default function PaymentsView() {
       ...(editingPayment ? {} : { createdAt: serverTimestamp() })
     }
 
+    const docRef = editingPayment 
+      ? doc(db, "payments", editingPayment.id)
+      : collection(db, "payments")
+
     const action = editingPayment 
-      ? updateDoc(doc(db, "payments", editingPayment.id), paymentData)
-      : addDoc(collection(db, "payments"), paymentData)
+      ? updateDoc(docRef as any, paymentData)
+      : addDoc(docRef as any, paymentData)
 
     action.then(() => {
         handleReset()
@@ -186,7 +188,7 @@ export default function PaymentsView() {
     if (!isCurrentLocked) {
       const allLocked = allPaymentsInDay.length > 0 && allPaymentsInDay.every(p => p.isLocked)
       if (!allLocked) {
-        toast({ variant: "destructive", title: "ACCIÓN BLOQUEADA", description: "Debes cerrar todos los candados individuales del día primero." })
+        toast({ variant: "destructive", title: "BLOQUEADO", description: "Cierre los candados individuales primero." })
         return
       }
     }
@@ -198,7 +200,7 @@ export default function PaymentsView() {
       updatedAt: serverTimestamp()
     }, { merge: true }).catch(() => {})
     
-    toast({ title: isCurrentLocked ? "DÍA ABIERTO" : "DÍA CERRADO Y CUADRADO" })
+    toast({ title: isCurrentLocked ? "DÍA ABIERTO" : "DÍA CERRADO" })
   }
 
   const startEditing = (p: any) => {
@@ -265,15 +267,16 @@ export default function PaymentsView() {
 
   return (
     <div className="space-y-6 px-2 md:px-0 pb-24">
+      {/* Registro de Pago */}
       <Card className={cn(
-        "rounded-[2rem] border-2 bg-white shadow-2xl relative transition-all",
-        isDayClosed && !editingPayment ? "border-red-200 bg-red-50/10" : "border-primary/20"
+        "rounded-[2rem] border-2 bg-white shadow-2xl relative transition-all overflow-hidden",
+        isDayClosed && !editingPayment ? "border-red-100 bg-red-50/10" : "border-primary/20"
       )}>
         <div className="bg-primary/5 p-4 border-b border-primary/10 flex justify-between items-center">
           <div className="flex items-center gap-2">
             <CreditCard className="w-5 h-5 text-primary" />
             <h2 className="text-[12px] font-black uppercase text-primary tracking-widest">
-              {editingPayment ? "EDITAR PAGO" : "REGISTRAR PAGO"}
+              {editingPayment ? "EDITAR COBRO" : "REGISTRAR COBRO"}
             </h2>
           </div>
           <Button variant="ghost" size="icon" className="h-9 w-9 text-primary/40 hover:text-primary transition-all" onClick={handleReset}>
@@ -291,7 +294,7 @@ export default function PaymentsView() {
                   const val = e.target.value;
                   if (val) setDate(new Date(val + "T12:00:00"));
                 }}
-                className="w-full h-11 px-3 rounded-xl border border-primary/10 font-black text-xs uppercase bg-white"
+                className="w-full h-11 px-3 rounded-xl border border-primary/10 font-black text-xs uppercase bg-white focus:outline-none focus:border-primary"
               />
             </div>
             <div className="space-y-1">
@@ -301,6 +304,7 @@ export default function PaymentsView() {
                 value={amount} 
                 onChange={e => setAmount(e.target.value)} 
                 className="h-11 text-sm font-black border-primary/10 rounded-xl bg-green-50 text-green-700"
+                placeholder="0.0"
               />
             </div>
           </div>
@@ -330,14 +334,14 @@ export default function PaymentsView() {
               <div className="relative">
                 <Search className="absolute left-3 top-3.5 h-4 w-4 text-primary/30" />
                 <Input 
-                  placeholder="BUSCAR..." 
+                  placeholder="NOMBRE O ID..." 
                   className={cn("h-11 pl-9 text-xs font-black uppercase rounded-xl border-primary/10 bg-white", editingPayment && "bg-secondary/20")}
                   value={selectedCustomer ? `${selectedCustomer.name} [${selectedCustomer.id}]` : customerSearch}
                   onChange={e => { if (!editingPayment) { if (selectedCustomer) setSelectedCustomer(null); setCustomerSearch(e.target.value); } }}
                   readOnly={!!editingPayment}
                 />
                 {filteredCustomers.length > 0 && !editingPayment && (
-                  <div className="absolute z-[999999] w-full mt-2 bg-white border-2 border-primary/10 rounded-xl shadow-2xl max-h-48 overflow-y-auto">
+                  <div className="absolute z-[999] w-full mt-2 bg-white border-2 border-primary/10 rounded-xl shadow-2xl max-h-48 overflow-y-auto">
                     {filteredCustomers.map(c => (
                       <button key={c.id} className="w-full text-left px-4 py-4 hover:bg-primary/5 border-b last:border-0 font-black text-[10px] uppercase" onClick={() => { setSelectedCustomer(c); setCustomerSearch(""); }}>
                         {c.name} <span className="text-primary ml-1">[{c.id}]</span>
@@ -358,11 +362,12 @@ export default function PaymentsView() {
         </CardContent>
       </Card>
 
+      {/* Listado y Filtros */}
       <div className="space-y-4 pt-4">
         <div className="flex items-center gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-4 top-3 h-4 w-4 text-primary/30" />
-            <Input placeholder="FILTRAR..." className="h-10 pl-10 rounded-xl border-primary/10 font-black text-[10px] uppercase bg-white" value={listFilter} onChange={e => setListFilter(e.target.value)} />
+            <Input placeholder="FILTRAR COBROS..." className="h-10 pl-10 rounded-xl border-primary/10 font-black text-[10px] uppercase bg-white" value={listFilter} onChange={e => setListFilter(e.target.value)} />
           </div>
           <div className="flex items-center gap-2 bg-white px-3 h-10 rounded-xl border border-primary/10">
             <Filter className={cn("w-3.5 h-3.5", isBankGrouped ? "text-orange-500" : "text-muted-foreground")} />
@@ -370,15 +375,19 @@ export default function PaymentsView() {
           </div>
         </div>
 
+        {loading && (
+          <div className="py-20 text-center opacity-30"><Loader2 className="w-8 h-8 animate-spin mx-auto" /></div>
+        )}
+
         {groupedPayments.map(group => (
           <div key={group.dateKey} className="space-y-2">
-            <div className="flex justify-between items-center px-4 py-1.5 bg-primary/5 rounded-xl border border-primary/10">
+            <div className="flex justify-between items-center px-4 py-2 bg-primary/5 rounded-xl border border-primary/10">
               <div className="flex items-center gap-3">
                 <button 
-                  onClick={() => toggleDayLock(group.dateKey, group.payments, false)}
-                  className="text-muted-foreground/30 hover:text-primary transition-all"
+                  onClick={() => toggleDayLock(group.dateKey, group.payments, group.isDayLocked)}
+                  className={cn("transition-all", group.isDayLocked ? "text-primary" : "text-muted-foreground/30 hover:text-primary")}
                 >
-                  <Unlock className="w-3.5 h-3.5" />
+                  {group.isDayLocked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
                 </button>
                 <span className="text-[10px] font-black uppercase text-primary tracking-widest">{group.label}</span>
               </div>
@@ -425,7 +434,7 @@ function PaymentRecord({ p, onEdit, onDelete, onLock, deleteConfirmId, setDelete
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="font-headline font-black text-[15px] text-foreground">S/ {p.amount.toFixed(1)}</div>
+          <div className="font-headline font-black text-[15px] text-foreground">S/ {Number(p.amount).toFixed(1)}</div>
           
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -438,7 +447,7 @@ function PaymentRecord({ p, onEdit, onDelete, onLock, deleteConfirmId, setDelete
               
               <Popover open={deleteConfirmId === p.id} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
                 <PopoverTrigger asChild>
-                  <button className="w-full text-left flex items-center gap-2.5 px-2.5 py-2.5 text-[10px] font-black uppercase text-destructive hover:bg-destructive/5 rounded-md">
+                  <button className="w-full text-left flex items-center gap-2.5 px-2.5 py-2.5 text-[10px] font-black uppercase text-destructive hover:bg-destructive/5 rounded-md" onClick={() => setDeleteConfirmId(p.id)}>
                     <Trash2 className="w-3.5 h-3.5" /> Eliminar
                   </button>
                 </PopoverTrigger>
