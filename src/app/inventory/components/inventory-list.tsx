@@ -12,6 +12,7 @@ import {
   Loader2,
   PackagePlus,
   ChevronRight,
+  ChevronLeft,
   Filter,
   Upload,
   Eye
@@ -60,6 +61,7 @@ export default function InventoryList() {
   const [categoryFilter, setCategoryFilter] = React.useState("NIÑAS")
   const [expandedCollections, setExpandedCollections] = React.useState<Record<string, boolean>>({})
   const [selectedProduct, setSelectedProduct] = React.useState<any>(null)
+  const [selectedImgIdx, setSelectedImgIdx] = React.useState(0)
   const [addStockProduct, setAddStockProduct] = React.useState<any>(null)
   const [addStockQty, setAddStockQty] = React.useState("")
   const [isExporting, setIsExporting] = React.useState(false)
@@ -91,6 +93,10 @@ export default function InventoryList() {
     })
     return Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0]))
   }, [filteredProducts])
+
+  React.useEffect(() => {
+    if (selectedProduct) setSelectedImgIdx(0)
+  }, [selectedProduct])
 
   const handleInMovement = () => {
     if (!db || !addStockProduct || !addStockQty) return
@@ -124,6 +130,16 @@ export default function InventoryList() {
 
   const toggleCollection = (col: string) => {
     setExpandedCollections(prev => ({ ...prev, [col]: !prev[col] }))
+  }
+
+  const nextImg = () => {
+    if (!selectedProduct?.images) return
+    setSelectedImgIdx(prev => (prev + 1) % selectedProduct.images.length)
+  }
+
+  const prevImg = () => {
+    if (!selectedProduct?.images) return
+    setSelectedImgIdx(prev => (prev - 1 + selectedProduct.images.length) % selectedProduct.images.length)
   }
 
   return (
@@ -241,33 +257,69 @@ export default function InventoryList() {
       </div>
 
       <Dialog open={!!selectedProduct} onOpenChange={() => setSelectedProduct(null)}>
-        <DialogContent className="max-w-[95vw] md:max-w-md p-0 border-none rounded-[2rem] bg-white overflow-hidden shadow-2xl">
+        <DialogContent className="max-w-[95vw] md:max-w-md p-0 border-none rounded-[2rem] bg-white overflow-y-auto max-h-[90vh] shadow-2xl scrollbar-hide">
           <DialogHeader className="sr-only">
             <DialogTitle>Detalles del Producto</DialogTitle>
           </DialogHeader>
           {selectedProduct && (
-            <div className="flex flex-col pb-8">
-              <div className="w-full aspect-square bg-secondary relative">
-                <img src={getDriveThumb(selectedProduct.images?.[0], 800)} className="w-full h-full object-cover" />
-                <button onClick={() => setSelectedProduct(null)} className="absolute top-6 right-6 p-3 bg-black/20 text-white rounded-full"><X className="w-6 h-6" /></button>
+            <div className="flex flex-col pb-10">
+              <div className="w-full aspect-[4/5] bg-secondary relative group">
+                <img src={getDriveThumb(selectedProduct.images?.[selectedImgIdx], 1000)} className="w-full h-full object-cover transition-all" />
+                
+                {selectedProduct.images?.length > 1 && (
+                  <>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); prevImg(); }}
+                      className="absolute left-4 top-1/2 -translate-y-1/2 p-2 bg-black/30 hover:bg-black/50 text-white rounded-full transition-all"
+                    >
+                      <ChevronLeft className="w-6 h-6" />
+                    </button>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); nextImg(); }}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-black/30 hover:bg-black/50 text-white rounded-full transition-all"
+                    >
+                      <ChevronRight className="w-6 h-6" />
+                    </button>
+                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5">
+                      {selectedProduct.images.map((_: any, i: number) => (
+                        <div key={i} className={cn("w-1.5 h-1.5 rounded-full transition-all", i === selectedImgIdx ? "bg-white w-4" : "bg-white/40")} />
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
-              <div className="p-6 space-y-4">
-                <div className="flex flex-col gap-1">
-                  <Badge className="bg-primary text-white text-[10px] font-black w-fit">{selectedProduct.code}</Badge>
-                  <h2 className="text-2xl font-headline font-black text-black uppercase">{selectedProduct.name}</h2>
-                  <p className="text-[10px] font-black text-primary/40 uppercase tracking-widest">{selectedProduct.category} | {selectedProduct.collection}</p>
+
+              <div className="p-6 space-y-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-1">
+                    <Badge className="bg-primary text-white text-[10px] font-black w-fit">{selectedProduct.code}</Badge>
+                    <h2 className="text-2xl font-headline font-black text-black uppercase">{selectedProduct.name}</h2>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    className="h-10 rounded-xl border-primary/20 text-primary font-black uppercase text-[10px] px-4"
+                    onClick={() => setSelectedProduct(null)}
+                  >
+                    CERRAR
+                  </Button>
                 </div>
+
+                <p className="text-[10px] font-black text-primary/40 uppercase tracking-widest">{selectedProduct.category} | {selectedProduct.collection}</p>
+
                 <div className="grid grid-cols-3 gap-2 bg-primary/5 p-4 rounded-2xl border border-primary/10">
                   <div className="text-center"><p className="text-[8px] font-black text-primary/50 uppercase">STOCK</p><p className="text-lg font-black">{selectedProduct.stock}</p></div>
                   <div className="text-center border-x border-primary/10"><p className="text-[8px] font-black text-primary/50 uppercase">MAYOR</p><p className="text-lg font-black">S/ {selectedProduct.priceMayor.toFixed(1)}</p></div>
                   <div className="text-center"><p className="text-[8px] font-black text-primary/50 uppercase">UNID</p><p className="text-lg font-black">S/ {selectedProduct.priceUnidad.toFixed(1)}</p></div>
                 </div>
-                <div className="p-4 bg-secondary/50 rounded-2xl border border-black/5 text-[11px] font-medium text-muted-foreground italic leading-relaxed">
-                  "{selectedProduct.description || 'Sin descripción.'}"
+
+                <div className="p-5 bg-secondary/50 rounded-2xl border border-black/5 text-[12px] font-medium text-muted-foreground italic leading-relaxed">
+                  "{selectedProduct.description || 'Sin descripción disponible.'}"
                 </div>
-                <div className="grid grid-cols-2 gap-3 pt-4">
-                  <Button className="h-12 bg-primary text-white font-black uppercase text-[10px] rounded-xl" onClick={() => setAddStockProduct(selectedProduct)}>Añadir Stock</Button>
-                  <Button variant="outline" className="h-12 border-primary/20 text-primary font-black uppercase text-[10px] rounded-xl" onClick={() => setSelectedProduct(null)}>Cerrar</Button>
+
+                <div className="grid grid-cols-1 gap-3 pt-2">
+                  <Button className="h-14 bg-primary text-white font-black uppercase text-[12px] rounded-xl shadow-xl shadow-primary/20" onClick={() => setAddStockProduct(selectedProduct)}>
+                    REPOSICIÓN DE STOCK
+                  </Button>
                 </div>
               </div>
             </div>
