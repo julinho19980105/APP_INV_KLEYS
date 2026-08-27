@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -10,9 +11,10 @@ import {
   Trash2, 
   X,
   History,
-  Edit2
+  Edit2,
+  ChevronDown
 } from "lucide-react"
-import { format } from "date-fns"
+import { format, subDays } from "date-fns"
 import { es } from "date-fns/locale"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -54,15 +56,25 @@ export default function ShippingHubPage() {
   const [customerSearch, setCustomerSearch] = React.useState("")
   const [isSearchOpen, setIsSearchOpen] = React.useState(false)
   const [deleteConfirm, setDeleteConfirm] = React.useState<{id: string, name: string} | null>(null)
+  const [historyDays, setHistoryDays] = React.useState(15)
 
   const dateKey = format(date, "yyyy-MM-dd")
   const logisticsDocRef = React.useMemo(() => db ? doc(db, "logistics", dateKey) : null, [db, dateKey])
   const { data: logData } = useDoc(logisticsDocRef)
   
-  const allLogisticsRef = React.useMemo(() => db ? query(collection(db, "logistics"), orderBy("date", "desc")) : null, [db])
+  const allLogisticsRef = React.useMemo(() => {
+    if (!db) return null
+    const startRange = format(subDays(new Date(), historyDays), "yyyy-MM-dd")
+    return query(
+      collection(db, "logistics"), 
+      where("date", ">=", startRange),
+      orderBy("date", "desc")
+    )
+  }, [db, historyDays])
+  
   const { data: historyBatches = [] } = useCollection(allLogisticsRef)
 
-  const customersRef = React.useMemo(() => db ? query(collection(db, "customers"), orderBy("id", "desc")) : null, [db])
+  const customersRef = React.useMemo(() => db ? query(collection(db, "customers"), orderBy("name")) : null, [db])
   const { data: dbCustomers = [] } = useCollection(customersRef)
   
   const allQuotesRef = React.useMemo(() => db ? collection(db, "quotes") : null, [db])
@@ -103,7 +115,6 @@ export default function ShippingHubPage() {
       return
     }
 
-    // Cambiar estado a ENVIADO en Firestore automáticamente
     for (const q of customerQuotes) {
       updateDoc(doc(db, "quotes", q.id), { status: 'shipped' }).catch(() => {})
     }
@@ -124,7 +135,7 @@ export default function ShippingHubPage() {
     
     setCustomerSearch("")
     setIsSearchOpen(false)
-    toast({ title: "CLIENTE AÑADIDO", description: "Boletas marcadas como ENVIADO" })
+    toast({ title: "CLIENTE AÑADIDO" })
   }
 
   const handleUpdateShippingCost = async (customerId: string, cost: string) => {
@@ -149,7 +160,6 @@ export default function ShippingHubPage() {
       return entry
     })
     await updateDoc(logisticsDocRef, { entries: updatedEntries, updatedAt: serverTimestamp() })
-    toast({ title: type === 'quote' ? "Boleta regresó a estado ACTIVO" : "Pago removido" })
   }
 
   const handleRemoveEntry = async () => {
@@ -165,7 +175,6 @@ export default function ShippingHubPage() {
     const updatedEntries = logData.entries.filter((e: any) => e.customerId !== deleteConfirm.id)
     await updateDoc(logisticsDocRef, { entries: updatedEntries, updatedAt: serverTimestamp() })
     setDeleteConfirm(null)
-    toast({ title: "Lote cancelado (Boletas regresaron a estado ACTIVO)" })
   }
 
   return (
@@ -343,6 +352,18 @@ export default function ShippingHubPage() {
                 )
               })}
             </div>
+            
+            {historyBatches.length > 0 && (
+              <div className="flex justify-center pt-4 pb-8">
+                <Button 
+                  variant="outline" 
+                  className="h-10 rounded-xl border-primary/20 text-primary font-black uppercase text-[9px] px-8 bg-white shadow-sm"
+                  onClick={() => setHistoryDays(prev => prev + 15)}
+                >
+                  <ChevronDown className="w-4 h-4 mr-2" /> Cargar 15 días anteriores
+                </Button>
+              </div>
+            )}
           </div>
         </TabsContent>
       </Tabs>

@@ -16,7 +16,8 @@ import {
   Upload,
   Eye,
   Edit2,
-  MoreVertical
+  MoreVertical,
+  AlertCircle
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useCollection, useFirestore, useDoc } from "@/firebase"
@@ -90,7 +91,7 @@ export default function InventoryList() {
   }, [dbCategories])
 
   React.useEffect(() => {
-    if (config?.defaultCategory) {
+    if (config?.defaultCategory && categoryFilter === "all") {
       setCategoryFilter(config.defaultCategory.toUpperCase())
     }
   }, [config])
@@ -99,6 +100,11 @@ export default function InventoryList() {
     const q = searchQuery.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     return products.filter(p => {
       const matchesSearch = p.name?.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(q) || p.code?.toLowerCase().includes(q)
+      
+      if (categoryFilter === "SIN STOCK") {
+        return matchesSearch && (Number(p.stock) <= 0);
+      }
+      
       const matchesCat = categoryFilter === "all" || (p.category || "").toUpperCase() === categoryFilter.toUpperCase()
       return matchesSearch && matchesCat
     })
@@ -176,6 +182,7 @@ export default function InventoryList() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all" className="font-black uppercase text-[10px]">TODAS</SelectItem>
+              <SelectItem value="SIN STOCK" className="font-black uppercase text-[10px] text-red-600">SIN STOCK</SelectItem>
               {masterCategories.map(cat => (
                 <SelectItem key={cat} value={cat} className="font-black uppercase text-[10px]">
                   {cat}
@@ -214,6 +221,11 @@ export default function InventoryList() {
       <div className="space-y-8">
         {productsLoading ? (
           <div className="py-20 text-center opacity-30"><Loader2 className="w-8 h-8 animate-spin mx-auto" /></div>
+        ) : groupedByCollection.length === 0 ? (
+          <div className="py-20 text-center flex flex-col items-center gap-3 opacity-20">
+            <AlertCircle className="w-12 h-12" />
+            <p className="text-xs font-black uppercase tracking-widest">Sin productos que coincidan</p>
+          </div>
         ) : groupedByCollection.map(([colName, colProducts]) => {
           const isExpanded = expandedCollections[colName]
           const visibleProducts = isExpanded ? colProducts : colProducts.slice(0, 4)
