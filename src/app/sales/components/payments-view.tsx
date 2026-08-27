@@ -77,6 +77,19 @@ export default function PaymentsView() {
   const { data: dayLock } = useDoc(dayLockRef)
   const isDayClosed = !!dayLock?.isLocked
 
+  // Protección contra pérdida de datos
+  React.useEffect(() => {
+    const hasUnsavedChanges = amount !== "" || selectedCustomer !== null;
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges && !saving) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [amount, selectedCustomer, saving]);
+
   const customersRef = React.useMemo(() => db ? query(collection(db, "customers"), orderBy("name")) : null, [db])
   const { data: dbCustomers = [] } = useCollection(customersRef)
 
@@ -119,6 +132,9 @@ export default function PaymentsView() {
   }, [banks, selectedBank])
 
   const handleReset = () => {
+    if (amount !== "" || selectedCustomer !== null) {
+      if (!confirm("¿DESCARTAR DATOS DEL PAGO ACTUAL?")) return;
+    }
     setEditingPayment(null)
     setDate(new Date())
     setAmount("")
@@ -163,7 +179,12 @@ export default function PaymentsView() {
       : addDoc(docRef as any, paymentData)
 
     action.then(() => {
-        handleReset()
+        setEditingPayment(null)
+        setDate(new Date())
+        setAmount("")
+        setSelectedCustomer(null)
+        setCustomerSearch("")
+        localStorage.removeItem(STORAGE_KEY)
         setSaving(false)
         toast({ title: editingPayment ? "PAGO ACTUALIZADO" : "PAGO REGISTRADO" })
       })

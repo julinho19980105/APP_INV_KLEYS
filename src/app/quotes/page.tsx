@@ -139,6 +139,19 @@ export default function QuotesPage() {
   const { data: dbProducts = [] } = useCollection(productsRef)
   const { data: dbCustomers = [] } = useCollection(customersRef)
 
+  // Protección contra pérdida de datos
+  React.useEffect(() => {
+    const hasUnsavedChanges = items.length > 0 || selectedCustomer !== null;
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [items, selectedCustomer]);
+
   React.useEffect(() => {
     if (typeof window !== "undefined" && !editId) {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -331,8 +344,12 @@ export default function QuotesPage() {
           updateDoc(prodRef, {
             stock: increment(-Number(item.quantity)),
             updatedAt: serverTimestamp()
-          }).catch(async () => {
-            errorEmitter.emit('permission-error', new FirestorePermissionError({ path: prodRef.path, operation: 'update' }));
+          }).catch(async (serverError) => {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({
+              path: prodRef.path,
+              operation: 'update',
+              requestResourceData: { stock: increment(-Number(item.quantity)) }
+            }));
           });
 
           addDoc(collection(db, "movements"), {
@@ -342,9 +359,7 @@ export default function QuotesPage() {
             reason: `SALIDA POR VENTA ${quoteId}`,
             timestamp: serverTimestamp(),
             referenceId: quoteId
-          }).catch(async () => {
-            errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'movements', operation: 'create' }));
-          });
+          }).catch(() => {});
         }
       }
 
@@ -361,14 +376,16 @@ export default function QuotesPage() {
   }
 
   const handleDiscard = () => {
-    if (typeof window !== "undefined") {
-      localStorage.removeItem(STORAGE_KEY);
+    if (confirm("¿DESCARTAR TODOS LOS DATOS INGRESADOS?")) {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem(STORAGE_KEY);
+      }
+      setSelectedCustomer(null);
+      setItems([]);
+      setQuoteId("B-001");
+      setCurrentEntry(EMPTY_ENTRY);
+      router.push('/sales');
     }
-    setSelectedCustomer(null);
-    setItems([]);
-    setQuoteId("B-001");
-    setCurrentEntry(EMPTY_ENTRY);
-    router.push('/sales');
   }
 
   const handleEditItem = (item: QuoteItem) => {
@@ -407,7 +424,7 @@ export default function QuotesPage() {
               onChange={e => { if (selectedCustomer) setSelectedCustomer(null); setCustomerQuery(e.target.value); }}
             />
             {customerSuggestions.length > 0 && (
-              <div className="absolute z-50 w-full mt-1 bg-white border border-primary/10 rounded-xl shadow-2xl overflow-hidden">
+              <div className="absolute z-[9999] w-full mt-1 bg-white border border-primary/10 rounded-xl shadow-2xl overflow-hidden">
                 {customerSuggestions.map(c => (
                   <button key={c.id} className="w-full text-left px-4 py-4 hover:bg-primary/5 border-b last:border-0" onClick={() => { setSelectedCustomer({ id: c.id, name: c.name }); setCustomerQuery(""); }}>
                     <span className="text-[11px] font-black uppercase text-foreground">{c.name} <span className="ml-1 text-primary">[{c.id}]</span></span>
@@ -418,7 +435,7 @@ export default function QuotesPage() {
           </div>
           {!selectedCustomer && customerQuery.length >= 1 && customerSuggestions.length === 0 && (
             <Button 
-              className="h-12 w-12 rounded-xl bg-primary text-white shadow-lg shadow-primary/20 shrink-0"
+              className="h-12 w-12 rounded-xl bg-primary text-white shadow-lg shrink-0"
               onClick={handleQuickRegisterCustomer}
               disabled={registeringCustomer}
             >
@@ -440,7 +457,7 @@ export default function QuotesPage() {
             onChange={e => setProductQuery(e.target.value)} 
           />
           {productQuery.length >= 1 && (
-            <div className="absolute z-50 w-full mt-2 bg-white border border-primary/10 rounded-2xl shadow-2xl overflow-hidden">
+            <div className="absolute z-[9999] w-full mt-2 bg-white border border-primary/10 rounded-2xl shadow-2xl overflow-hidden">
               {productSuggestions.map(p => (
                 <div key={p.code} className="w-full text-left px-4 py-3 hover:bg-primary/5 flex items-center gap-3 border-b last:border-0 group">
                   <div 

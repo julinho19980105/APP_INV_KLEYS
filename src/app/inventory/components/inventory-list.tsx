@@ -205,7 +205,7 @@ export default function InventoryList() {
       </div>
 
       {addStockProduct && (
-        <div className="fixed inset-x-4 top-24 z-50 bg-white border-2 border-green-500 rounded-2xl p-4 shadow-2xl flex items-center justify-between gap-4 animate-in slide-in-from-top-4">
+        <div className="fixed inset-x-4 top-24 z-[100] bg-white border-2 border-green-500 rounded-2xl p-4 shadow-2xl flex items-center justify-between gap-4 animate-in slide-in-from-top-4">
           <div className="flex-1">
             <p className="text-[9px] font-black text-green-600 uppercase">{addStockProduct.code}</p>
             <p className="text-[11px] font-black uppercase truncate">{addStockProduct.name}</p>

@@ -104,6 +104,19 @@ export default function RegistryPage() {
   const [newTagName, setNewTagName] = React.useState("")
   const [editingTagName, setEditingTagName] = React.useState<{ id: string, name: string } | null>(null)
 
+  // Protección contra pérdida de datos
+  React.useEffect(() => {
+    const hasUnsavedChanges = form.name !== "" || images.length > 0;
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges && !saving) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [form.name, images.length, saving]);
+
   const uniqueCategories = React.useMemo(() => {
     return Array.from(new Set(dbCategories.map(c => (c.name || '').toUpperCase()))).filter(Boolean).sort()
   }, [dbCategories])
