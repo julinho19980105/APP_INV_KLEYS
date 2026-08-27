@@ -60,7 +60,7 @@ export default function SettingsPage() {
       await setDoc(doc(db, "config", "global"), {
         ...form,
         updatedAt: serverTimestamp()
-      })
+      }, { merge: true })
       toast({ title: "CONFIGURACIÓN GUARDADA" })
     } catch (e) {
       toast({ variant: "destructive", title: "ERROR" })
@@ -167,7 +167,7 @@ export default function SettingsPage() {
       </div>
 
       <div className="flex justify-center pt-8">
-        <Button onClick={handleSave} disabled={saving} className="h-16 w-full max-w-lg bg-black text-white font-black rounded-2xl shadow-2xl active:scale-95 transition-all uppercase tracking-widest">{saving ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6 mr-3" />} CONFIRMAR IDENTIDAD</Button>
+        <Button onClick={handleSave} disabled={saving} className="h-16 w-full max-w-lg bg-black text-white font-black rounded-2xl shadow-2xl active:scale-95 transition-all uppercase tracking-widest">{saving ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6 mr-3" />} CONFIRMAR AJUSTES</Button>
       </div>
 
       <Dialog open={!!editingBank} onOpenChange={() => setEditingBank(null)}>
