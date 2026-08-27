@@ -82,7 +82,7 @@ export default function PaymentsView() {
 
   const paymentsQuery = React.useMemo(() => {
     if (!db) return null
-    return query(collection(db, "payments"), orderBy("createdAt", "desc"), limit(100))
+    return query(collection(db, "payments"), orderBy("date", "desc"), orderBy("createdAt", "desc"), limit(100))
   }, [db])
   const { data: payments = [], loading } = useCollection(paymentsQuery)
 
@@ -266,28 +266,24 @@ export default function PaymentsView() {
   return (
     <div className="space-y-6 px-2 md:px-0 pb-24">
       <Card className={cn(
-        "rounded-[2.5rem] border-2 bg-white shadow-2xl relative transition-all",
+        "rounded-[2rem] border-2 bg-white shadow-2xl relative transition-all",
         isDayClosed && !editingPayment ? "border-red-200 bg-red-50/10" : "border-primary/20"
       )}>
-        <div className="bg-primary/5 p-5 border-b border-primary/10 flex justify-between items-center">
+        <div className="bg-primary/5 p-4 border-b border-primary/10 flex justify-between items-center">
           <div className="flex items-center gap-2">
             <CreditCard className="w-5 h-5 text-primary" />
             <h2 className="text-[12px] font-black uppercase text-primary tracking-widest">
-              {editingPayment ? "Editar Cobro" : "Registrar Cobranza"}
+              {editingPayment ? "EDITAR PAGO" : "REGISTRAR PAGO"}
             </h2>
           </div>
-          <div className="flex items-center gap-2">
-            {isDayClosed && !editingPayment && <Badge className="bg-red-500 text-white text-[8px] font-black">DÍA CERRADO</Badge>}
-            {editingPayment && <Badge className="bg-orange-500 text-white text-[8px] font-black">MODO EDICIÓN</Badge>}
-            <Button variant="ghost" size="icon" className="h-9 w-9 text-primary/40 hover:text-primary active:rotate-90 transition-all" onClick={handleReset}>
-              <RotateCcw className="w-5 h-5" />
-            </Button>
-          </div>
+          <Button variant="ghost" size="icon" className="h-9 w-9 text-primary/40 hover:text-primary transition-all" onClick={handleReset}>
+            <RotateCcw className="w-5 h-5" />
+          </Button>
         </div>
         <CardContent className="p-6 space-y-6">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
-              <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Fecha de Pago</Label>
+              <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1">FECHA</Label>
               <input 
                 type="date"
                 value={format(date, "yyyy-MM-dd")}
@@ -295,31 +291,30 @@ export default function PaymentsView() {
                   const val = e.target.value;
                   if (val) setDate(new Date(val + "T12:00:00"));
                 }}
-                className="w-full h-12 px-4 rounded-xl border border-primary/10 font-black text-xs uppercase bg-white focus:outline-none focus:ring-2 focus:ring-primary/20"
+                className="w-full h-11 px-3 rounded-xl border border-primary/10 font-black text-xs uppercase bg-white"
               />
             </div>
             <div className="space-y-1">
-              <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Monto S/</Label>
+              <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1">MONTO S/</Label>
               <Input 
                 type="number" 
                 value={amount} 
                 onChange={e => setAmount(e.target.value)} 
-                className="h-12 text-sm font-black border-primary/10 rounded-xl bg-green-50 text-green-700"
-                placeholder="0.0"
+                className="h-11 text-sm font-black border-primary/10 rounded-xl bg-green-50 text-green-700"
               />
             </div>
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Banco Receptor</Label>
+            <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1">BANCO RECEPTOR</Label>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
               {banks.map((bank: any) => (
                 <Button
                   key={bank.id}
                   variant={selectedBank?.id === bank.id ? "default" : "outline"}
                   className={cn(
-                    "h-12 rounded-xl font-black text-[10px] uppercase border-primary/10 transition-all",
-                    selectedBank?.id === bank.id ? "bg-primary text-white shadow-lg" : "bg-white text-muted-foreground"
+                    "h-11 rounded-xl font-black text-[10px] uppercase border-primary/10 transition-all",
+                    selectedBank?.id === bank.id ? "bg-primary text-white" : "bg-white"
                   )}
                   onClick={() => setSelectedBank(bank)}
                 >
@@ -331,12 +326,12 @@ export default function PaymentsView() {
 
           <div className="flex gap-2 items-end">
             <div className="flex-1 space-y-1 relative">
-              <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Cliente</Label>
+              <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1">CLIENTE</Label>
               <div className="relative">
                 <Search className="absolute left-3 top-3.5 h-4 w-4 text-primary/30" />
                 <Input 
-                  placeholder="BUSCAR CLIENTE..." 
-                  className={cn("h-12 pl-9 text-xs font-black uppercase rounded-xl border-primary/10 bg-white", editingPayment && "bg-secondary/20 cursor-not-allowed")}
+                  placeholder="BUSCAR..." 
+                  className={cn("h-11 pl-9 text-xs font-black uppercase rounded-xl border-primary/10 bg-white", editingPayment && "bg-secondary/20")}
                   value={selectedCustomer ? `${selectedCustomer.name} [${selectedCustomer.id}]` : customerSearch}
                   onChange={e => { if (!editingPayment) { if (selectedCustomer) setSelectedCustomer(null); setCustomerSearch(e.target.value); } }}
                   readOnly={!!editingPayment}
@@ -353,7 +348,7 @@ export default function PaymentsView() {
               </div>
             </div>
             <Button 
-              className={cn("h-12 w-12 rounded-xl text-white shadow-lg shrink-0", editingPayment ? "bg-orange-500" : "bg-primary")}
+              className={cn("h-11 w-11 rounded-xl text-white shadow-lg shrink-0", editingPayment ? "bg-orange-500" : "bg-primary")}
               onClick={handleSavePayment}
               disabled={saving || !amount || !selectedCustomer || !selectedBank || (isDayClosed && !editingPayment)}
             >
@@ -363,62 +358,46 @@ export default function PaymentsView() {
         </CardContent>
       </Card>
 
-      <div className="space-y-6 pt-4">
+      <div className="space-y-4 pt-4">
         <div className="flex items-center gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-4 top-3 h-4 w-4 text-primary/30" />
-            <Input placeholder="FILTRAR..." className="h-10 pl-10 rounded-xl border-primary/10 font-black text-[10px] uppercase bg-white shadow-sm" value={listFilter} onChange={e => setListFilter(e.target.value)} />
+            <Input placeholder="FILTRAR..." className="h-10 pl-10 rounded-xl border-primary/10 font-black text-[10px] uppercase bg-white" value={listFilter} onChange={e => setListFilter(e.target.value)} />
           </div>
-          <div className="flex items-center gap-2 bg-white px-3 h-10 rounded-xl border border-primary/10 shadow-sm">
+          <div className="flex items-center gap-2 bg-white px-3 h-10 rounded-xl border border-primary/10">
             <Filter className={cn("w-3.5 h-3.5", isBankGrouped ? "text-orange-500" : "text-muted-foreground")} />
-            <Switch checked={isBankGrouped} onCheckedChange={setIsBankGrouped} className="data-[state=checked]:bg-orange-500" />
+            <Switch checked={isBankGrouped} onCheckedChange={setIsBankGrouped} />
           </div>
         </div>
 
-        {groupedPayments.map(group => {
-          const isDayLocked = false; 
-          
-          return (
-            <div key={group.dateKey} className="space-y-3">
-              <div className="flex justify-between items-center px-4 py-2 bg-primary/5 rounded-2xl border border-primary/10">
-                <div className="flex items-center gap-3">
-                  <button 
-                    onClick={() => toggleDayLock(group.dateKey, group.payments, isDayLocked)}
-                    className={cn("p-1.5 rounded-lg transition-all", isDayLocked ? "text-primary bg-primary/10" : "text-muted-foreground/30 hover:text-primary")}
-                  >
-                    {isDayLocked ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
-                  </button>
-                  <span className="text-[10px] font-black uppercase text-primary tracking-widest">{group.label}</span>
-                </div>
-                <div className="flex items-center gap-4">
-                  <span className="text-[9px] font-black text-primary/40 uppercase">CANT: {group.payments.length}</span>
-                  <span className="font-headline font-black text-sm text-foreground">S/ {group.total.toFixed(1)}</span>
-                </div>
+        {groupedPayments.map(group => (
+          <div key={group.dateKey} className="space-y-2">
+            <div className="flex justify-between items-center px-4 py-1.5 bg-primary/5 rounded-xl border border-primary/10">
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={() => toggleDayLock(group.dateKey, group.payments, false)}
+                  className="text-muted-foreground/30 hover:text-primary transition-all"
+                >
+                  <Unlock className="w-3.5 h-3.5" />
+                </button>
+                <span className="text-[10px] font-black uppercase text-primary tracking-widest">{group.label}</span>
               </div>
-
-              <div className="space-y-4">
-                {isBankGrouped ? group.bankGroups.map((bg, idx) => (
-                  <div key={idx} className="space-y-2">
-                    <div className="flex items-center justify-between px-6 py-1 bg-orange-50/50 rounded-lg border-l-4 border-orange-400">
-                      <span className="text-[10px] font-black text-orange-600 uppercase">{bg.bankName}</span>
-                      <div className="flex gap-4">
-                         <span className="text-[8px] font-black text-orange-400 uppercase">CANT: {bg.count}</span>
-                         <span className="text-[10px] font-black text-orange-700">S/ {bg.total.toFixed(1)}</span>
-                      </div>
-                    </div>
-                    <div className="space-y-1.5 pl-4">
-                      {bg.records.map(p => <PaymentRecord key={p.id} p={p} onEdit={startEditing} onDelete={handleDelete} onLock={togglePaymentLock} deleteConfirmId={deleteConfirmId} setDeleteConfirmId={setDeleteConfirmId} />)}
-                    </div>
-                  </div>
-                )) : (
-                  <div className="space-y-1.5">
-                    {group.payments.map(p => <PaymentRecord key={p.id} p={p} onEdit={startEditing} onDelete={handleDelete} onLock={togglePaymentLock} deleteConfirmId={deleteConfirmId} setDeleteConfirmId={setDeleteConfirmId} />)}
-                  </div>
-                )}
-              </div>
+              <span className="font-headline font-black text-sm">S/ {group.total.toFixed(1)}</span>
             </div>
-          )
-        })}
+
+            <div className="space-y-1.5">
+              {isBankGrouped ? group.bankGroups.map((bg, idx) => (
+                <div key={idx} className="space-y-1.5">
+                  <div className="flex items-center justify-between px-6 py-0.5 bg-orange-50/50 rounded-lg border-l-4 border-orange-400">
+                    <span className="text-[9px] font-black text-orange-600 uppercase">{bg.bankName}</span>
+                    <span className="text-[10px] font-black text-orange-700">S/ {bg.total.toFixed(1)}</span>
+                  </div>
+                  {bg.records.map(p => <PaymentRecord key={p.id} p={p} onEdit={startEditing} onDelete={handleDelete} onLock={togglePaymentLock} deleteConfirmId={deleteConfirmId} setDeleteConfirmId={setDeleteConfirmId} />)}
+                </div>
+              )) : group.payments.map(p => <PaymentRecord key={p.id} p={p} onEdit={startEditing} onDelete={handleDelete} onLock={togglePaymentLock} deleteConfirmId={deleteConfirmId} setDeleteConfirmId={setDeleteConfirmId} />)}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   )
@@ -427,7 +406,7 @@ export default function PaymentsView() {
 function PaymentRecord({ p, onEdit, onDelete, onLock, deleteConfirmId, setDeleteConfirmId }: any) {
   return (
     <Card className={cn("rounded-xl border border-primary/5 bg-white shadow-sm transition-all", p.isLocked && "bg-slate-50/50")}>
-      <CardContent className="p-3 flex items-center justify-between">
+      <CardContent className="p-2 flex items-center justify-between">
         <div className="flex items-center gap-4 flex-1 min-w-0">
           <button 
             onClick={() => onLock(p)}
