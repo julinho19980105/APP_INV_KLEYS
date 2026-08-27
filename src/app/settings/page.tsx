@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from "react"
-import { Settings, Save, Building2, Upload, X, Loader2, Printer, CreditCard, Plus, Trash2 } from "lucide-react"
+import { Settings, Save, Building2, Upload, X, Loader2, Printer, CreditCard, Plus, Edit2 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -13,6 +13,12 @@ import { useToast } from "@/hooks/use-toast"
 import { useFirestore, useDoc } from "@/firebase"
 import { doc, setDoc, serverTimestamp } from "firebase/firestore"
 import { cn } from "@/lib/utils"
+import { 
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 export default function SettingsPage() {
   const { toast } = useToast()
@@ -32,6 +38,7 @@ export default function SettingsPage() {
   })
   const [saving, setSaving] = React.useState(false)
   const [newBankName, setNewBankName] = React.useState("")
+  const [editingBank, setEditingBank] = React.useState<{ id: string, name: string } | null>(null)
 
   React.useEffect(() => {
     if (dbConfig) {
@@ -73,8 +80,13 @@ export default function SettingsPage() {
     setNewBankName("")
   }
 
-  const removeBank = (id: string) => {
-    setForm(prev => ({ ...prev, banks: prev.banks.filter(b => b.id !== id) }))
+  const handleRenameBank = () => {
+    if (!editingBank || !editingBank.name.trim()) return
+    setForm(prev => ({
+      ...prev,
+      banks: prev.banks.map(b => b.id === editingBank.id ? { ...b, name: editingBank.name.toUpperCase().trim() } : b)
+    }))
+    setEditingBank(null)
   }
 
   const setDefaultBank = (id: string) => {
@@ -133,7 +145,7 @@ export default function SettingsPage() {
                        <Switch checked={bank.isDefault} onCheckedChange={() => setDefaultBank(bank.id)} className="scale-75" />
                        <span className={cn("text-[10px] font-black uppercase", bank.isDefault && "text-primary")}>{bank.name}</span>
                     </div>
-                    <button className="text-destructive opacity-0 group-hover:opacity-100 transition-all" onClick={() => removeBank(bank.id)}><Trash2 className="w-3.5 h-3.5" /></button>
+                    <button className="text-primary/40 hover:text-primary transition-all" onClick={() => setEditingBank(bank)}><Edit2 className="w-3.5 h-3.5" /></button>
                   </div>
                 ))}
               </div>
@@ -157,6 +169,19 @@ export default function SettingsPage() {
       <div className="flex justify-center pt-8">
         <Button onClick={handleSave} disabled={saving} className="h-16 w-full max-w-lg bg-black text-white font-black rounded-2xl shadow-2xl active:scale-95 transition-all uppercase tracking-widest">{saving ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6 mr-3" />} CONFIRMAR IDENTIDAD</Button>
       </div>
+
+      <Dialog open={!!editingBank} onOpenChange={() => setEditingBank(null)}>
+        <DialogContent className="rounded-[2rem] max-w-xs p-6 border-none">
+          <div className="space-y-4">
+            <Label className="text-[10px] font-black uppercase text-primary">Renombrar Banco</Label>
+            <Input value={editingBank?.name || ''} onChange={e => setEditingBank(prev => prev ? ({ ...prev, name: e.target.value }) : null)} className="h-10 text-[10px] font-black uppercase text-center" />
+            <div className="grid grid-cols-2 gap-2">
+              <Button variant="outline" className="rounded-xl h-10 text-[9px] font-black uppercase" onClick={() => setEditingBank(null)}>CANCELAR</Button>
+              <Button className="bg-primary text-white rounded-xl h-10 text-[9px] font-black uppercase" onClick={handleRenameBank}>GUARDAR</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

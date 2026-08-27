@@ -13,7 +13,8 @@ import {
   Calendar as CalendarIcon, 
   CreditCard,
   Loader2,
-  Trash2
+  Trash2,
+  Filter
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -21,8 +22,9 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
+import { Switch } from "@/components/ui/switch"
 import { useFirestore, useDoc, useCollection } from "@/firebase"
-import { collection, query, orderBy, where, addDoc, serverTimestamp, doc, getDocs, limit, deleteDoc } from "firebase/firestore"
+import { collection, query, orderBy, addDoc, serverTimestamp, doc, limit, deleteDoc } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 
@@ -34,9 +36,9 @@ export default function PaymentsView() {
   
   const configDocRef = React.useMemo(() => db ? doc(db, "config", "global") : null, [db])
   const { data: config } = useDoc(configDocRef)
-  const brandColor = config?.brandColor || "#FF3399"
-  const banks = config?.banks || []
-  const defaultBank = banks.find((b: any) => b.isDefault)
+  
+  const banks = React.useMemo(() => config?.banks || [], [config])
+  const defaultBank = React.useMemo(() => banks.find((b: any) => b.isDefault), [banks])
 
   const [saving, setSaving] = React.useState(false)
   const [date, setDate] = React.useState<Date>(new Date())
@@ -45,6 +47,7 @@ export default function PaymentsView() {
   const [selectedCustomer, setSelectedCustomer] = React.useState<any>(null)
   const [customerSearch, setCustomerSearch] = React.useState("")
   const [listFilter, setListFilter] = React.useState("")
+  const [isBankGrouped, setIsBankGrouped] = React.useState(false)
 
   const customersRef = React.useMemo(() => db ? query(collection(db, "customers"), orderBy("name")) : null, [db])
   const { data: dbCustomers = [] } = useCollection(customersRef)
@@ -55,7 +58,6 @@ export default function PaymentsView() {
   }, [db])
   const { data: payments = [], loading } = useCollection(paymentsQuery)
 
-  // Persistencia de formulario
   React.useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY)
     if (saved) {
@@ -131,16 +133,29 @@ export default function PaymentsView() {
   }, [payments, listFilter])
 
   const groupedPayments = React.useMemo(() => {
-    const groups: Record<string, { label: string, total: number, payments: any[] }> = {}
+    const groups: Record<string, { label: string, total: number, payments: any[], bankSummaries: any[] }> = {}
     filteredPayments.forEach(p => {
-      const pDate = new Date(p.date + "T12:00:00") // Evitar desfase de zona horaria
+      const pDate = new Date(p.date + "T12:00:00")
       const label = format(pDate, "EEEE d 'de' MMMM", { locale: es }).toUpperCase()
-      if (!groups[label]) groups[label] = { label, total: 0, payments: [] }
+      if (!groups[label]) groups[label] = { label, total: 0, payments: [], bankSummaries: [] }
       groups[label].payments.push(p)
       groups[label].total += p.amount
     })
+    
+    if (isBankGrouped) {
+      Object.keys(groups).forEach(label => {
+        const bankMap: Record<string, { bankName: string, total: number, count: number }> = {}
+        groups[label].payments.forEach(p => {
+          if (!bankMap[p.bankName]) bankMap[p.bankName] = { bankName: p.bankName, total: 0, count: 0 }
+          bankMap[p.bankName].total += p.amount
+          bankMap[p.bankName].count += 1
+        })
+        groups[label].bankSummaries = Object.values(bankMap)
+      })
+    }
+    
     return Object.values(groups)
-  }, [filteredPayments])
+  }, [filteredPayments, isBankGrouped])
 
   return (
     <div className="space-y-6 px-2 md:px-0">
@@ -186,7 +201,7 @@ export default function PaymentsView() {
 
           <div className="space-y-1">
             <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Seleccionar Banco</Label>
-            <div className={cn("grid gap-2", banks.length > 2 ? "grid-cols-3" : "grid-cols-2")}>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
               {banks.map((bank: any) => (
                 <Button
                   key={bank.id}
@@ -241,14 +256,24 @@ export default function PaymentsView() {
       </Card>
 
       <div className="space-y-4">
-        <div className="relative">
-          <Search className="absolute left-4 top-3 h-4 w-4 text-primary/30" />
-          <Input 
-            placeholder="Filtrar por cliente..." 
-            className="h-10 pl-10 rounded-xl border-primary/10 font-black text-[10px] uppercase bg-white shadow-sm"
-            value={listFilter}
-            onChange={e => setListFilter(e.target.value)}
-          />
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-4 top-3 h-4 w-4 text-primary/30" />
+            <Input 
+              placeholder="Filtrar por cliente..." 
+              className="h-10 pl-10 rounded-xl border-primary/10 font-black text-[10px] uppercase bg-white shadow-sm"
+              value={listFilter}
+              onChange={e => setListFilter(e.target.value)}
+            />
+          </div>
+          <div className="flex items-center gap-2 bg-white px-3 h-10 rounded-xl border border-primary/10 shadow-sm">
+            <Filter className={cn("w-3.5 h-3.5", isBankGrouped ? "text-orange-500" : "text-muted-foreground")} />
+            <Switch 
+              checked={isBankGrouped} 
+              onCheckedChange={setIsBankGrouped} 
+              className="data-[state=checked]:bg-orange-500 data-[state=unchecked]:bg-slate-200"
+            />
+          </div>
         </div>
 
         {loading ? (
@@ -265,7 +290,17 @@ export default function PaymentsView() {
               </div>
             </div>
             <div className="space-y-1.5">
-              {group.payments.map(p => (
+              {isBankGrouped ? group.bankSummaries.map((s, idx) => (
+                <Card key={idx} className="rounded-xl border border-orange-200 bg-orange-50/30 shadow-sm overflow-hidden">
+                  <CardContent className="p-4 flex items-center justify-between">
+                    <div>
+                      <div className="font-black text-[12px] text-orange-600 uppercase">{s.bankName}</div>
+                      <div className="text-[8px] font-black text-orange-400 uppercase tracking-widest">{s.count} PAGOS REGISTRADOS</div>
+                    </div>
+                    <div className="font-headline font-black text-lg text-orange-700">S/ {s.total.toFixed(2)}</div>
+                  </CardContent>
+                </Card>
+              )) : group.payments.map(p => (
                 <Card key={p.id} className="rounded-xl border border-primary/5 bg-white shadow-sm overflow-hidden group">
                   <CardContent className="p-3 flex items-center justify-between">
                     <div className="flex-1 min-w-0">

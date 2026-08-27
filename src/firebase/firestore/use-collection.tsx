@@ -12,7 +12,10 @@ export function useCollection(query: Query | null) {
   const [error, setError] = useState<any>(null);
 
   useEffect(() => {
-    if (!query) return;
+    if (!query) {
+      setLoading(false);
+      return;
+    }
 
     const unsubscribe = onSnapshot(
       query,
@@ -20,11 +23,11 @@ export function useCollection(query: Query | null) {
         const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setData(docs);
         setLoading(false);
+        setError(null);
       },
       async (err) => {
-        // Obtenemos una representación legible si es posible, aunque el objeto Query es opaco
         const permissionError = new FirestorePermissionError({
-          path: 'coleccion_activa',
+          path: 'colección de datos',
           operation: 'list'
         });
         errorEmitter.emit('permission-error', permissionError);
