@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -9,7 +10,6 @@ import {
   Lock, 
   Unlock, 
   RotateCcw, 
-  Calendar as CalendarIcon, 
   CreditCard,
   Loader2,
   Trash2,
@@ -17,7 +17,6 @@ import {
   Edit2,
   X,
   Check,
-  AlertCircle,
   MoreVertical
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -25,7 +24,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Calendar } from "@/components/ui/calendar"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import { 
@@ -64,7 +62,6 @@ export default function PaymentsView() {
 
   const [saving, setSaving] = React.useState(false)
   const [date, setDate] = React.useState<Date>(new Date())
-  const [isCalendarOpen, setIsCalendarOpen] = React.useState(false)
   const [amount, setAmount] = React.useState("")
   const [selectedBank, setSelectedBank] = React.useState<any>(null)
   const [selectedCustomer, setSelectedCustomer] = React.useState<any>(null)
@@ -241,10 +238,6 @@ export default function PaymentsView() {
   const groupedPayments = React.useMemo(() => {
     const groups: Record<string, { label: string, dateKey: string, total: number, isDayLocked: boolean, payments: any[], bankGroups: any[] }> = {}
     
-    // Obtener estados de cierre de día (esto es un poco complejo sin hooks, simulamos con los datos locales si el hook principal no bastara)
-    // Para simplificar, el hook dayLock arriba solo funciona para la fecha seleccionada en el form. 
-    // Para la lista, asumimos que los candados grupales se gestionan por fecha.
-
     filteredPayments.forEach(p => {
       const label = format(new Date(p.date + "T12:00:00"), "EEEE d 'de' MMMM", { locale: es }).toUpperCase()
       if (!groups[label]) groups[label] = { label, dateKey: p.date, total: 0, isDayLocked: false, payments: [], bankGroups: [] }
@@ -295,29 +288,15 @@ export default function PaymentsView() {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Fecha de Pago</Label>
-              <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full h-12 rounded-xl border-primary/10 justify-start font-black text-xs uppercase bg-white">
-                    <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
-                    {format(date, "dd/MM/yyyy")}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-80 p-0 rounded-2xl z-[99999] shadow-2xl border-primary/10" align="start">
-                  <div className="p-3">
-                    <Calendar 
-                      mode="single" 
-                      selected={date} 
-                      onSelect={(d) => { if(d) { setDate(d); setIsCalendarOpen(false); } }} 
-                      initialFocus 
-                      locale={es}
-                    />
-                    <div className="flex justify-between border-t border-primary/5 pt-3 px-2">
-                      <Button variant="ghost" className="text-[10px] font-black text-primary/40 uppercase" onClick={() => { setDate(new Date()); setIsCalendarOpen(false); }}>Borrar</Button>
-                      <Button variant="ghost" className="text-[10px] font-black text-primary uppercase" onClick={() => { setDate(new Date()); setIsCalendarOpen(false); }}>Hoy</Button>
-                    </div>
-                  </div>
-                </PopoverContent>
-              </Popover>
+              <input 
+                type="date"
+                value={format(date, "yyyy-MM-dd")}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val) setDate(new Date(val + "T12:00:00"));
+                }}
+                className="w-full h-12 px-4 rounded-xl border border-primary/10 font-black text-xs uppercase bg-white focus:outline-none focus:ring-2 focus:ring-primary/20"
+              />
             </div>
             <div className="space-y-1">
               <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Monto S/</Label>
@@ -397,13 +376,12 @@ export default function PaymentsView() {
         </div>
 
         {groupedPayments.map(group => {
-          const isDayLocked = group.payments.length > 0 && false; // Implementación real requeriría hook por cada fecha
+          const isDayLocked = false; 
           
           return (
             <div key={group.dateKey} className="space-y-3">
               <div className="flex justify-between items-center px-4 py-2 bg-primary/5 rounded-2xl border border-primary/10">
                 <div className="flex items-center gap-3">
-                  {/* Candado de Grupo (Día) */}
                   <button 
                     onClick={() => toggleDayLock(group.dateKey, group.payments, isDayLocked)}
                     className={cn("p-1.5 rounded-lg transition-all", isDayLocked ? "text-primary bg-primary/10" : "text-muted-foreground/30 hover:text-primary")}
@@ -451,7 +429,6 @@ function PaymentRecord({ p, onEdit, onDelete, onLock, deleteConfirmId, setDelete
     <Card className={cn("rounded-xl border border-primary/5 bg-white shadow-sm transition-all", p.isLocked && "bg-slate-50/50")}>
       <CardContent className="p-3 flex items-center justify-between">
         <div className="flex items-center gap-4 flex-1 min-w-0">
-          {/* 1. Candado Individual */}
           <button 
             onClick={() => onLock(p)}
             className={cn("p-2 rounded-lg transition-all", p.isLocked ? "text-primary bg-primary/10" : "text-muted-foreground/20 hover:text-primary")}
@@ -471,7 +448,6 @@ function PaymentRecord({ p, onEdit, onDelete, onLock, deleteConfirmId, setDelete
         <div className="flex items-center gap-4">
           <div className="font-headline font-black text-[15px] text-foreground">S/ {p.amount.toFixed(1)}</div>
           
-          {/* 2. Tres Puntitos (Menú) */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button disabled={p.isLocked} className="p-2 text-primary/30 hover:text-primary disabled:opacity-10"><MoreVertical className="w-4 h-4" /></button>
