@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -6,14 +5,12 @@ import {
   Plus, 
   Package, 
   Trash2, 
-  MoreVertical, 
   ImageIcon, 
   X,
   Loader2,
   PackagePlus,
   ChevronRight,
   ChevronLeft,
-  Filter,
   Upload,
   Eye
 } from "lucide-react"

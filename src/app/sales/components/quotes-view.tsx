@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -496,10 +495,12 @@ export default function QuotesView() {
                  <Input 
                    type="number" 
                    value={currentEntry.quantity} 
-                   onChange={e => setCurrentEntry({...currentEntry, quantity: e.target.value.slice(0, 4)})} 
-                   maxLength={4}
+                   onChange={e => {
+                     const val = e.target.value;
+                     if (val.length <= 4) setCurrentEntry({...currentEntry, quantity: val});
+                   }} 
                    inputMode="numeric"
-                   className="h-12 font-black text-sm rounded-xl border-primary/10" 
+                   className="h-12 font-black text-sm rounded-xl border-primary/10 flex-1" 
                  />
                  <Button variant="outline" size="icon" className="h-12 w-12 shrink-0 rounded-xl" onClick={() => setIsCalcOpen(true)}><Calculator className="w-4 h-4" /></Button>
                </div>
@@ -509,8 +510,10 @@ export default function QuotesView() {
                <Input 
                  type="number" 
                  value={currentEntry.discount} 
-                 onChange={e => setCurrentEntry({...currentEntry, discount: e.target.value.slice(0, 2)})} 
-                 maxLength={2}
+                 onChange={e => {
+                   const val = e.target.value;
+                   if (val.length <= 2) setCurrentEntry({...currentEntry, discount: val});
+                 }} 
                  inputMode="numeric"
                  className="h-12 font-black text-sm rounded-xl border-orange-100 bg-orange-50 text-orange-600 px-2" 
                />
@@ -611,4 +614,3 @@ export default function QuotesView() {
     </div>
   )
 }
-    
