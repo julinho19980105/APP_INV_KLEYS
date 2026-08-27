@@ -12,7 +12,9 @@ import {
   PackageCheck,
   X,
   History,
-  Edit2
+  Edit2,
+  FileText,
+  CreditCard
 } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
@@ -58,10 +60,6 @@ export default function ShippingHubPage() {
   const logisticsDocRef = React.useMemo(() => db ? doc(db, "logistics", dateKey) : null, [db, dateKey])
   const { data: logData } = useDoc(logisticsDocRef)
   
-  const configDocRef = React.useMemo(() => db ? doc(db, "config", "global") : null, [db])
-  const { data: config } = useDoc(configDocRef)
-  const brandColor = config?.brandColor || "#0296FF"
-
   const allLogisticsRef = React.useMemo(() => db ? query(collection(db, "logistics"), orderBy("date", "desc")) : null, [db])
   const { data: historyBatches = [] } = useCollection(allLogisticsRef)
 
@@ -91,63 +89,31 @@ export default function ShippingHubPage() {
   }
 
   const batchTotal = React.useMemo(() => {
-    return (logData?.entries || []).reduce((acc: number, entry: any) => {
-      const balance = calculateEntryBalance(entry)
-      return acc + balance // Suma algebraica para el cuadre total del lote
-    }, 0)
+    return (logData?.entries || []).reduce((acc: number, entry: any) => acc + calculateEntryBalance(entry), 0)
   }, [logData])
 
   const handleAddCustomer = async (customer: any) => {
     if (!db || !logisticsDocRef) return
-
     const customerQuotes = allQuotes.filter(q => q.customerId === customer.id && q.status === "active")
     const customerPayments = allPayments.filter(p => p.customerId === customer.id && !p.isLocked)
-
     const newEntry = {
       customerId: customer.id,
       customerName: customer.name,
       addedAt: new Date().toISOString(),
       shippingCost: 0,
-      quotes: customerQuotes.map(q => {
-        const totalQty = (q.items || []).reduce((acc: number, i: any) => acc + Number(i.quantity), 0)
-        return {
-          quoteId: q.id,
-          amount: q.total,
-          qty: totalQty,
-          selected: true
-        }
-      }),
-      payments: customerPayments.map(p => ({
-        paymentId: p.id,
-        amount: p.amount,
-        selected: true
-      }))
+      quotes: customerQuotes.map(q => ({ quoteId: q.id, amount: q.total, qty: (q.items || []).reduce((acc: number, i: any) => acc + Number(i.quantity), 0), selected: true })),
+      payments: customerPayments.map(p => ({ paymentId: p.id, amount: p.amount, selected: true }))
     }
-
     const currentEntries = logData?.entries || []
-    if (currentEntries.some((e: any) => e.customerId === customer.id)) {
-      toast({ title: "YA ESTÁ EN LA LISTA" })
-      return
-    }
-
-    await setDoc(logisticsDocRef, {
-      date: dateKey,
-      entries: [...currentEntries, newEntry],
-      totalAmount: 0, 
-      updatedAt: serverTimestamp()
-    }, { merge: true })
-
-    setCustomerSearch("")
-    setIsSearchOpen(false)
-    toast({ title: "CLIENTE AÑADIDO" })
+    if (currentEntries.some((e: any) => e.customerId === customer.id)) return
+    await setDoc(logisticsDocRef, { date: dateKey, entries: [...currentEntries, newEntry], updatedAt: serverTimestamp() }, { merge: true })
+    setCustomerSearch(""); setIsSearchOpen(false); toast({ title: "CLIENTE AÑADIDO" })
   }
 
   const handleUpdateShippingCost = async (customerId: string, cost: string) => {
     if (!logisticsDocRef || !logData) return
     const val = Number(cost)
-    const updatedEntries = logData.entries.map((e: any) => 
-      e.customerId === customerId ? { ...e, shippingCost: isNaN(val) ? 0 : val } : e
-    )
+    const updatedEntries = logData.entries.map((e: any) => e.customerId === customerId ? { ...e, shippingCost: isNaN(val) ? 0 : val } : e)
     await updateDoc(logisticsDocRef, { entries: updatedEntries, updatedAt: serverTimestamp() })
   }
 
@@ -155,17 +121,8 @@ export default function ShippingHubPage() {
     if (!db || !logisticsDocRef || !logData) return
     const updatedEntries = logData.entries.map((entry: any) => {
       if (entry.customerId === customerId) {
-        if (type === 'quote') {
-          return {
-            ...entry,
-            quotes: entry.quotes.map((q: any) => q.quoteId === itemId ? { ...q, selected: !q.selected } : q)
-          }
-        } else {
-          return {
-            ...entry,
-            payments: entry.payments.map((p: any) => p.paymentId === itemId ? { ...p, selected: !p.selected } : p)
-          }
-        }
+        if (type === 'quote') return { ...entry, quotes: entry.quotes.map((q: any) => q.quoteId === itemId ? { ...q, selected: !q.selected } : q) }
+        return { ...entry, payments: entry.payments.map((p: any) => p.paymentId === itemId ? { ...p, selected: !p.selected } : p) }
       }
       return entry
     })
@@ -176,8 +133,7 @@ export default function ShippingHubPage() {
     if (!db || !logisticsDocRef || !logData || !deleteConfirm) return
     const updatedEntries = logData.entries.filter((e: any) => e.customerId !== deleteConfirm.id)
     await updateDoc(logisticsDocRef, { entries: updatedEntries, updatedAt: serverTimestamp() })
-    setDeleteConfirm(null)
-    toast({ title: "REMOVIDO" })
+    setDeleteConfirm(null); toast({ title: "REMOVIDO" })
   }
 
   return (
@@ -192,61 +148,34 @@ export default function ShippingHubPage() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="clientes" className="mt-0">
-          <CustomersHubPage />
-        </TabsContent>
+        <TabsContent value="clientes" className="mt-0"><CustomersHubPage /></TabsContent>
 
         <TabsContent value="envios" className="mt-0 space-y-4">
+          {/* HEADER LOGISTICS */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-3 border-b-2 border-black pb-3">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg bg-primary">
-                <Truck className="w-5 h-5 text-white" />
-              </div>
-              <h1 className="text-xl font-headline font-black text-foreground uppercase tracking-tight">ENVÍOS</h1>
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg bg-primary"><Truck className="w-5 h-5 text-white" /></div>
+              <h1 className="text-xl font-headline font-black text-foreground uppercase tracking-tight">ENVIOS</h1>
             </div>
-            
             <div className="flex items-center justify-between w-full md:w-auto gap-6">
               <div className="text-right flex flex-col items-end">
                 <span className="text-[8px] font-black text-primary/40 uppercase tracking-widest">TOTAL LOTE</span>
-                <div className="flex items-end gap-1">
-                  <span className="text-[10px] font-black text-primary mb-0.5">S/</span>
-                  <span className="text-2xl font-headline font-black text-foreground leading-none">{batchTotal.toFixed(1)}</span>
-                </div>
+                <div className="flex items-end gap-1"><span className="text-[10px] font-black text-primary mb-0.5">S/</span><span className="text-2xl font-headline font-black text-foreground leading-none">{batchTotal.toFixed(1)}</span></div>
               </div>
-              <input 
-                type="date"
-                value={dateKey}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (val) setDate(new Date(val + "T12:00:00"));
-                }}
-                className="h-10 px-3 rounded-xl border-2 border-primary/10 font-black text-[11px] uppercase bg-white shadow-sm focus:outline-none focus:border-primary"
-              />
+              <input type="date" value={dateKey} onChange={(e) => { if (e.target.value) setDate(new Date(e.target.value + "T12:00:00")); }} className="h-10 px-3 rounded-xl border-2 border-primary/10 font-black text-[11px] uppercase bg-white focus:outline-none focus:border-primary" />
             </div>
           </div>
 
           <div className="relative w-full">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-primary/40" />
-            <Input 
-              placeholder="BUSCAR CLIENTE..." 
-              className="pl-11 h-11 w-full rounded-xl border-2 border-primary/10 font-black text-xs uppercase bg-white shadow-sm"
-              value={customerSearch}
-              onChange={e => setCustomerSearch(e.target.value)}
-              onFocus={() => setIsSearchOpen(true)}
-            />
+            <Input placeholder="BUSCAR CLIENTE..." className="pl-11 h-11 w-full rounded-xl border-2 border-primary/10 font-black text-xs uppercase shadow-sm" value={customerSearch} onChange={e => setCustomerSearch(e.target.value)} onFocus={() => setIsSearchOpen(true)} />
             {isSearchOpen && (
-              <div className="absolute z-[999999] w-full mt-1 bg-white border-2 border-primary/10 rounded-xl shadow-2xl overflow-hidden">
-                <div className="p-2 bg-primary/5 border-b border-primary/5 flex justify-between items-center px-4">
-                  <span className="text-[8px] font-black uppercase text-primary tracking-widest">Sugerencias</span>
-                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsSearchOpen(false)}><X className="w-3.5 h-3.5" /></Button>
-                </div>
+              <div className="absolute z-[999] w-full mt-1 bg-white border-2 border-primary/10 rounded-xl shadow-2xl overflow-hidden">
+                <div className="p-2 bg-primary/5 border-b border-primary/5 flex justify-between items-center px-4"><span className="text-[8px] font-black uppercase text-primary tracking-widest">Clientes Activos</span><Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsSearchOpen(false)}><X className="w-3.5 h-3.5" /></Button></div>
                 <div className="max-h-[250px] overflow-y-auto">
                   {filteredSuggestions.map(c => (
-                    <button key={c.id} className="w-full text-left px-5 py-3 hover:bg-primary/5 border-b last:border-0 flex items-center justify-between group" onClick={() => handleAddCustomer(c)}>
-                      <div className="flex flex-col">
-                        <span className="font-black text-[11px] uppercase text-black">{c.name}</span>
-                        <span className="text-[8px] font-bold text-primary/40 uppercase">{c.id}</span>
-                      </div>
+                    <button key={c.id} className="w-full text-left px-5 py-3 hover:bg-primary/5 border-b last:border-0 flex items-center justify-between" onClick={() => handleAddCustomer(c)}>
+                      <div className="flex flex-col"><span className="font-black text-[11px] uppercase">{c.name}</span><span className="text-[8px] font-bold text-primary/40 uppercase">{c.id}</span></div>
                       <Plus className="w-3.5 h-3.5 text-primary" />
                     </button>
                   ))}
@@ -265,65 +194,34 @@ export default function ShippingHubPage() {
                       <div className="flex items-center justify-between w-full">
                         <div className="flex items-center gap-3 text-left">
                           <span className="w-6 h-6 rounded-md bg-primary/5 text-primary flex items-center justify-center font-black text-[10px]">{index + 1}</span>
-                          <div className="flex flex-col">
-                            <span className="font-black text-[13px] uppercase text-black leading-none">{entry.customerName}</span>
-                            <span className="text-[9px] font-bold text-primary/40 uppercase">{entry.customerId}</span>
-                          </div>
+                          <div className="flex flex-col"><span className="font-black text-[12px] uppercase text-black leading-none">{entry.customerName}</span><span className="text-[9px] font-bold text-primary/40 uppercase">{entry.customerId}</span></div>
                         </div>
-                        <div className="flex items-center gap-4 ml-auto">
-                          <div className={cn(
-                            "px-2.5 py-1 rounded-md font-black text-[12px] text-white shadow-sm",
-                            balance < -0.1 ? "bg-red-600" : balance > 0.1 ? "bg-blue-600" : "bg-green-600"
-                          )}>
-                            {Math.abs(balance).toFixed(1)}
-                          </div>
-                        </div>
+                        <div className={cn("px-2.5 py-1 rounded-md font-black text-[11px] text-white ml-auto mr-2", balance < -0.1 ? "bg-red-600" : balance > 0.1 ? "bg-blue-600" : "bg-green-600")}>{Math.abs(balance).toFixed(1)}</div>
                       </div>
                     </AccordionTrigger>
-
                     <AccordionContent className="pb-4 pt-2 px-4 border-t border-primary/5 bg-primary/[0.01]">
-                      <div className="space-y-3">
-                        {/* LINEA DE ENVIO COMPACTA */}
-                        <div className="flex items-center gap-3 bg-white px-3 py-1.5 rounded-lg border border-primary/10">
-                          <Label className="text-[9px] font-black text-primary uppercase shrink-0">ENVÍO</Label>
-                          <div className="relative flex-1">
-                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-black text-[9px] text-primary/40">S/</span>
-                            <Input 
-                              type="number" 
-                              value={entry.shippingCost || ""} 
-                              onChange={e => handleUpdateShippingCost(entry.customerId, e.target.value)}
-                              className="h-8 pl-7 text-xs font-black bg-primary/5 border-none shadow-inner w-full" 
-                            />
-                          </div>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-8 w-8 text-red-500 hover:bg-red-50 shrink-0" 
-                            onClick={() => setDeleteConfirm({ id: entry.customerId, name: entry.customerName })}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-3 bg-white px-3 py-2 rounded-lg border border-primary/10">
+                          <Label className="text-[9px] font-black text-primary uppercase">ENVÍO</Label>
+                          <div className="relative flex-1"><span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-black text-[9px] text-primary/40">S/</span><Input type="number" value={entry.shippingCost || ""} onChange={e => handleUpdateShippingCost(entry.customerId, e.target.value)} className="h-8 pl-7 text-xs font-black bg-primary/5 border-none w-full" /></div>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => setDeleteConfirm({ id: entry.customerId, name: entry.customerName })}><Trash2 className="w-4 h-4" /></Button>
                         </div>
-
-                        {/* LISTAS COMPACTAS */}
-                        <div className="space-y-1">
+                        {/* GRUPO BOLETAS */}
+                        <div className="space-y-1.5">
+                          <div className="flex items-center gap-2 px-1 opacity-40"><FileText className="w-3 h-3" /><span className="text-[8px] font-black uppercase">BOLETAS</span></div>
                           {(entry.quotes || []).map((q: any) => (
                             <div key={q.quoteId} className={cn("flex items-center justify-between h-9 px-3 rounded-md border", q.selected ? "bg-white border-primary/20" : "bg-black/5 opacity-40")}>
-                              <div className="flex items-center gap-3">
-                                <Checkbox checked={q.selected} onCheckedChange={() => handleToggleItem(entry.customerId, q.quoteId, 'quote')} className="h-4 w-4 border-2" />
-                                <span className="text-[10px] font-black uppercase text-black">{q.quoteId}</span>
-                                <span className="text-[9px] font-bold text-primary/60">{q.qty} UND</span>
-                                <span className="text-[10px] font-black text-primary">S/ {Number(q.amount).toFixed(1)}</span>
-                              </div>
-                              <button onClick={() => handleToggleItem(entry.customerId, q.quoteId, 'quote')} className="text-black/20 hover:text-red-500"><X className="w-3.5 h-3.5" /></button>
+                              <div className="flex items-center gap-3"><Checkbox checked={q.selected} onCheckedChange={() => handleToggleItem(entry.customerId, q.quoteId, 'quote')} className="h-4 w-4" /><span className="text-[10px] font-black uppercase">{q.quoteId}</span><span className="text-[9px] font-bold text-primary/60">{q.qty} UND</span><span className="text-[10px] font-black text-primary ml-auto">S/ {Number(q.amount).toFixed(1)}</span></div>
+                              <button onClick={() => handleToggleItem(entry.customerId, q.quoteId, 'quote')} className="text-black/20 hover:text-red-500 ml-4"><X className="w-3.5 h-3.5" /></button>
                             </div>
                           ))}
+                        </div>
+                        {/* GRUPO PAGOS */}
+                        <div className="space-y-1.5">
+                          <div className="flex items-center gap-2 px-1 opacity-40"><CreditCard className="w-3 h-3" /><span className="text-[8px] font-black uppercase">PAGOS</span></div>
                           {(entry.payments || []).map((p: any) => (
                             <div key={p.paymentId} className={cn("flex items-center justify-between h-9 px-3 rounded-md border", p.selected ? "bg-green-50 border-green-200" : "bg-black/5 opacity-40")}>
-                              <div className="flex items-center gap-3">
-                                <Checkbox checked={p.selected} onCheckedChange={() => handleToggleItem(entry.customerId, p.paymentId, 'payment')} className="h-4 w-4 border-2" />
-                                <span className="text-[10px] font-black text-green-700">S/ {Number(p.amount).toFixed(1)}</span>
-                              </div>
+                              <div className="flex items-center gap-3"><Checkbox checked={p.selected} onCheckedChange={() => handleToggleItem(entry.customerId, p.paymentId, 'payment')} className="h-4 w-4" /><span className="text-[10px] font-black text-green-700">S/ {Number(p.amount).toFixed(1)}</span></div>
                               <button onClick={() => handleToggleItem(entry.customerId, p.paymentId, 'payment')} className="text-black/20 hover:text-red-500"><X className="w-3.5 h-3.5" /></button>
                             </div>
                           ))}
@@ -336,48 +234,19 @@ export default function ShippingHubPage() {
             })}
           </div>
 
-          {/* HISTORIAL DE LOTES REDISEÑADO */}
           <div className="pt-8 space-y-4">
-            <div className="flex items-center gap-3 border-b-2 border-black pb-2">
-              <History className="w-4 h-4 text-black/40" />
-              <h2 className="text-sm font-headline font-black text-foreground uppercase tracking-tight">Historial de Lotes</h2>
-            </div>
-            
+            <div className="flex items-center gap-3 border-b-2 border-black pb-2"><History className="w-4 h-4 text-black/40" /><h2 className="text-sm font-headline font-black uppercase tracking-tight">Historial de Lotes</h2></div>
             <div className="space-y-2">
               {historyBatches.map(batch => {
-                const entries = batch.entries || []
                 let hDebt = false, isZero = true;
-                entries.forEach((e: any) => {
-                  const b = calculateEntryBalance(e)
-                  if (b < -0.1) { hDebt = true; isZero = false; }
-                  else if (b > 0.1) { isZero = false; }
-                })
-
+                (batch.entries || []).forEach((e: any) => { const b = calculateEntryBalance(e); if (b < -0.1) { hDebt = true; isZero = false; } else if (b > 0.1) isZero = false; })
                 return (
                   <Card key={batch.date} className="rounded-xl border border-black/5 bg-white shadow-sm hover:border-primary/20 transition-all">
                     <CardContent className="p-3 flex justify-between items-center">
-                      <div className="flex flex-col">
-                        <span className="text-[12px] font-black uppercase text-black">{format(new Date(batch.date + "T12:00:00"), "EEEE d 'DE' MMMM", { locale: require("date-fns/locale").es }).toUpperCase()}</span>
-                        <span className="text-[9px] font-black text-primary/40 uppercase tracking-widest">{entries.length} CLIENTES</span>
-                      </div>
+                      <div className="flex flex-col"><span className="text-[11px] font-black uppercase">{format(new Date(batch.date + "T12:00:00"), "EEEE d 'DE' MMMM", { locale: require("date-fns/locale").es }).toUpperCase()}</span><span className="text-[8px] font-black text-primary/40 uppercase">{batch.entries?.length || 0} CLIENTES</span></div>
                       <div className="flex items-center gap-3">
-                        <Badge variant="outline" className={cn(
-                          "text-[9px] font-black h-6 px-3 uppercase border-none rounded-lg",
-                          isZero ? "bg-slate-100 text-slate-500" : hDebt ? "bg-red-100 text-red-600" : "bg-blue-100 text-blue-600"
-                        )}>
-                          {isZero ? "CUADRADO" : hDebt ? "DEUDA" : "EXCEDENTE"}
-                        </Badge>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8 text-primary hover:bg-primary/5"
-                          onClick={() => {
-                            setDate(new Date(batch.date + "T12:00:00"));
-                            window.scrollTo({ top: 0, behavior: 'smooth' });
-                          }}
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </Button>
+                        <Badge variant="outline" className={cn("text-[9px] font-black h-6 px-3 uppercase border-none rounded-lg", isZero ? "bg-slate-100 text-slate-500" : hDebt ? "bg-red-100 text-red-600" : "bg-blue-100 text-blue-600")}>{isZero ? "CUADRADO" : hDebt ? "DEUDA" : "EXCEDENTE"}</Badge>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => { setDate(new Date(batch.date + "T12:00:00")); window.scrollTo({ top: 0, behavior: 'smooth' }); }}><Edit2 className="w-4 h-4" /></Button>
                       </div>
                     </CardContent>
                   </Card>
@@ -387,18 +256,7 @@ export default function ShippingHubPage() {
           </div>
         </TabsContent>
       </Tabs>
-
-      <Dialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
-        <DialogContent className="rounded-[2rem] max-w-[280px] p-8 text-center border-none shadow-2xl">
-          <div className="flex flex-col items-center gap-6">
-             <p className="text-[11px] font-black uppercase text-black/60">¿Remover del lote?</p>
-             <div className="grid grid-cols-2 gap-3 w-full">
-               <Button variant="outline" className="h-11 rounded-xl font-black text-[10px] uppercase" onClick={() => setDeleteConfirm(null)}>NO</Button>
-               <Button className="h-11 bg-red-600 text-white rounded-xl font-black text-[10px] uppercase" onClick={handleRemoveEntry}>SÍ</Button>
-             </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <Dialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}><DialogContent className="rounded-[2rem] max-w-[280px] p-8 text-center border-none shadow-2xl"><div className="flex flex-col items-center gap-6"><p className="text-[11px] font-black uppercase text-black/60">¿Remover del lote?</p><div className="grid grid-cols-2 gap-3 w-full"><Button variant="outline" className="h-11 rounded-xl font-black text-[10px] uppercase" onClick={() => setDeleteConfirm(null)}>NO</Button><Button className="h-11 bg-red-600 text-white rounded-xl font-black text-[10px] uppercase" onClick={handleRemoveEntry}>SÍ</Button></div></div></DialogContent></Dialog>
     </div>
   )
 }
