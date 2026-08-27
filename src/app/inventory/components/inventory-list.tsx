@@ -57,8 +57,11 @@ export default function InventoryList() {
   const db = useFirestore()
   const { toast } = useToast()
   
+  const configDocRef = React.useMemo(() => db ? doc(db, "config", "global") : null, [db])
+  const { data: config } = useDoc(configDocRef)
+  
   const [searchQuery, setSearchQuery] = React.useState("")
-  const [categoryFilter, setCategoryFilter] = React.useState("NIÑAS")
+  const [categoryFilter, setCategoryFilter] = React.useState("all")
   const [expandedCollections, setExpandedCollections] = React.useState<Record<string, boolean>>({})
   const [selectedProduct, setSelectedProduct] = React.useState<any>(null)
   const [selectedImgIdx, setSelectedImgIdx] = React.useState(0)
@@ -75,10 +78,14 @@ export default function InventoryList() {
   const { data: dbCategories = [] } = useCollection(categoriesRef)
   
   const masterCategories = React.useMemo(() => {
-    const cats = Array.from(new Set(dbCategories.map(c => c.name.toUpperCase()))).sort();
-    if (!cats.includes("NIÑAS")) cats.unshift("NIÑAS");
-    return cats;
+    return Array.from(new Set(dbCategories.map(c => c.name.toUpperCase()))).sort();
   }, [dbCategories])
+
+  React.useEffect(() => {
+    if (config?.defaultCategory) {
+      setCategoryFilter(config.defaultCategory.toUpperCase())
+    }
+  }, [config])
 
   const filteredProducts = React.useMemo(() => {
     const q = searchQuery.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")

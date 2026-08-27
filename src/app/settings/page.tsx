@@ -2,15 +2,16 @@
 "use client"
 
 import * as React from "react"
-import { Settings, Save, Building2, Upload, X, Loader2, Printer, CreditCard, Plus, Edit2, RotateCcw } from "lucide-react"
+import { Settings, Save, Building2, Upload, X, Loader2, Printer, CreditCard, Plus, Edit2, Package, Tag } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
-import { useFirestore, useDoc } from "@/firebase"
-import { doc, setDoc, serverTimestamp } from "firebase/firestore"
+import { useFirestore, useDoc, useCollection } from "@/firebase"
+import { doc, setDoc, serverTimestamp, collection, query, orderBy } from "firebase/firestore"
 import { cn } from "@/lib/utils"
 import { 
   Dialog,
@@ -26,13 +27,17 @@ export default function SettingsPage() {
   
   const configDocRef = React.useMemo(() => db ? doc(db, "config", "global") : null, [db])
   const { data: dbConfig, loading } = useDoc(configDocRef)
+  
+  const categoriesRef = React.useMemo(() => db ? query(collection(db, "categories"), orderBy("name")) : null, [db])
+  const { data: dbCategories = [] } = useCollection(categoriesRef)
 
   const [form, setForm] = React.useState({
     companyName: "STILOSTACK",
     companyLogo: "",
-    brandColor: "#FF3399",
+    brandColor: "#0296FF",
     inventoryViewMode: "collection",
     printerWidth: "80",
+    defaultCategory: "all",
     banks: [] as any[]
   })
   
@@ -46,9 +51,10 @@ export default function SettingsPage() {
       setForm({
         companyName: dbConfig.companyName || "STILOSTACK",
         companyLogo: dbConfig.companyLogo || "",
-        brandColor: dbConfig.brandColor || "#FF3399",
+        brandColor: dbConfig.brandColor || "#0296FF",
         inventoryViewMode: dbConfig.inventoryViewMode || "collection",
         printerWidth: dbConfig.printerWidth || "80",
+        defaultCategory: dbConfig.defaultCategory || "all",
         banks: dbConfig.banks || []
       })
       setIsInitialized(true)
@@ -131,16 +137,43 @@ export default function SettingsPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card className="rounded-[2.5rem] border shadow-sm bg-white overflow-hidden">
-          <CardHeader className="bg-black/5 py-4 border-b">
-            <CardTitle className="text-[10px] font-black text-black uppercase flex items-center gap-2"><Building2 className="w-4 h-4" /> Datos de Empresa</CardTitle>
-          </CardHeader>
-          <CardContent className="p-8 space-y-6">
-            <div className="space-y-1.5"><Label className="text-[9px] font-black uppercase ml-1">Nombre</Label><Input value={form.companyName} onChange={e => setForm({...form, companyName: e.target.value})} className="h-12 font-black border-black/10 rounded-xl uppercase bg-black/5" /></div>
-            <div className="space-y-1.5"><Label className="text-[9px] font-black uppercase ml-1">Color de Marca</Label><div className="flex gap-2"><Input type="color" value={form.brandColor} onChange={e => setForm({...form, brandColor: e.target.value})} className="w-16 h-12 p-1 rounded-xl" /><Input value={form.brandColor} onChange={e => setForm({...form, brandColor: e.target.value})} className="flex-1 h-12 font-black border-black/10 rounded-xl" /></div></div>
-            <div className="space-y-1.5"><Label className="text-[9px] font-black uppercase ml-1">Logo Principal</Label><div className="w-full h-40 rounded-2xl bg-black/5 border-2 border-dashed border-black/10 flex items-center justify-center relative group overflow-hidden">{form.companyLogo ? <><img src={form.companyLogo} className="w-full h-full object-contain p-4" /><button onClick={() => setForm(p => ({ ...p, companyLogo: "" }))} className="absolute top-2 right-2 p-2 bg-destructive text-white rounded-full"><X className="w-4 h-4" /></button></> : <Upload className="w-8 h-8 opacity-20" />}<input type="file" hidden ref={fileInputRef} onChange={handleFileChange} /><button className="absolute inset-0" onClick={() => fileInputRef.current?.click()} /></div></div>
-          </CardContent>
-        </Card>
+        <div className="space-y-6">
+          <Card className="rounded-[2.5rem] border shadow-sm bg-white overflow-hidden">
+            <CardHeader className="bg-black/5 py-4 border-b">
+              <CardTitle className="text-[10px] font-black text-black uppercase flex items-center gap-2"><Building2 className="w-4 h-4" /> Datos de Empresa</CardTitle>
+            </CardHeader>
+            <CardContent className="p-8 space-y-6">
+              <div className="space-y-1.5"><Label className="text-[9px] font-black uppercase ml-1">Nombre</Label><Input value={form.companyName} onChange={e => setForm({...form, companyName: e.target.value})} className="h-12 font-black border-black/10 rounded-xl uppercase bg-black/5" /></div>
+              <div className="space-y-1.5"><Label className="text-[9px] font-black uppercase ml-1">Color de Marca</Label><div className="flex gap-2"><Input type="color" value={form.brandColor} onChange={e => setForm({...form, brandColor: e.target.value})} className="w-16 h-12 p-1 rounded-xl" /><Input value={form.brandColor} onChange={e => setForm({...form, brandColor: e.target.value})} className="flex-1 h-12 font-black border-black/10 rounded-xl" /></div></div>
+              <div className="space-y-1.5"><Label className="text-[9px] font-black uppercase ml-1">Logo Principal</Label><div className="w-full h-40 rounded-2xl bg-black/5 border-2 border-dashed border-black/10 flex items-center justify-center relative group overflow-hidden">{form.companyLogo ? <><img src={form.companyLogo} className="w-full h-full object-contain p-4" /><button onClick={() => setForm(p => ({ ...p, companyLogo: "" }))} className="absolute top-2 right-2 p-2 bg-destructive text-white rounded-full"><X className="w-4 h-4" /></button></> : <Upload className="w-8 h-8 opacity-20" />}<input type="file" hidden ref={fileInputRef} onChange={handleFileChange} /><button className="absolute inset-0" onClick={() => fileInputRef.current?.click()} /></div></div>
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-[2.5rem] border shadow-sm bg-white overflow-hidden">
+            <CardHeader className="bg-black/5 py-4 border-b">
+              <CardTitle className="text-[10px] font-black text-black uppercase flex items-center gap-2"><Tag className="w-4 h-4" /> Preferencia Inventario</CardTitle>
+            </CardHeader>
+            <CardContent className="p-8 space-y-4">
+              <div className="space-y-1.5">
+                <Label className="text-[9px] font-black uppercase ml-1">Categoría Inicial</Label>
+                <Select value={form.defaultCategory} onValueChange={v => setForm({...form, defaultCategory: v})}>
+                  <SelectTrigger className="h-12 border-black/10 rounded-xl font-black text-[10px] uppercase bg-white">
+                    <SelectValue placeholder="SELECCIONAR..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all" className="text-[10px] font-black uppercase">TODAS LAS CATEGORÍAS</SelectItem>
+                    {dbCategories.map(cat => (
+                      <SelectItem key={cat.id} value={cat.name.toUpperCase()} className="text-[10px] font-black uppercase">
+                        {cat.name.toUpperCase()}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[8px] font-medium text-muted-foreground uppercase mt-2 px-1">Esta categoría se seleccionará automáticamente al abrir el inventario.</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
         <div className="space-y-6">
           <Card className="rounded-[2.5rem] border shadow-sm bg-white overflow-hidden">

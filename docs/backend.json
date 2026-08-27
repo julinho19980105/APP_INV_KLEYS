@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "Product": {
@@ -106,6 +107,7 @@
         "brandColor": { "type": "string" },
         "inventoryViewMode": { "type": "string" },
         "printerWidth": { "type": "string", "enum": ["58", "80"] },
+        "defaultCategory": { "type": "string", "description": "Categoría por defecto al abrir inventario" },
         "banks": { 
           "type": "array",
           "items": {
