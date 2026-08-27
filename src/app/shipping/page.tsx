@@ -12,9 +12,7 @@ import {
   PackageCheck,
   X,
   History,
-  Edit2,
-  FileText,
-  CreditCard
+  Edit2
 } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
@@ -44,7 +42,8 @@ import {
   query, 
   collection, 
   orderBy, 
-  updateDoc
+  updateDoc,
+  getDoc
 } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import CustomersHubPage from "../customers/page"
@@ -74,7 +73,6 @@ export default function ShippingHubPage() {
   const { data: allPayments = [] } = useCollection(allPaymentsRef)
 
   const activeCustomerSuggestions = React.useMemo(() => {
-    // Incluir cotizaciones activas y enviadas
     const activeOrShippedCustIds = new Set(
       allQuotes.filter(q => q.status === 'active' || q.status === 'shipped').map(q => q.customerId)
     )
@@ -134,6 +132,20 @@ export default function ShippingHubPage() {
     await updateDoc(logisticsDocRef, { entries: updatedEntries, updatedAt: serverTimestamp() })
   }
 
+  const handleMarkAsShipped = async (quoteId: string) => {
+    if (!db) return
+    const quoteRef = doc(db, "quotes", quoteId)
+    try {
+      const snap = await getDoc(quoteRef)
+      if (snap.exists()) {
+        const current = snap.data().status
+        const next = current === 'shipped' ? 'active' : 'shipped'
+        await updateDoc(quoteRef, { status: next })
+        toast({ title: next === 'shipped' ? "MARCADO COMO ENVIADO" : "REGRESADO A ACTIVO" })
+      }
+    } catch (e) {}
+  }
+
   const handleRemoveEntry = async () => {
     if (!db || !logisticsDocRef || !logData || !deleteConfirm) return
     const updatedEntries = logData.entries.filter((e: any) => e.customerId !== deleteConfirm.id)
@@ -170,12 +182,12 @@ export default function ShippingHubPage() {
             </div>
           </div>
 
-          <div className="relative w-full">
+          <div className="relative w-full z-[100]">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-primary/40" />
             <Input placeholder="BUSCAR CLIENTE..." className="pl-11 h-11 w-full rounded-xl border-2 border-primary/10 font-black text-xs uppercase shadow-sm" value={customerSearch} onChange={e => setCustomerSearch(e.target.value)} onFocus={() => setIsSearchOpen(true)} />
             {isSearchOpen && (
               <div className="absolute z-[9999] w-full mt-1 bg-white border-2 border-primary/10 rounded-xl shadow-2xl overflow-hidden">
-                <div className="p-2 bg-primary/5 border-b border-primary/5 flex justify-between items-center px-4"><span className="text-[8px] font-black uppercase text-primary tracking-widest">Clientes Activos</span><Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsSearchOpen(false)}><X className="w-3.5 h-3.5" /></Button></div>
+                <div className="p-2 bg-primary/5 border-b border-primary/5 flex justify-between items-center px-4"><span className="text-[8px] font-black uppercase text-primary tracking-widest">Clientes con Movimientos</span><Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsSearchOpen(false)}><X className="w-3.5 h-3.5" /></Button></div>
                 <div className="max-h-[250px] overflow-y-auto">
                   {filteredSuggestions.length === 0 ? (
                     <div className="p-10 text-center opacity-20 text-[9px] font-black uppercase">Sin clientes pendientes</div>
@@ -215,16 +227,30 @@ export default function ShippingHubPage() {
                         
                         <div className="space-y-2">
                           <div className="px-1 border-b border-primary/5 pb-1"><span className="text-[8px] font-black uppercase text-primary/40 tracking-widest">BOLETAS</span></div>
-                          {(entry.quotes || []).map((q: any) => (
-                            <div key={q.quoteId} className={cn("flex items-center justify-between h-9 px-3 rounded-md border transition-all", q.selected ? "bg-white border-primary/20" : "bg-black/5 opacity-40")}>
-                              <div className="flex items-center gap-3 flex-1 min-w-0">
-                                <Checkbox checked={q.selected} onCheckedChange={() => handleToggleItem(entry.customerId, q.quoteId, 'quote')} className="h-4 w-4" />
-                                <span className="text-[10px] font-black uppercase truncate">{q.quoteId} | {q.qty} UND</span>
-                                <span className="text-[10px] font-black text-primary ml-auto">S/ {Number(q.amount).toFixed(1)}</span>
+                          {(entry.quotes || []).map((q: any) => {
+                            const isShipped = allQuotes.find(aq => aq.id === q.quoteId)?.status === 'shipped'
+                            return (
+                              <div key={q.quoteId} className={cn("flex items-center justify-between h-9 px-3 rounded-md border transition-all", q.selected ? "bg-white border-primary/20" : "bg-black/5 opacity-40")}>
+                                <div className="flex items-center gap-3 flex-1 min-w-0">
+                                  <Checkbox checked={q.selected} onCheckedChange={() => handleToggleItem(entry.customerId, q.quoteId, 'quote')} className="h-4 w-4" />
+                                  <span className="text-[10px] font-black uppercase truncate">{q.quoteId} | {q.qty} UND</span>
+                                  <span className="text-[10px] font-black text-primary ml-auto">S/ {Number(q.amount).toFixed(1)}</span>
+                                </div>
+                                <div className="flex items-center gap-2 ml-4">
+                                  <button 
+                                    onClick={() => handleMarkAsShipped(q.quoteId)} 
+                                    className={cn(
+                                      "p-1.5 rounded-lg transition-all",
+                                      isShipped ? "text-green-600 bg-green-100 shadow-sm" : "text-primary/20 hover:text-primary hover:bg-primary/5"
+                                    )}
+                                  >
+                                    <PackageCheck className="w-4 h-4" />
+                                  </button>
+                                  <button onClick={() => handleToggleItem(entry.customerId, q.quoteId, 'quote')} className="text-black/20 hover:text-red-500"><X className="w-3.5 h-3.5" /></button>
+                                </div>
                               </div>
-                              <button onClick={() => handleToggleItem(entry.customerId, q.quoteId, 'quote')} className="text-black/20 hover:text-red-500 ml-4"><X className="w-3.5 h-3.5" /></button>
-                            </div>
-                          ))}
+                            )
+                          })}
                         </div>
 
                         <div className="space-y-2">
