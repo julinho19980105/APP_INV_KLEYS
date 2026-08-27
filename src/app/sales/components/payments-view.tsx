@@ -58,6 +58,7 @@ export default function PaymentsView() {
   }, [db])
   const { data: payments = [], loading } = useCollection(paymentsQuery)
 
+  // Persistencia de borrador
   React.useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY)
     if (saved) {
@@ -80,6 +81,7 @@ export default function PaymentsView() {
     }))
   }, [date, amount, selectedBank, selectedCustomer])
 
+  // Selección automática de banco por defecto
   React.useEffect(() => {
     if (banks.length > 0 && !selectedBank) {
       const dbDefault = banks.find((b: any) => b.isDefault);
@@ -93,12 +95,13 @@ export default function PaymentsView() {
     setSelectedCustomer(null)
     setCustomerSearch("")
     if (defaultBank) setSelectedBank(defaultBank)
-    toast({ title: "Formulario Limpiado" })
+    localStorage.removeItem(STORAGE_KEY)
+    toast({ title: "Formulario Reiniciado" })
   }
 
   const handleAddPayment = async () => {
     if (!db || !selectedCustomer || !amount || !selectedBank) {
-      toast({ variant: "destructive", title: "Faltan datos" })
+      toast({ variant: "destructive", title: "Datos incompletos" })
       return
     }
     setSaving(true)
@@ -114,9 +117,9 @@ export default function PaymentsView() {
         createdAt: serverTimestamp()
       })
       setAmount("")
-      toast({ title: "Pago Registrado" })
+      toast({ title: "Pago Registrado con éxito" })
     } catch (e) {
-      toast({ variant: "destructive", title: "Error al registrar" })
+      toast({ variant: "destructive", title: "Error al registrar pago" })
     } finally {
       setSaving(false)
     }
@@ -162,21 +165,22 @@ export default function PaymentsView() {
   }, [filteredPayments, isBankGrouped])
 
   return (
-    <div className="space-y-6 px-2 md:px-0">
-      <Card className="rounded-[2rem] border-2 border-primary/20 bg-white shadow-2xl overflow-visible relative">
+    <div className="space-y-6 px-2 md:px-0 pb-24">
+      {/* Plantilla de Registro */}
+      <Card className="rounded-[2.5rem] border-2 border-primary/20 bg-white shadow-2xl overflow-visible relative">
         <div className="bg-primary/5 p-5 border-b border-primary/10 flex justify-between items-center">
           <div className="flex items-center gap-2">
             <CreditCard className="w-5 h-5 text-primary" />
             <h2 className="text-[12px] font-black uppercase text-primary tracking-widest">Registrar Cobranza</h2>
           </div>
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-primary/40 hover:text-primary" onClick={handleReset}>
+          <Button variant="ghost" size="icon" className="h-9 w-9 text-primary/40 hover:text-primary active:rotate-90 transition-transform" onClick={handleReset}>
             <RotateCcw className="w-5 h-5" />
           </Button>
         </div>
         <CardContent className="p-6 space-y-6">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
-              <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Fecha</Label>
+              <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Fecha de Pago</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button variant="outline" className="w-full h-12 rounded-xl border-primary/10 justify-start font-black text-xs uppercase bg-white">
@@ -205,7 +209,7 @@ export default function PaymentsView() {
             <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Seleccionar Banco</Label>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
               {banks.length === 0 ? (
-                <div className="col-span-full py-4 text-center text-[9px] font-black uppercase text-muted-foreground opacity-30 border-2 border-dashed rounded-xl">Configura bancos en Ajustes</div>
+                <div className="col-span-full py-4 text-center text-[9px] font-black uppercase text-muted-foreground opacity-30 border-2 border-dashed rounded-xl">Configure bancos en Ajustes</div>
               ) : banks.map((bank: any) => (
                 <Button
                   key={bank.id}
@@ -259,6 +263,7 @@ export default function PaymentsView() {
         </CardContent>
       </Card>
 
+      {/* Lista de Pagos */}
       <div className="space-y-4 pt-4">
         <div className="flex items-center gap-3">
           <div className="relative flex-1">

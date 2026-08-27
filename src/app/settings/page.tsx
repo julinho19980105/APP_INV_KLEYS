@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from "react"
-import { Settings, Save, Building2, Upload, X, Loader2, Printer, CreditCard, Plus, Edit2 } from "lucide-react"
+import { Settings, Save, Building2, Upload, X, Loader2, Printer, CreditCard, Plus, Edit2, RotateCcw } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -36,12 +36,15 @@ export default function SettingsPage() {
     printerWidth: "80",
     banks: [] as any[]
   })
+  
+  const [isInitialized, setIsInitialized] = React.useState(false)
   const [saving, setSaving] = React.useState(false)
   const [newBankName, setNewBankName] = React.useState("")
   const [editingBank, setEditingBank] = React.useState<{ id: string, name: string } | null>(null)
 
+  // Sincronización inicial desde la DB una sola vez para evitar sobreescritura local
   React.useEffect(() => {
-    if (dbConfig) {
+    if (dbConfig && !isInitialized) {
       setForm({
         companyName: dbConfig.companyName || "STILOSTACK",
         companyLogo: dbConfig.companyLogo || "",
@@ -50,8 +53,9 @@ export default function SettingsPage() {
         printerWidth: dbConfig.printerWidth || "80",
         banks: dbConfig.banks || []
       })
+      setIsInitialized(true)
     }
-  }, [dbConfig])
+  }, [dbConfig, isInitialized])
 
   const handleSave = async () => {
     if (!db) return
@@ -61,9 +65,9 @@ export default function SettingsPage() {
         ...form,
         updatedAt: serverTimestamp()
       }, { merge: true })
-      toast({ title: "CONFIGURACIÓN GUARDADA" })
+      toast({ title: "CONFIGURACIÓN GUARDADA EN NUBE" })
     } catch (e) {
-      toast({ variant: "destructive", title: "ERROR" })
+      toast({ variant: "destructive", title: "ERROR AL GUARDAR" })
     } finally {
       setSaving(false)
     }
@@ -107,7 +111,7 @@ export default function SettingsPage() {
     }
   }
 
-  if (loading) return <div className="flex items-center justify-center min-h-[60vh]"><Loader2 className="w-10 h-10 animate-spin text-primary" /></div>
+  if (loading && !isInitialized) return <div className="flex items-center justify-center min-h-[60vh]"><Loader2 className="w-10 h-10 animate-spin text-primary" /></div>
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 pt-2 pb-24 px-2 md:px-0">
@@ -139,6 +143,9 @@ export default function SettingsPage() {
                 <Button className="h-10 w-10 rounded-xl bg-black text-white" onClick={addBank}><Plus className="w-4 h-4" /></Button>
               </div>
               <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
+                {form.banks.length === 0 && (
+                  <div className="py-4 text-center opacity-20 text-[9px] font-black uppercase border-2 border-dashed rounded-xl">Agregue bancos</div>
+                )}
                 {form.banks.map(bank => (
                   <div key={bank.id} className="flex items-center justify-between p-3 bg-black/5 rounded-xl border group">
                     <div className="flex items-center gap-3">

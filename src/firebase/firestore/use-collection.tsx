@@ -26,8 +26,10 @@ export function useCollection(query: Query | null) {
         setError(null);
       },
       async (err) => {
+        // Intentamos obtener el path de la query para un error más descriptivo
+        const path = (query as any)._query?.path?.toString() || 'colección de datos';
         const permissionError = new FirestorePermissionError({
-          path: 'colección de datos',
+          path,
           operation: 'list'
         });
         errorEmitter.emit('permission-error', permissionError);
