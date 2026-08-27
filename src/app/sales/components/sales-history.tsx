@@ -17,16 +17,9 @@ import {
 import { 
   Ban, 
   MoreVertical,
-  Check,
-  X,
   Edit2,
-  Image as ImageIcon,
-  ShoppingBag,
   Loader2,
-  Plus,
   Printer,
-  Bluetooth,
-  BluetoothConnected,
   Search,
   ChevronDown,
   Share2
@@ -38,14 +31,12 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu"
 import { useCollection, useFirestore, useDoc } from "@/firebase"
-import { collection, query, orderBy, doc, updateDoc, increment, addDoc, serverTimestamp, where, limit, getDoc } from "firebase/firestore"
+import { collection, query, orderBy, doc, updateDoc, increment, addDoc, serverTimestamp, where, limit } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { toJpeg } from 'html-to-image'
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
-import { errorEmitter } from '@/firebase/error-emitter'
-import { FirestorePermissionError } from '@/firebase/errors'
 
 export default function SalesHistory() {
   const router = useRouter()
@@ -265,16 +256,6 @@ export default function SalesHistory() {
             </div>
           </div>
         ))}
-        
-        {!loading && quotes.length >= daysLimit && (
-          <Button 
-            variant="outline" 
-            className="w-full h-12 rounded-xl font-black text-[10px] uppercase border-primary/10 tracking-widest text-primary/60" 
-            onClick={() => setDaysLimit(prev => prev + 30)}
-          >
-            <ChevronDown className="w-4 h-4 mr-2" /> Cargar 30 días anteriores
-          </Button>
-        )}
       </div>
 
       {/* Template oculto para generar imagen de boleta */}
@@ -285,10 +266,10 @@ export default function SalesHistory() {
             className="w-[600px] bg-white p-12 flex flex-col gap-8 text-black"
             style={{ fontFamily: 'var(--font-space)' }}
           >
-            <div className="flex justify-between items-start border-b-8 border-primary pb-8">
-              <div className="space-y-2">
+            {/* Sección 1: Cabecera */}
+            <div className="flex justify-between items-start border-b-8 border-primary pb-6">
+              <div className="space-y-1">
                 <h1 className="text-5xl font-black uppercase tracking-tighter" style={{ color: brandColor }}>{companySettings?.companyName || 'STILOSTACK'}</h1>
-                <p className="text-[12px] font-black text-primary uppercase tracking-[0.4em]">Industrial High-End Fashion</p>
               </div>
               <div className="text-right">
                 <div className="text-[10px] font-black uppercase text-muted-foreground mb-1 tracking-widest">BOLETA NÚMERO</div>
@@ -296,20 +277,22 @@ export default function SalesHistory() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-8 bg-primary/5 p-6 rounded-[2rem] border border-primary/10">
-              <div className="space-y-1">
-                <p className="text-[9px] font-black text-primary/50 uppercase tracking-widest">CLIENTE</p>
-                <p className="text-lg font-black uppercase">{activeReceipt.customerName}</p>
-                <p className="text-[10px] font-black text-muted-foreground">ID: {activeReceipt.customerId}</p>
+            {/* Sección 2: Cliente y Fecha */}
+            <div className="grid grid-cols-2 gap-8 bg-primary/5 p-4 rounded-[1.5rem] border border-primary/10">
+              <div className="space-y-0.5">
+                <p className="text-[8px] font-black text-primary/50 uppercase tracking-widest">CLIENTE</p>
+                <p className="text-base font-black uppercase">{activeReceipt.customerName}</p>
+                <p className="text-[9px] font-black text-muted-foreground">ID: {activeReceipt.customerId}</p>
               </div>
-              <div className="space-y-1 text-right">
-                <p className="text-[9px] font-black text-primary/50 uppercase tracking-widest">FECHA DE EMISIÓN</p>
-                <p className="text-lg font-black uppercase">
+              <div className="space-y-0.5 text-right">
+                <p className="text-[8px] font-black text-primary/50 uppercase tracking-widest">FECHA DE EMISIÓN</p>
+                <p className="text-base font-black uppercase">
                   {format(activeReceipt.createdAt?.toDate ? activeReceipt.createdAt.toDate() : new Date(), "d 'de' MMMM, yyyy", { locale: es })}
                 </p>
               </div>
             </div>
 
+            {/* Sección 3: Tabla de productos */}
             <table className="w-full">
               <thead>
                 <tr className="border-b-2 border-black text-left">
@@ -342,21 +325,25 @@ export default function SalesHistory() {
               </tbody>
             </table>
 
-            <div className="border-t-4 border-black pt-8 mt-4">
+            {/* Sección 4: Totales */}
+            <div className="border-t-4 border-black pt-6 mt-4">
               <div className="flex justify-between items-end">
                 <div className="space-y-1">
-                  <p className="text-[10px] font-black text-primary/40 uppercase tracking-widest">TOTAL CANTIDAD</p>
-                  <p className="text-4xl font-black">{activeReceipt.items.reduce((acc: number, i: any) => acc + Number(i.quantity), 0)} UND</p>
+                  <p className="text-[9px] font-black text-primary/40 uppercase tracking-widest">TOTAL CANTIDAD</p>
+                  <p className="text-3xl font-black">{activeReceipt.items.reduce((acc: number, i: any) => acc + Number(i.quantity), 0)} UND</p>
                 </div>
                 <div className="text-right space-y-1">
-                  <p className="text-[10px] font-black text-primary/40 uppercase tracking-widest">MONTO TOTAL</p>
-                  <p className="text-6xl font-black" style={{ color: brandColor }}>S/ {Number(activeReceipt.total).toFixed(2)}</p>
+                  <div className="flex items-baseline justify-end gap-3">
+                    <span className="text-2xl font-black text-primary/40 uppercase tracking-widest">TOTAL</span>
+                    <span className="text-2xl font-black text-foreground/60 uppercase">SOLES</span>
+                    <span className="text-6xl font-black" style={{ color: brandColor }}>{Number(activeReceipt.total).toFixed(2)}</span>
+                  </div>
                 </div>
               </div>
             </div>
             
-            <div className="mt-12 text-center p-6 bg-black text-white rounded-[2rem]">
-              <p className="text-[10px] font-black uppercase tracking-[0.5em]">GRACIAS POR SU PREFERENCIA</p>
+            <div className="mt-8 text-center p-4 bg-black text-white rounded-[1.5rem]">
+              <p className="text-[9px] font-black uppercase tracking-[0.5em]">GRACIAS POR SU PREFERENCIA</p>
             </div>
           </div>
         </div>
@@ -375,7 +362,6 @@ export default function SalesHistory() {
           >
             <div style={{ textAlign: 'center', marginBottom: '10px' }}>
               <div style={{ fontSize: '14px', fontWeight: 'bold' }}>{companySettings?.companyName || 'STILOSTACK'}</div>
-              <div style={{ fontSize: '7px' }}>INDUSTRIAL HIGH-END FASHION</div>
               <div>--------------------------------</div>
               <div>BOLETA: {activeReceipt.id}</div>
               <div>FECHA: {format(activeReceipt.createdAt?.toDate ? activeReceipt.createdAt.toDate() : new Date(), "dd/MM/yy HH:mm")}</div>
@@ -392,9 +378,6 @@ export default function SalesHistory() {
                   <span>{item.quantity} x {Number(item.price).toFixed(2)}</span>
                   <span>S/ {((Number(item.price) * Number(item.quantity)) - Number(item.discount)).toFixed(2)}</span>
                 </div>
-                {Number(item.discount) > 0 && (
-                  <div style={{ fontSize: '8px', color: '#666' }}>DESC: -S/ {Number(item.discount).toFixed(2)}</div>
-                )}
               </div>
             ))}
 

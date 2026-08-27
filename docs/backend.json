@@ -104,29 +104,12 @@
     "providers": ["google.com"]
   },
   "firestore": {
-    "/products/{productId}": {
-      "schema": "Product",
-      "description": "Inventario maestro"
-    },
-    "/customers/{customerId}": {
-      "schema": "Customer",
-      "description": "Cartera de clientes"
-    },
-    "/quotes/{quoteId}": {
-      "schema": "Quote",
-      "description": "Registro de cotizaciones y ventas"
-    },
-    "/movements/{movementId}": {
-      "schema": "Movement",
-      "description": "Kardex de stock"
-    },
-    "/payments/{paymentId}": {
-      "schema": "Payment",
-      "description": "Registro de cobros"
-    },
-    "/config/{configId}": {
-      "schema": "AppConfig",
-      "description": "Ajustes de identidad y sistema"
-    }
-  }
+    "/products/{productId}": { "schema": "Product", "description": "Inventario maestro" },
+    "/customers/{customerId}": { "schema": "Customer", "description": "Cartera de clientes" },
+    "/quotes/{quoteId}": { "schema": "Quote", "description": "Registro de cotizaciones y ventas" },
+    "/movements/{movementId}": { "schema": "Movement", "description": "Kardex de stock" },
+    "/payments/{paymentId}": { "schema": "Payment", "description": "Registro de cobros" },
+    "/config/{configId}": { "schema": "AppConfig", "description": "Ajustes de identidad y sistema" }
+  },
+  "deployTimestamp": "2024-05-20T10:00:00Z"
 }
