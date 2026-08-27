@@ -70,7 +70,6 @@ interface QuoteItem {
   calcSeries?: string
   calcLibres?: string
   manualNote?: string
-  // Precios de referencia para la UI
   refFardo?: number
   refMayor?: number
   refUnidad?: number
@@ -382,9 +381,7 @@ export default function QuotesPage() {
   }
 
   const handleDeleteItem = (itemId: string) => {
-    if (confirm("¿Desea eliminar esta prenda de la lista?")) {
-      setItems(items.filter(i => i.id !== itemId));
-    }
+    setItems(items.filter(i => i.id !== itemId));
   }
 
   return (
@@ -516,18 +513,27 @@ export default function QuotesPage() {
             <div className="flex-1 space-y-5">
               {currentEntry.isRegistered && (
                 <div className="flex gap-2 pb-2">
-                  <div className="flex-1 bg-secondary/30 p-2 rounded-lg text-center">
+                  <button 
+                    className="flex-1 bg-secondary/30 p-2 rounded-lg text-center hover:bg-secondary/50 transition-colors"
+                    onClick={() => setCurrentEntry({ ...currentEntry, price: currentEntry.refFardo?.toString() || "" })}
+                  >
                     <div className="text-[7px] font-black text-muted-foreground uppercase">Fardo</div>
                     <div className="text-[10px] font-black">S/ {currentEntry.refFardo}</div>
-                  </div>
-                  <div className="flex-1 bg-primary/10 p-2 rounded-lg text-center border border-primary/20">
+                  </button>
+                  <button 
+                    className="flex-1 bg-primary/10 p-2 rounded-lg text-center border border-primary/20 hover:bg-primary/20 transition-colors"
+                    onClick={() => setCurrentEntry({ ...currentEntry, price: currentEntry.refMayor?.toString() || "" })}
+                  >
                     <div className="text-[7px] font-black text-primary uppercase">Mayor</div>
                     <div className="text-[10px] font-black">S/ {currentEntry.refMayor}</div>
-                  </div>
-                  <div className="flex-1 bg-secondary/30 p-2 rounded-lg text-center">
+                  </button>
+                  <button 
+                    className="flex-1 bg-secondary/30 p-2 rounded-lg text-center hover:bg-secondary/50 transition-colors"
+                    onClick={() => setCurrentEntry({ ...currentEntry, price: currentEntry.refUnidad?.toString() || "" })}
+                  >
                     <div className="text-[7px] font-black text-muted-foreground uppercase">Unidad</div>
                     <div className="text-[10px] font-black">S/ {currentEntry.refUnidad}</div>
-                  </div>
+                  </button>
                 </div>
               )}
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -629,32 +635,37 @@ export default function QuotesPage() {
         </div>
       </Card>
 
-      <div className="flex flex-col md:flex-row justify-between items-end border-b-4 border-primary pb-8 pt-8 gap-8">
-        <div className="w-full md:w-auto space-y-2">
-          <div className="text-[11px] font-black uppercase text-muted-foreground tracking-widest">TOTAL PRENDAS</div>
-          <div className="font-headline font-black text-4xl md:text-5xl text-foreground">{items.reduce((acc, i) => acc + Number(i.quantity), 0)} <span className="text-lg opacity-40">UND</span></div>
+      <div className="border-b-4 border-primary pb-8 pt-8">
+        <div className="flex flex-row justify-between items-center gap-4">
+          <div className="flex-1 space-y-1">
+            <div className="text-[11px] font-black uppercase text-muted-foreground tracking-widest">TOTAL PRENDAS</div>
+            <div className="font-headline font-black text-3xl md:text-5xl text-foreground whitespace-nowrap">
+              {items.reduce((acc, i) => acc + Number(i.quantity), 0)} <span className="text-sm md:text-lg opacity-40">UND</span>
+            </div>
+          </div>
+          <div className="flex-1 text-right space-y-1">
+            <div className="text-[11px] font-black uppercase text-muted-foreground tracking-widest">MONTO TOTAL</div>
+            <div className="font-headline font-black text-3xl md:text-5xl text-foreground tracking-tighter whitespace-nowrap">
+              S/ {items.reduce((acc, i) => acc + (Number(i.quantity) * Number(i.price) - Number(i.discount)), 0).toFixed(2)}
+            </div>
+          </div>
         </div>
-        <div className="w-full md:w-auto text-left md:text-right space-y-6">
-          <div className="space-y-2">
-            <div className="text-[11px] font-black uppercase text-muted-foreground tracking-widest">MONTO TOTAL NETO</div>
-            <div className="font-headline font-black text-5xl md:text-7xl text-foreground tracking-tighter">S/ {items.reduce((acc, i) => acc + (Number(i.quantity) * Number(i.price) - Number(i.discount)), 0).toFixed(2)}</div>
-          </div>
-          <div className="flex flex-col gap-4 w-full md:w-72">
-             <Button 
-              className="h-20 w-full bg-primary text-white rounded-[2rem] font-black text-lg uppercase shadow-[0_15px_40px_-10px_rgba(255,51,153,0.4)] active:scale-95 transition-all" 
-              onClick={handleSaveQuote} 
-              disabled={saving || items.length === 0}
-            >
-              {saving ? <Loader2 className="animate-spin" /> : <Save className="w-6 h-6 mr-3" />} GUARDAR VENTA
-            </Button>
-            <Button 
-              variant="outline"
-              className="h-14 w-full rounded-2xl font-black text-[11px] uppercase border-primary/10 text-muted-foreground hover:bg-primary/5 active:scale-95"
-              onClick={handleDiscard}
-            >
-              DESCARTAR COTIZACIÓN
-            </Button>
-          </div>
+        
+        <div className="flex flex-col md:flex-row gap-4 w-full mt-8 md:justify-end">
+          <Button 
+            className="h-20 w-full md:w-72 bg-primary text-white rounded-[2rem] font-black text-lg uppercase shadow-[0_15px_40px_-10px_rgba(255,51,153,0.4)] active:scale-95 transition-all" 
+            onClick={handleSaveQuote} 
+            disabled={saving || items.length === 0}
+          >
+            {saving ? <Loader2 className="animate-spin" /> : <Save className="w-6 h-6 mr-3" />} GUARDAR VENTA
+          </Button>
+          <Button 
+            variant="outline"
+            className="h-14 w-full md:w-72 rounded-2xl font-black text-[11px] uppercase border-primary/10 text-muted-foreground hover:bg-primary/5 active:scale-95"
+            onClick={handleDiscard}
+          >
+            DESCARTAR COTIZACIÓN
+          </Button>
         </div>
       </div>
 
