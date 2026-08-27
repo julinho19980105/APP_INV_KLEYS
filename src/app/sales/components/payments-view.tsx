@@ -27,6 +27,8 @@ import { useFirestore, useDoc, useCollection } from "@/firebase"
 import { collection, query, orderBy, addDoc, serverTimestamp, doc, limit, deleteDoc } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
+import { errorEmitter } from '@/firebase/error-emitter'
+import { FirestorePermissionError } from '@/firebase/errors'
 
 const STORAGE_KEY = "stilo_payment_draft"
 
@@ -41,6 +43,7 @@ export default function PaymentsView() {
 
   const [saving, setSaving] = React.useState(false)
   const [date, setDate] = React.useState<Date>(new Date())
+  const [isCalendarOpen, setIsCalendarOpen] = React.useState(false)
   const [amount, setAmount] = React.useState("")
   const [selectedBank, setSelectedBank] = React.useState<any>(null)
   const [selectedCustomer, setSelectedCustomer] = React.useState<any>(null)
@@ -57,7 +60,6 @@ export default function PaymentsView() {
   }, [db])
   const { data: payments = [], loading } = useCollection(paymentsQuery)
 
-  // Persistencia de borrador
   React.useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY)
     if (saved) {
@@ -80,7 +82,6 @@ export default function PaymentsView() {
     }))
   }, [date, amount, selectedBank, selectedCustomer])
 
-  // Selección automática de banco por defecto desde Firestore
   React.useEffect(() => {
     if (banks.length > 0 && !selectedBank) {
       const dbDefault = banks.find((b: any) => b.isDefault);
@@ -99,30 +100,39 @@ export default function PaymentsView() {
     toast({ title: "Formulario Reiniciado" })
   }
 
-  const handleAddPayment = async () => {
+  const handleAddPayment = () => {
     if (!db || !selectedCustomer || !amount || !selectedBank) {
       toast({ variant: "destructive", title: "DATOS INCOMPLETOS" })
       return
     }
     setSaving(true)
-    try {
-      await addDoc(collection(db, "payments"), {
-        customerId: selectedCustomer.id,
-        customerName: selectedCustomer.name,
-        amount: Number(amount),
-        bankId: selectedBank.id,
-        bankName: selectedBank.name,
-        date: format(date, "yyyy-MM-dd"),
-        isLocked: false,
-        createdAt: serverTimestamp()
-      })
-      setAmount("")
-      toast({ title: "PAGO REGISTRADO EN DB" })
-    } catch (e) {
-      toast({ variant: "destructive", title: "ERROR DE CONEXIÓN" })
-    } finally {
-      setSaving(false)
+    
+    const paymentData = {
+      customerId: selectedCustomer.id,
+      customerName: selectedCustomer.name,
+      amount: Number(amount),
+      bankId: selectedBank.id,
+      bankName: selectedBank.name,
+      date: format(date, "yyyy-MM-dd"),
+      isLocked: false,
+      createdAt: serverTimestamp()
     }
+
+    addDoc(collection(db, "payments"), paymentData)
+      .then(() => {
+        setAmount("")
+        setSaving(false)
+        toast({ title: "PAGO REGISTRADO" })
+      })
+      .catch(async (err) => {
+        setSaving(false)
+        const permissionError = new FirestorePermissionError({
+          path: 'payments',
+          operation: 'create',
+          requestResourceData: paymentData
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      });
   }
 
   const filteredCustomers = React.useMemo(() => {
@@ -166,7 +176,6 @@ export default function PaymentsView() {
 
   return (
     <div className="space-y-6 px-2 md:px-0 pb-24">
-      {/* Plantilla de Registro - FIJA Y VISIBLE */}
       <Card className="rounded-[2.5rem] border-2 border-primary/20 bg-white shadow-2xl overflow-visible relative">
         <div className="bg-primary/5 p-5 border-b border-primary/10 flex justify-between items-center">
           <div className="flex items-center gap-2">
@@ -181,15 +190,42 @@ export default function PaymentsView() {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Fecha de Pago</Label>
-              <Popover>
+              <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
                 <PopoverTrigger asChild>
                   <Button variant="outline" className="w-full h-12 rounded-xl border-primary/10 justify-start font-black text-xs uppercase bg-white">
                     <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
                     {format(date, "dd/MM/yyyy")}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 rounded-2xl z-[200]" align="start">
-                  <Calendar mode="single" selected={date} onSelect={(d) => d && setDate(d)} initialFocus locale={es} />
+                <PopoverContent className="w-80 p-0 rounded-2xl z-[200] shadow-2xl border-primary/10" align="start">
+                  <div className="p-3">
+                    <Calendar 
+                      mode="single" 
+                      selected={date} 
+                      onSelect={(d) => { if(d) { setDate(d); setIsCalendarOpen(false); } }} 
+                      initialFocus 
+                      locale={es}
+                      captionLayout="dropdown-buttons"
+                      fromYear={2020}
+                      toYear={2030}
+                    />
+                    <div className="flex justify-between border-t border-primary/5 pt-3 px-2">
+                      <Button 
+                        variant="ghost" 
+                        className="text-[10px] font-black text-primary/40 uppercase hover:text-primary hover:bg-transparent"
+                        onClick={() => { setDate(new Date()); setIsCalendarOpen(false); }}
+                      >
+                        Borrar
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        className="text-[10px] font-black text-primary uppercase hover:bg-transparent"
+                        onClick={() => { setDate(new Date()); setIsCalendarOpen(false); }}
+                      >
+                        Hoy
+                      </Button>
+                    </div>
+                  </div>
                 </PopoverContent>
               </Popover>
             </div>
@@ -263,7 +299,6 @@ export default function PaymentsView() {
         </CardContent>
       </Card>
 
-      {/* Lista de Pagos */}
       <div className="space-y-4 pt-4">
         <div className="flex items-center gap-3">
           <div className="relative flex-1">
@@ -325,7 +360,14 @@ export default function PaymentsView() {
                         <Unlock className="w-4 h-4 text-green-500/40" />
                         <button 
                           className="opacity-0 group-hover:opacity-100 p-1.5 text-destructive rounded-lg transition-all"
-                          onClick={() => { if(confirm("¿ELIMINAR PAGO?")) deleteDoc(doc(db, "payments", p.id)); }}
+                          onClick={() => { 
+                            if(confirm("¿ELIMINAR PAGO?")) {
+                              const pRef = doc(db, "payments", p.id);
+                              deleteDoc(pRef).catch(async () => {
+                                errorEmitter.emit('permission-error', new FirestorePermissionError({ path: pRef.path, operation: 'delete' }));
+                              });
+                            }
+                          }}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
