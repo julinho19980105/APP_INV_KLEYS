@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "Product": {
@@ -85,6 +86,16 @@
         "updatedAt": { "type": "string", "format": "date-time" }
       }
     },
+    "LogisticsBatch": {
+      "title": "Lote Logístico",
+      "description": "Despacho diario de clientes y documentos",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string", "format": "date" },
+        "entries": { "type": "array" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
+    },
     "AppConfig": {
       "title": "Configuración de Aplicación",
       "description": "Configuración global de la identidad",
@@ -119,7 +130,8 @@
     "/movements/{movementId}": { "schema": "Movement", "description": "Kardex de stock" },
     "/payments/{paymentId}": { "schema": "Payment", "description": "Registro de cobros" },
     "/dayLocks/{dateKey}": { "schema": "DayLock", "description": "Estado de cierre contable por fecha" },
+    "/logistics/{dateKey}": { "schema": "LogisticsBatch", "description": "Gestión de despachos diarios" },
     "/config/{configId}": { "schema": "AppConfig", "description": "Ajustes de identidad y sistema" }
   },
-  "deployTimestamp": "2024-05-21T12:00:00Z"
+  "deployTimestamp": "2024-05-22T10:00:00Z"
 }

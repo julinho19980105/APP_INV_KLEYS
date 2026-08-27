@@ -53,7 +53,7 @@ export default function SalesHistory() {
   
   const configDocRef = React.useMemo(() => db ? doc(db, "config", "global") : null, [db])
   const { data: companySettings } = useDoc(configDocRef)
-  const brandColor = companySettings?.brandColor || "#FF3399"
+  const brandColor = companySettings?.brandColor || "#0296FF"
   const printerWidth = companySettings?.printerWidth || "80"
 
   const quotesRef = React.useMemo(() => {
@@ -73,7 +73,7 @@ export default function SalesHistory() {
     const q = searchQuery.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     return quotes.filter(s => {
       const matchesSearch = s.id.toLowerCase().includes(q) || s.customerName?.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(q)
-      let matchesStatus = statusFilter === "all" || (statusFilter === "active" ? (s.status === "active" || s.status === "shipped") : s.status === statusFilter)
+      let matchesStatus = statusFilter === "all" ? true : s.status === statusFilter
       return matchesSearch && matchesStatus
     })
   }, [quotes, searchQuery, statusFilter])
@@ -186,12 +186,13 @@ export default function SalesHistory() {
             />
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[120px] h-10 rounded-xl border-primary/10 font-black text-[9px] uppercase bg-white">
+            <SelectTrigger className="w-[130px] h-10 rounded-xl border-primary/10 font-black text-[9px] uppercase bg-white">
               <SelectValue placeholder="Estado" />
             </SelectTrigger>
             <SelectContent className="rounded-xl">
               <SelectItem value="all" className="text-[9px] font-black uppercase">Todos</SelectItem>
-              <SelectItem value="active" className="text-[9px] font-black uppercase">Ventas</SelectItem>
+              <SelectItem value="active" className="text-[9px] font-black uppercase">Activos</SelectItem>
+              <SelectItem value="shipped" className="text-[9px] font-black uppercase">Enviados</SelectItem>
               <SelectItem value="annulled" className="text-[9px] font-black uppercase">Anulados</SelectItem>
             </SelectContent>
           </Select>
@@ -225,8 +226,13 @@ export default function SalesHistory() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="font-black text-[10px] text-foreground uppercase truncate">{s.id}</span>
-                        <Badge variant="outline" className={cn("text-[7px] font-black h-4 px-2 uppercase border-none rounded-md", s.status !== 'annulled' ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600")}>
-                          {s.status === 'annulled' ? 'ANULADO' : 'VENTA'}
+                        <Badge variant="outline" className={cn(
+                          "text-[7px] font-black h-4 px-2 uppercase border-none rounded-md",
+                          s.status === 'active' ? "bg-green-50 text-green-600" :
+                          s.status === 'shipped' ? "bg-blue-50 text-blue-600" :
+                          "bg-red-50 text-red-600"
+                        )}>
+                          {s.status === 'annulled' ? 'ANULADO' : s.status === 'shipped' ? 'ENVIADO' : 'ACTIVO'}
                         </Badge>
                       </div>
                       <div className="text-[11px] font-medium text-foreground uppercase mt-0.5 truncate">{s.customerName}</div>
@@ -242,10 +248,12 @@ export default function SalesHistory() {
                             <DropdownMenuItem className="text-[10px] font-black uppercase gap-2.5 p-2.5" onClick={() => shareReceipt(s)}>
                                <Share2 className="w-3.5 h-3.5 text-blue-500" /> Compartir Imagen
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="text-[10px] font-black uppercase gap-2.5 p-2.5" onClick={() => router.push(`/sales?edit=${s.id}&tab=quotes`)}>
-                               <Edit2 className="w-3.5 h-3.5 text-primary" /> Editar Venta
-                            </DropdownMenuItem>
-                            {s.status !== 'annulled' && (
+                            {s.status === 'active' && (
+                              <DropdownMenuItem className="text-[10px] font-black uppercase gap-2.5 p-2.5" onClick={() => router.push(`/sales?edit=${s.id}&tab=quotes`)}>
+                                 <Edit2 className="w-3.5 h-3.5 text-primary" /> Editar Venta
+                              </DropdownMenuItem>
+                            )}
+                            {s.status !== 'annulled' && s.status !== 'shipped' && (
                               <DropdownMenuItem className="text-[10px] font-black uppercase gap-2.5 p-2.5 text-destructive" onClick={() => handleAnnul(s)}>
                                  <Ban className="w-3.5 h-3.5" /> Anular Venta
                               </DropdownMenuItem>
@@ -261,7 +269,7 @@ export default function SalesHistory() {
         ))}
       </div>
 
-      {/* Template oculto para generar imagen de boleta (Nitido, Estilo Solicitado) */}
+      {/* Template oculto para generar imagen de boleta */}
       {activeReceipt && (
         <div className="fixed -left-[4000px] top-0">
           <div 
@@ -269,7 +277,6 @@ export default function SalesHistory() {
             className="w-[800px] bg-white p-16 flex flex-col gap-10 text-black"
             style={{ fontFamily: 'var(--font-space)' }}
           >
-            {/* Sección 1: Cabecera (Nombre Empresa y Prefijo) */}
             <div className="flex justify-between items-end border-b-8 border-black pb-8">
               <h1 className="text-7xl font-black uppercase tracking-tighter" style={{ color: '#0296FF' }}>
                 {companySettings?.companyName || 'STILOSTACK'}
@@ -279,11 +286,10 @@ export default function SalesHistory() {
               </div>
             </div>
 
-            {/* Sección 2: Cliente y Fecha (Ajustada) */}
             <div className="flex justify-between items-start bg-white py-4">
               <div className="flex flex-col gap-2">
                 <div className="text-[28px] font-black uppercase">CLIENTE</div>
-                <div className="text-[28px] font-black uppercase">{activeReceipt.customerName}</div>
+                <div className="text-[32px] font-black uppercase">{activeReceipt.customerName}</div>
                 <div className="text-[32px] font-black uppercase text-black/60">{activeReceipt.customerId}</div>
               </div>
               <div className="text-right">
@@ -293,7 +299,6 @@ export default function SalesHistory() {
               </div>
             </div>
 
-            {/* Sección 3: Tabla de productos */}
             <div className="mt-4">
               <table className="w-full">
                 <thead>
@@ -302,7 +307,6 @@ export default function SalesHistory() {
                     <th className="py-5 text-[14px] font-black uppercase">PRENDA</th>
                     <th className="py-5 text-[14px] font-black uppercase text-center">P. UNIT</th>
                     <th className="py-5 text-[14px] font-black uppercase text-center">CANT</th>
-                    <th className="py-5 text-[14px] font-black uppercase text-center">DESC</th>
                     <th className="py-5 text-[14px] font-black uppercase text-right">SUBTOTAL</th>
                   </tr>
                 </thead>
@@ -316,9 +320,6 @@ export default function SalesHistory() {
                       </td>
                       <td className="text-[16px] font-black text-center">S/ {Number(item.price).toFixed(1)}</td>
                       <td className="text-[16px] font-black text-center">{item.quantity}</td>
-                      <td className="text-[16px] font-black text-center">
-                        {Number(item.discount) > 0 ? `S/ ${Number(item.discount).toFixed(1)}` : "-"}
-                      </td>
                       <td className="text-[20px] font-black text-right">
                         S/ {((Number(item.price) * Number(item.quantity)) - Number(item.discount)).toFixed(1)}
                       </td>
@@ -328,19 +329,15 @@ export default function SalesHistory() {
               </table>
             </div>
 
-            {/* Sección 4: Totales (Nueva estructura solicitada) */}
             <div className="mt-8">
               <div className="w-full border-t-8 border-black pt-8">
                 <div className="flex justify-between items-start">
-                  {/* Total Cantidad */}
                   <div className="flex flex-col gap-1">
                     <div className="text-[22px] font-black uppercase text-black/60">TOTAL CANTIDAD</div>
                     <div className="text-[44px] font-black uppercase">
                       {activeReceipt.items.reduce((acc: number, i: any) => acc + Number(i.quantity), 0)} UNID
                     </div>
                   </div>
-                  
-                  {/* Total Soles (Etiqueta mitad de tamaño del valor) */}
                   <div className="flex flex-col items-end gap-1">
                     <div className="text-[28px] font-black uppercase text-black/60">TOTAL SOLES</div>
                     <div className="text-[80px] font-black leading-none" style={{ color: '#0296FF' }}>
