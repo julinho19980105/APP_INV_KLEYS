@@ -9,7 +9,6 @@ import {
   Search, 
   Plus, 
   Trash2, 
-  PackageCheck,
   X,
   History,
   Edit2
@@ -27,7 +26,6 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
-import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
   DialogContent,
@@ -42,8 +40,7 @@ import {
   query, 
   collection, 
   orderBy, 
-  updateDoc,
-  getDoc
+  updateDoc
 } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import CustomersHubPage from "../customers/page"
@@ -86,8 +83,8 @@ export default function ShippingHubPage() {
 
   const calculateEntryBalance = (entry: any) => {
     const shipping = Number(entry.shippingCost || 0)
-    const quotesTotal = (entry.quotes || []).reduce((acc: number, q: any) => acc + (q.selected ? Number(q.amount) : 0), 0)
-    const paymentsTotal = (entry.payments || []).reduce((acc: number, p: any) => acc + (p.selected ? Number(p.amount) : 0), 0)
+    const quotesTotal = (entry.quotes || []).reduce((acc: number, q: any) => acc + Number(q.amount), 0)
+    const paymentsTotal = (entry.payments || []).reduce((acc: number, p: any) => acc + Number(p.amount), 0)
     return paymentsTotal - (quotesTotal + shipping)
   }
 
@@ -104,8 +101,8 @@ export default function ShippingHubPage() {
       customerName: customer.name,
       addedAt: new Date().toISOString(),
       shippingCost: 0,
-      quotes: customerQuotes.map(q => ({ quoteId: q.id, amount: q.total, qty: (q.items || []).reduce((acc: number, i: any) => acc + Number(i.quantity), 0), selected: true })),
-      payments: customerPayments.map(p => ({ paymentId: p.id, amount: p.amount, selected: true }))
+      quotes: customerQuotes.map(q => ({ quoteId: q.id, amount: q.total, qty: (q.items || []).reduce((acc: number, i: any) => acc + Number(i.quantity), 0) })),
+      payments: customerPayments.map(p => ({ paymentId: p.id, amount: p.amount }))
     }
     const currentEntries = logData?.entries || []
     if (currentEntries.some((e: any) => e.customerId === customer.id)) return
@@ -120,30 +117,16 @@ export default function ShippingHubPage() {
     await updateDoc(logisticsDocRef, { entries: updatedEntries, updatedAt: serverTimestamp() })
   }
 
-  const handleToggleItem = async (customerId: string, itemId: string, type: 'quote' | 'payment') => {
+  const handleRemoveItemFromEntry = async (customerId: string, itemId: string, type: 'quote' | 'payment') => {
     if (!db || !logisticsDocRef || !logData) return
     const updatedEntries = logData.entries.map((entry: any) => {
       if (entry.customerId === customerId) {
-        if (type === 'quote') return { ...entry, quotes: entry.quotes.map((q: any) => q.quoteId === itemId ? { ...q, selected: !q.selected } : q) }
-        return { ...entry, payments: entry.payments.map((p: any) => p.paymentId === itemId ? { ...p, selected: !p.selected } : p) }
+        if (type === 'quote') return { ...entry, quotes: entry.quotes.filter((q: any) => q.quoteId !== itemId) }
+        return { ...entry, payments: entry.payments.filter((p: any) => p.paymentId !== itemId) }
       }
       return entry
     })
     await updateDoc(logisticsDocRef, { entries: updatedEntries, updatedAt: serverTimestamp() })
-  }
-
-  const handleMarkAsShipped = async (quoteId: string) => {
-    if (!db) return
-    const quoteRef = doc(db, "quotes", quoteId)
-    try {
-      const snap = await getDoc(quoteRef)
-      if (snap.exists()) {
-        const current = snap.data().status
-        const next = current === 'shipped' ? 'active' : 'shipped'
-        await updateDoc(quoteRef, { status: next })
-        toast({ title: next === 'shipped' ? "MARCADO COMO ENVIADO" : "REGRESADO A ACTIVO" })
-      }
-    } catch (e) {}
   }
 
   const handleRemoveEntry = async () => {
@@ -219,49 +202,35 @@ export default function ShippingHubPage() {
                     </AccordionTrigger>
                     <AccordionContent className="pb-4 pt-2 px-4 border-t border-primary/5 bg-primary/[0.01]">
                       <div className="space-y-4">
-                        <div className="flex items-center gap-3 bg-white px-3 py-2 rounded-lg border border-primary/10">
-                          <Label className="text-[9px] font-black text-primary uppercase">ENVÍO</Label>
-                          <div className="relative flex-1"><span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-black text-[9px] text-primary/40">S/</span><Input type="number" value={entry.shippingCost || ""} onChange={e => handleUpdateShippingCost(entry.customerId, e.target.value)} className="h-8 pl-7 text-xs font-black bg-primary/5 border-none w-full" /></div>
+                        <div className="flex items-center justify-between h-10 bg-white px-3 rounded-lg border border-primary/10">
+                          <div className="flex items-center gap-3 flex-1">
+                            <Label className="text-[9px] font-black text-primary uppercase">ENVÍO</Label>
+                            <div className="relative flex-1 max-w-[120px]"><span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-black text-[9px] text-primary/40">S/</span><Input type="number" value={entry.shippingCost || ""} onChange={e => handleUpdateShippingCost(entry.customerId, e.target.value)} className="h-8 pl-7 text-xs font-black bg-primary/5 border-none w-full" /></div>
+                          </div>
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => setDeleteConfirm({ id: entry.customerId, name: entry.customerName })}><Trash2 className="w-4 h-4" /></Button>
                         </div>
                         
                         <div className="space-y-2">
                           <div className="px-1 border-b border-primary/5 pb-1"><span className="text-[8px] font-black uppercase text-primary/40 tracking-widest">BOLETAS</span></div>
-                          {(entry.quotes || []).map((q: any) => {
-                            const isShipped = allQuotes.find(aq => aq.id === q.quoteId)?.status === 'shipped'
-                            return (
-                              <div key={q.quoteId} className={cn("flex items-center justify-between h-9 px-3 rounded-md border transition-all", q.selected ? "bg-white border-primary/20" : "bg-black/5 opacity-40")}>
-                                <div className="flex items-center gap-3 flex-1 min-w-0">
-                                  <Checkbox checked={q.selected} onCheckedChange={() => handleToggleItem(entry.customerId, q.quoteId, 'quote')} className="h-4 w-4" />
-                                  <span className="text-[10px] font-black uppercase truncate">{q.quoteId} | {q.qty} UND</span>
-                                  <span className="text-[10px] font-black text-primary ml-auto">S/ {Number(q.amount).toFixed(1)}</span>
-                                </div>
-                                <div className="flex items-center gap-2 ml-4">
-                                  <button 
-                                    onClick={() => handleMarkAsShipped(q.quoteId)} 
-                                    className={cn(
-                                      "p-1.5 rounded-lg transition-all",
-                                      isShipped ? "text-green-600 bg-green-100 shadow-sm" : "text-primary/20 hover:text-primary hover:bg-primary/5"
-                                    )}
-                                  >
-                                    <PackageCheck className="w-4 h-4" />
-                                  </button>
-                                  <button onClick={() => handleToggleItem(entry.customerId, q.quoteId, 'quote')} className="text-black/20 hover:text-red-500"><X className="w-3.5 h-3.5" /></button>
-                                </div>
+                          {(entry.quotes || []).map((q: any) => (
+                            <div key={q.quoteId} className="flex items-center justify-between h-9 px-3 rounded-md border bg-white border-primary/20">
+                              <div className="flex items-center gap-3 flex-1 min-w-0">
+                                <span className="text-[10px] font-black uppercase truncate">{q.quoteId} | {q.qty} UND</span>
+                                <span className="text-[10px] font-black text-primary ml-auto">S/ {Number(q.amount).toFixed(1)}</span>
                               </div>
-                            )
-                          })}
+                              <button onClick={() => handleRemoveItemFromEntry(entry.customerId, q.quoteId, 'quote')} className="text-black/20 hover:text-red-500 ml-4"><X className="w-3.5 h-3.5" /></button>
+                            </div>
+                          ))}
                         </div>
 
                         <div className="space-y-2">
                           <div className="px-1 border-b border-primary/5 pb-1"><span className="text-[8px] font-black uppercase text-primary/40 tracking-widest">PAGOS</span></div>
                           {(entry.payments || []).map((p: any) => (
-                            <div key={p.paymentId} className={cn("flex items-center justify-between h-9 px-3 rounded-md border transition-all", p.selected ? "bg-green-50 border-green-200" : "bg-black/5 opacity-40")}>
+                            <div key={p.paymentId} className="flex items-center justify-between h-9 px-3 rounded-md border bg-green-50 border-green-200">
                               <div className="flex items-center gap-3 flex-1">
-                                <Checkbox checked={p.selected} onCheckedChange={() => handleToggleItem(entry.customerId, p.paymentId, 'payment')} className="h-4 w-4" />
                                 <span className="text-[10px] font-black text-green-700 ml-auto">S/ {Number(p.amount).toFixed(1)}</span>
                               </div>
-                              <button onClick={() => handleToggleItem(entry.customerId, p.paymentId, 'payment')} className="text-black/20 hover:text-red-500 ml-4"><X className="w-3.5 h-3.5" /></button>
+                              <button onClick={() => handleRemoveItemFromEntry(entry.customerId, p.paymentId, 'payment')} className="text-black/20 hover:text-red-500 ml-4"><X className="w-3.5 h-3.5" /></button>
                             </div>
                           ))}
                         </div>
