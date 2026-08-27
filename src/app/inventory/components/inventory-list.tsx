@@ -15,7 +15,8 @@ import {
   ChevronLeft,
   Upload,
   Eye,
-  Edit2
+  Edit2,
+  MoreVertical
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useCollection, useFirestore, useDoc } from "@/firebase"
@@ -40,6 +41,12 @@ import {
   DialogHeader,
   DialogTitle
 } from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 function getDriveThumb(url: string, size: number = 400) {
   if (!url || !url.includes('drive.google.com')) return url;
@@ -251,19 +258,25 @@ export default function InventoryList() {
                         {p.stock} UND
                       </div>
 
-                      <div className="absolute bottom-2 left-2 flex gap-1 items-center opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button size="icon" className="h-7 w-7 bg-white/90 text-primary hover:bg-white rounded-lg shadow-md" onClick={() => setAddStockProduct(p)}>
-                          <PackagePlus className="w-3.5 h-3.5" />
-                        </Button>
-                        <Button size="icon" className="h-7 w-7 bg-white/90 text-primary hover:bg-white rounded-lg shadow-md" onClick={() => handleEdit(p)}>
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </Button>
-                        <Button size="icon" className="h-7 w-7 bg-white/90 text-primary hover:bg-white rounded-lg shadow-md" onClick={() => setSelectedProduct(p)}>
-                          <Eye className="w-3.5 h-3.5" />
-                        </Button>
-                        <Button size="icon" className="h-7 w-7 bg-white/90 text-destructive hover:bg-white rounded-lg shadow-md" onClick={() => onDelete(p.id)}>
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
+                      <div className="absolute bottom-2 left-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button size="icon" className="h-7 w-7 bg-white/90 text-primary hover:bg-white rounded-lg shadow-md">
+                              <MoreVertical className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start" className="rounded-xl p-1.5 w-32 shadow-xl border-primary/10">
+                            <DropdownMenuItem className="text-[10px] font-black uppercase gap-2.5 p-2.5" onClick={() => setAddStockProduct(p)}>
+                              <PackagePlus className="w-3.5 h-3.5 text-primary" /> Agregar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="text-[10px] font-black uppercase gap-2.5 p-2.5" onClick={() => handleEdit(p)}>
+                              <Edit2 className="w-3.5 h-3.5 text-primary" /> Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="text-[10px] font-black uppercase gap-2.5 p-2.5 text-destructive" onClick={() => onDelete(p.id)}>
+                              <Trash2 className="w-3.5 h-3.5" /> Eliminar
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </div>
 
