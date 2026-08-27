@@ -73,7 +73,12 @@ export default function InventoryList() {
 
   const categoriesRef = React.useMemo(() => db ? query(collection(db, "categories"), orderBy("name")) : null, [db])
   const { data: dbCategories = [] } = useCollection(categoriesRef)
-  const masterCategories = React.useMemo(() => dbCategories.map(c => c.name.toUpperCase()).sort(), [dbCategories])
+  
+  const masterCategories = React.useMemo(() => {
+    const cats = Array.from(new Set(dbCategories.map(c => c.name.toUpperCase()))).sort();
+    if (!cats.includes("NIÑAS")) cats.unshift("NIÑAS");
+    return cats;
+  }, [dbCategories])
 
   const filteredProducts = React.useMemo(() => {
     const q = searchQuery.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
@@ -145,21 +150,25 @@ export default function InventoryList() {
   return (
     <div className="space-y-6 pb-20">
       <div className="flex flex-col gap-4 sticky top-0 z-40 bg-background/95 backdrop-blur-md pb-4 pt-2 border-b-2 border-primary/10">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center justify-between gap-4 px-2">
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
             <SelectTrigger className="h-11 w-full md:w-64 rounded-xl border-primary/20 font-black text-[12px] uppercase bg-white shadow-sm">
               <SelectValue placeholder="CATEGORÍA" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all" className="font-black uppercase text-[10px]">TODAS</SelectItem>
-              {masterCategories.map(cat => <SelectItem key={cat} value={cat} className="font-black uppercase text-[10px]">{cat}</SelectItem>)}
+              {masterCategories.map(cat => (
+                <SelectItem key={cat} value={cat} className="font-black uppercase text-[10px]">
+                  {cat}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
           <Button variant="outline" onClick={() => syncCatalogToDrive(products)} disabled={isExporting} className="h-11 px-4 rounded-xl border-primary/20 text-primary font-black text-[10px] uppercase gap-2 bg-white">
             {isExporting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3.5 h-3.5" />} EXPORT
           </Button>
         </div>
-        <div className="relative">
+        <div className="relative px-2">
           <Input 
             placeholder="BUSCAR MODELO O CÓDIGO..." 
             className="pl-4 h-12 rounded-xl border-primary/10 font-black text-[11px] uppercase shadow-inner bg-primary/5"
@@ -208,7 +217,7 @@ export default function InventoryList() {
                 )}
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-y-6 gap-x-3 px-1">
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-y-6 gap-x-3 px-2">
                 {visibleProducts.map(p => (
                   <div key={p.id} className="group flex flex-col gap-2">
                     <div className="relative aspect-[3/4] rounded-2xl overflow-hidden border-2 border-primary/5 bg-secondary shadow-sm hover:shadow-xl transition-all">
@@ -292,16 +301,19 @@ export default function InventoryList() {
               <div className="p-6 space-y-6">
                 <div className="flex items-center justify-between">
                   <div className="flex flex-col gap-1">
-                    <Badge className="bg-primary text-white text-[10px] font-black w-fit">{selectedProduct.code}</Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge className="bg-primary text-white text-[10px] font-black w-fit">{selectedProduct.code}</Badge>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-7 text-[9px] font-black uppercase text-primary hover:bg-primary/5 rounded-lg border border-primary/10"
+                        onClick={() => setSelectedProduct(null)}
+                      >
+                        CERRAR
+                      </Button>
+                    </div>
                     <h2 className="text-2xl font-headline font-black text-black uppercase">{selectedProduct.name}</h2>
                   </div>
-                  <Button 
-                    variant="outline" 
-                    className="h-10 rounded-xl border-primary/20 text-primary font-black uppercase text-[10px] px-4"
-                    onClick={() => setSelectedProduct(null)}
-                  >
-                    CERRAR
-                  </Button>
                 </div>
 
                 <p className="text-[10px] font-black text-primary/40 uppercase tracking-widest">{selectedProduct.category} | {selectedProduct.collection}</p>
