@@ -193,46 +193,51 @@ export default function InventoryList() {
                 )}
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 px-1">
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-y-6 gap-x-3 px-1">
                 {visibleProducts.map(p => (
-                  <div key={p.id} className="group relative aspect-[3/4] rounded-2xl overflow-hidden border-2 border-primary/5 bg-secondary shadow-sm hover:shadow-xl transition-all">
-                    {/* FOTO */}
-                    <img 
-                      src={getDriveThumb(p.images?.[0], 600)} 
-                      className="w-full h-full object-cover cursor-pointer"
-                      onClick={() => setSelectedProduct(p)}
-                      alt={p.name}
-                    />
-                    
-                    {/* CÓDIGO (TOP LEFT) */}
-                    <div className="absolute top-2 left-2 px-2 py-0.5 bg-black text-white text-[9px] font-black rounded-md shadow-lg">
-                      {p.code}
+                  <div key={p.id} className="group flex flex-col gap-2">
+                    {/* IMAGE CONTAINER */}
+                    <div className="relative aspect-[3/4] rounded-2xl overflow-hidden border-2 border-primary/5 bg-secondary shadow-sm hover:shadow-xl transition-all">
+                      {/* FOTO */}
+                      <img 
+                        src={getDriveThumb(p.images?.[0], 600)} 
+                        className="w-full h-full object-cover cursor-pointer"
+                        onClick={() => setSelectedProduct(p)}
+                        alt={p.name}
+                      />
+                      
+                      {/* CÓDIGO (TOP LEFT) */}
+                      <div className="absolute top-2 left-2 px-2 py-0.5 bg-black text-white text-[9px] font-black rounded-md shadow-lg">
+                        {p.code}
+                      </div>
+
+                      {/* STOCK (BOTTOM RIGHT) */}
+                      <div className={cn(
+                        "absolute bottom-2 right-2 px-2 py-1 text-[10px] font-black rounded-md shadow-lg",
+                        p.stock <= 0 ? "bg-red-600 text-white" : "bg-primary text-white"
+                      )}>
+                        {p.stock} UND
+                      </div>
+
+                      {/* BOTONES ACCIÓN (BOTTOM LEFT) */}
+                      <div className="absolute bottom-2 left-2 flex gap-1 items-center opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button size="icon" className="h-7 w-7 bg-white/90 text-primary hover:bg-white rounded-lg shadow-md" onClick={() => setAddStockProduct(p)}>
+                          <PackagePlus className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button size="icon" className="h-7 w-7 bg-white/90 text-primary hover:bg-white rounded-lg shadow-md" onClick={() => setSelectedProduct(p)}>
+                          <Eye className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button size="icon" className="h-7 w-7 bg-white/90 text-destructive hover:bg-white rounded-lg shadow-md" onClick={() => onDelete(p.id)}>
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
                     </div>
 
-                    {/* STOCK (BOTTOM RIGHT) */}
-                    <div className={cn(
-                      "absolute bottom-2 right-2 px-2 py-1 text-[10px] font-black rounded-md shadow-lg",
-                      p.stock <= 0 ? "bg-red-600 text-white" : "bg-primary text-white"
-                    )}>
-                      {p.stock} UND
-                    </div>
-
-                    {/* BOTONES ACCIÓN (BOTTOM LEFT) */}
-                    <div className="absolute bottom-2 left-2 flex gap-1 items-center opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button size="icon" className="h-7 w-7 bg-white/90 text-primary hover:bg-white rounded-lg shadow-md" onClick={() => setAddStockProduct(p)}>
-                        <PackagePlus className="w-3.5 h-3.5" />
-                      </Button>
-                      <Button size="icon" className="h-7 w-7 bg-white/90 text-primary hover:bg-white rounded-lg shadow-md" onClick={() => setSelectedProduct(p)}>
-                        <Eye className="w-3.5 h-3.5" />
-                      </Button>
-                      <Button size="icon" className="h-7 w-7 bg-white/90 text-destructive hover:bg-white rounded-lg shadow-md" onClick={() => onDelete(p.id)}>
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
-                    </div>
-
-                    {/* OVERLAY NOMBRE */}
-                    <div className="absolute top-0 inset-x-0 h-10 bg-gradient-to-b from-black/40 to-transparent p-2">
-                      <p className="text-[9px] font-black text-white uppercase truncate drop-shadow-md">{p.name}</p>
+                    {/* NOMBRE DEBAJO */}
+                    <div className="px-1">
+                      <p className="text-[10px] font-black text-foreground uppercase truncate leading-tight">
+                        {p.name}
+                      </p>
                     </div>
                   </div>
                 ))}
