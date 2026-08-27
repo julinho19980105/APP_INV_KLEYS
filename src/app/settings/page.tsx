@@ -55,7 +55,6 @@ export default function SettingsPage() {
     }
   }, [dbConfig, isInitialized])
 
-  // Función para guardar inmediatamente en la base de datos (Garantiza persistencia)
   const saveToFirestore = async (updatedData: any) => {
     if (!db) return
     try {
@@ -190,6 +189,7 @@ export default function SettingsPage() {
 
       <Dialog open={!!editingBank} onOpenChange={() => setEditingBank(null)}>
         <DialogContent className="rounded-[2rem] max-w-xs p-6 border-none">
+          <DialogHeader className="sr-only"><DialogTitle>Editar Nombre de Banco</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <Label className="text-[10px] font-black uppercase text-primary">Renombrar Banco</Label>
             <Input value={editingBank?.name || ''} onChange={e => setEditingBank(prev => prev ? ({ ...prev, name: e.target.value }) : null)} className="h-10 text-[10px] font-black uppercase text-center" />

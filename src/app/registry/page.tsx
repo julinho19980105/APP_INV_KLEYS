@@ -440,6 +440,7 @@ export default function RegistryPage() {
 
       <Dialog open={!!editingTagName} onOpenChange={() => setEditingTagName(null)}>
         <DialogContent className="rounded-[2rem] max-w-xs p-6 border-none">
+          <DialogHeader className="sr-only"><DialogTitle>Editar Nombre de Tag</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <Label className="text-[10px] font-black uppercase text-primary">Editar Nombre</Label>
             <Input value={editingTagName?.name || ''} onChange={e => setEditingTagName(prev => prev ? ({ ...prev, name: e.target.value }) : null)} className="h-10 text-[10px] font-black uppercase text-center" />

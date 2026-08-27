@@ -139,7 +139,6 @@ export default function QuotesView() {
   const { data: dbProducts = [] } = useCollection(productsRef)
   const { data: dbCustomers = [] } = useCollection(customersRef)
 
-  // Persistencia de datos al navegar
   React.useEffect(() => {
     if (typeof window !== "undefined" && !editId) {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -165,7 +164,6 @@ export default function QuotesView() {
     }
   }, [selectedCustomer, items, quoteId, isInitialized, editId]);
 
-  // Generar ID correlativo
   React.useEffect(() => {
     if (!db || editId) return
     const getNextId = async () => {
@@ -180,7 +178,6 @@ export default function QuotesView() {
     getNextId()
   }, [db, editId])
 
-  // Cargar datos para edición
   React.useEffect(() => {
     if (db && editId) {
       getDoc(doc(db, "quotes", editId)).then(snap => {
@@ -467,9 +464,9 @@ export default function QuotesView() {
            </div>
 
            <div className="flex gap-2 pb-1">
-             <Button variant="outline" className="flex-1 h-10 text-[9px] font-black uppercase border-primary/10" onClick={() => setCurrentEntry({...currentEntry, price: currentEntry.refFardo?.toString() || ""})}>Fardo: {currentEntry.refFardo || '-'}</Button>
-             <Button variant="outline" className="flex-1 h-10 text-[9px] font-black uppercase border-primary/10 bg-primary/5" onClick={() => setCurrentEntry({...currentEntry, price: currentEntry.refMayor?.toString() || ""})}>Mayor: {currentEntry.refMayor || '-'}</Button>
-             <Button variant="outline" className="flex-1 h-10 text-[9px] font-black uppercase border-primary/10" onClick={() => setCurrentEntry({...currentEntry, price: currentEntry.refUnidad?.toString() || ""})}>Unid: {currentEntry.refUnidad || '-'}</Button>
+             <Button variant="outline" className="flex-1 h-10 text-[9px] font-black uppercase border-primary/10" onClick={() => setCurrentEntry({...currentEntry, price: currentEntry.refFardo?.toString() || ""})}>Fardo: {currentEntry.refFardo?.toFixed(1) || '-'}</Button>
+             <Button variant="outline" className="flex-1 h-10 text-[9px] font-black uppercase border-primary/10 bg-primary/5" onClick={() => setCurrentEntry({...currentEntry, price: currentEntry.refMayor?.toString() || ""})}>Mayor: {currentEntry.refMayor?.toFixed(1) || '-'}</Button>
+             <Button variant="outline" className="flex-1 h-10 text-[9px] font-black uppercase border-primary/10" onClick={() => setCurrentEntry({...currentEntry, price: currentEntry.refUnidad?.toString() || ""})}>Unid: {currentEntry.refUnidad?.toFixed(1) || '-'}</Button>
            </div>
 
            <div className="grid grid-cols-3 gap-3">
@@ -518,10 +515,10 @@ export default function QuotesView() {
               <div className="min-w-0 flex-1">
                 <div className="font-black text-[11px] uppercase truncate">{index + 1}- {item.name} <span className="text-primary/40">[{item.productId}]</span></div>
                 <div className="text-[9px] font-medium text-muted-foreground mt-0.5">{item.description || "-"}</div>
-                <div className="text-[9px] font-black text-primary uppercase mt-1">{item.quantity} UND x S/ {item.price} {Number(item.discount) > 0 ? `| DESC S/ ${item.discount}` : ""}</div>
+                <div className="text-[9px] font-black text-primary uppercase mt-1">{item.quantity} UND x S/ {Number(item.price).toFixed(1)} {Number(item.discount) > 0 ? `| DESC S/ ${Number(item.discount).toFixed(1)}` : ""}</div>
               </div>
               <div className="flex items-center gap-4 ml-4">
-                <div className="font-headline font-black text-sm whitespace-nowrap">S/ {((Number(item.price) * Number(item.quantity)) - Number(item.discount)).toFixed(2)}</div>
+                <div className="font-headline font-black text-sm whitespace-nowrap">S/ {((Number(item.price) * Number(item.quantity)) - Number(item.discount)).toFixed(1)}</div>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg"><MoreVertical className="w-4 h-4" /></Button></DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="rounded-xl p-1.5 w-32 shadow-xl">
@@ -542,7 +539,7 @@ export default function QuotesView() {
         </div>
         <div className="flex-1 text-right">
           <div className="text-[10px] font-black uppercase text-muted-foreground">MONTO TOTAL</div>
-          <div className="font-headline font-black text-3xl text-primary">S/ {items.reduce((acc, i) => acc + (Number(i.quantity) * Number(i.price) - Number(i.discount)), 0).toFixed(2)}</div>
+          <div className="font-headline font-black text-3xl text-primary">S/ {items.reduce((acc, i) => acc + (Number(i.quantity) * Number(i.price) - Number(i.discount)), 0).toFixed(1)}</div>
         </div>
       </div>
 
@@ -567,6 +564,16 @@ export default function QuotesView() {
               <div className="text-2xl font-black text-primary">{(Number(calcData.unidades) * Number(calcData.series)) + Number(calcData.libres)} UND</div>
             </div>
             <Button className="w-full h-12 bg-primary text-white rounded-xl font-black" onClick={handleApplyCalc}>CONFIRMAR</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!zoomImage} onOpenChange={() => setZoomImage(null)}>
+        <DialogContent className="max-w-[95vw] md:max-w-4xl p-0 border-none bg-transparent shadow-none">
+          <DialogHeader className="sr-only"><DialogTitle>Vista de Prenda</DialogTitle></DialogHeader>
+          <div className="relative w-full aspect-square md:aspect-video flex items-center justify-center bg-black/95 rounded-[2.5rem] overflow-hidden">
+            <button onClick={() => setZoomImage(null)} className="absolute top-6 right-6 z-50 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all active:scale-90"><X className="w-8 h-8" /></button>
+            {zoomImage && <img src={getDriveThumb(zoomImage, 2000)} className="max-w-full max-h-full object-contain" alt="Zoom" />}
           </div>
         </DialogContent>
       </Dialog>

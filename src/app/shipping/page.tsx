@@ -33,6 +33,8 @@ import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
   DialogContent,
+  DialogHeader,
+  DialogTitle
 } from "@/components/ui/dialog"
 import { useFirestore, useDoc, useCollection } from "@/firebase"
 import { 
@@ -151,7 +153,6 @@ export default function ShippingHubPage() {
         <TabsContent value="clientes" className="mt-0"><CustomersHubPage /></TabsContent>
 
         <TabsContent value="envios" className="mt-0 space-y-4">
-          {/* HEADER LOGISTICS */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-3 border-b-2 border-black pb-3">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg bg-primary"><Truck className="w-5 h-5 text-white" /></div>
@@ -206,23 +207,28 @@ export default function ShippingHubPage() {
                           <div className="relative flex-1"><span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-black text-[9px] text-primary/40">S/</span><Input type="number" value={entry.shippingCost || ""} onChange={e => handleUpdateShippingCost(entry.customerId, e.target.value)} className="h-8 pl-7 text-xs font-black bg-primary/5 border-none w-full" /></div>
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => setDeleteConfirm({ id: entry.customerId, name: entry.customerName })}><Trash2 className="w-4 h-4" /></Button>
                         </div>
-                        {/* GRUPO BOLETAS */}
                         <div className="space-y-1.5">
                           <div className="flex items-center gap-2 px-1 opacity-40"><FileText className="w-3 h-3" /><span className="text-[8px] font-black uppercase">BOLETAS</span></div>
                           {(entry.quotes || []).map((q: any) => (
                             <div key={q.quoteId} className={cn("flex items-center justify-between h-9 px-3 rounded-md border", q.selected ? "bg-white border-primary/20" : "bg-black/5 opacity-40")}>
-                              <div className="flex items-center gap-3"><Checkbox checked={q.selected} onCheckedChange={() => handleToggleItem(entry.customerId, q.quoteId, 'quote')} className="h-4 w-4" /><span className="text-[10px] font-black uppercase">{q.quoteId}</span><span className="text-[9px] font-bold text-primary/60">{q.qty} UND</span><span className="text-[10px] font-black text-primary ml-auto">S/ {Number(q.amount).toFixed(1)}</span></div>
+                              <div className="flex items-center gap-3 flex-1 min-w-0">
+                                <Checkbox checked={q.selected} onCheckedChange={() => handleToggleItem(entry.customerId, q.quoteId, 'quote')} className="h-4 w-4" />
+                                <span className="text-[10px] font-black uppercase truncate">{q.quoteId} | {q.qty} UND</span>
+                                <span className="text-[10px] font-black text-primary ml-auto">S/ {Number(q.amount).toFixed(1)}</span>
+                              </div>
                               <button onClick={() => handleToggleItem(entry.customerId, q.quoteId, 'quote')} className="text-black/20 hover:text-red-500 ml-4"><X className="w-3.5 h-3.5" /></button>
                             </div>
                           ))}
                         </div>
-                        {/* GRUPO PAGOS */}
                         <div className="space-y-1.5">
                           <div className="flex items-center gap-2 px-1 opacity-40"><CreditCard className="w-3 h-3" /><span className="text-[8px] font-black uppercase">PAGOS</span></div>
                           {(entry.payments || []).map((p: any) => (
                             <div key={p.paymentId} className={cn("flex items-center justify-between h-9 px-3 rounded-md border", p.selected ? "bg-green-50 border-green-200" : "bg-black/5 opacity-40")}>
-                              <div className="flex items-center gap-3"><Checkbox checked={p.selected} onCheckedChange={() => handleToggleItem(entry.customerId, p.paymentId, 'payment')} className="h-4 w-4" /><span className="text-[10px] font-black text-green-700">S/ {Number(p.amount).toFixed(1)}</span></div>
-                              <button onClick={() => handleToggleItem(entry.customerId, p.paymentId, 'payment')} className="text-black/20 hover:text-red-500"><X className="w-3.5 h-3.5" /></button>
+                              <div className="flex items-center gap-3 flex-1">
+                                <Checkbox checked={p.selected} onCheckedChange={() => handleToggleItem(entry.customerId, p.paymentId, 'payment')} className="h-4 w-4" />
+                                <span className="text-[10px] font-black text-green-700 ml-auto">S/ {Number(p.amount).toFixed(1)}</span>
+                              </div>
+                              <button onClick={() => handleToggleItem(entry.customerId, p.paymentId, 'payment')} className="text-black/20 hover:text-red-500 ml-4"><X className="w-3.5 h-3.5" /></button>
                             </div>
                           ))}
                         </div>
@@ -256,7 +262,19 @@ export default function ShippingHubPage() {
           </div>
         </TabsContent>
       </Tabs>
-      <Dialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}><DialogContent className="rounded-[2rem] max-w-[280px] p-8 text-center border-none shadow-2xl"><div className="flex flex-col items-center gap-6"><p className="text-[11px] font-black uppercase text-black/60">¿Remover del lote?</p><div className="grid grid-cols-2 gap-3 w-full"><Button variant="outline" className="h-11 rounded-xl font-black text-[10px] uppercase" onClick={() => setDeleteConfirm(null)}>NO</Button><Button className="h-11 bg-red-600 text-white rounded-xl font-black text-[10px] uppercase" onClick={handleRemoveEntry}>SÍ</Button></div></div></DialogContent></Dialog>
+      
+      <Dialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
+        <DialogContent className="rounded-[2rem] max-w-[280px] p-8 text-center border-none shadow-2xl">
+          <DialogHeader className="sr-only"><DialogTitle>Confirmar Eliminación</DialogTitle></DialogHeader>
+          <div className="flex flex-col items-center gap-6">
+            <p className="text-[11px] font-black uppercase text-black/60">¿Remover del lote?</p>
+            <div className="grid grid-cols-2 gap-3 w-full">
+              <Button variant="outline" className="h-11 rounded-xl font-black text-[10px] uppercase" onClick={() => setDeleteConfirm(null)}>NO</Button>
+              <Button className="h-11 bg-red-600 text-white rounded-xl font-black text-[10px] uppercase" onClick={handleRemoveEntry}>SÍ</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

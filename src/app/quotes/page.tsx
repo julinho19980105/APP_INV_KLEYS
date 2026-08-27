@@ -139,7 +139,6 @@ export default function QuotesPage() {
   const { data: dbProducts = [] } = useCollection(productsRef)
   const { data: dbCustomers = [] } = useCollection(customersRef)
 
-  // Persistencia de datos al navegar
   React.useEffect(() => {
     if (typeof window !== "undefined" && !editId) {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -165,7 +164,6 @@ export default function QuotesPage() {
     }
   }, [selectedCustomer, items, quoteId, isInitialized, editId]);
 
-  // Generar ID correlativo
   React.useEffect(() => {
     if (!db || editId) return
     const getNextId = async () => {
@@ -180,7 +178,6 @@ export default function QuotesPage() {
     getNextId()
   }, [db, editId])
 
-  // Cargar datos para edición
   React.useEffect(() => {
     if (db && editId) {
       getDoc(doc(db, "quotes", editId)).then(snap => {
@@ -518,21 +515,21 @@ export default function QuotesPage() {
                     onClick={() => setCurrentEntry({ ...currentEntry, price: currentEntry.refFardo?.toString() || "" })}
                   >
                     <div className="text-[7px] font-black text-muted-foreground uppercase">Fardo</div>
-                    <div className="text-[10px] font-black">S/ {currentEntry.refFardo}</div>
+                    <div className="text-[10px] font-black">S/ {currentEntry.refFardo.toFixed(1)}</div>
                   </button>
                   <button 
                     className="flex-1 bg-primary/10 p-2 rounded-lg text-center border border-primary/20 hover:bg-primary/20 transition-colors"
                     onClick={() => setCurrentEntry({ ...currentEntry, price: currentEntry.refMayor?.toString() || "" })}
                   >
                     <div className="text-[7px] font-black text-primary uppercase">Mayor</div>
-                    <div className="text-[10px] font-black">S/ {currentEntry.refMayor}</div>
+                    <div className="text-[10px] font-black">S/ {currentEntry.refMayor.toFixed(1)}</div>
                   </button>
                   <button 
                     className="flex-1 bg-secondary/30 p-2 rounded-lg text-center hover:bg-secondary/50 transition-colors"
                     onClick={() => setCurrentEntry({ ...currentEntry, price: currentEntry.refUnidad?.toString() || "" })}
                   >
                     <div className="text-[7px] font-black text-muted-foreground uppercase">Unidad</div>
-                    <div className="text-[10px] font-black">S/ {currentEntry.refUnidad}</div>
+                    <div className="text-[10px] font-black">S/ {currentEntry.refUnidad.toFixed(1)}</div>
                   </button>
                 </div>
               )}
@@ -598,7 +595,7 @@ export default function QuotesPage() {
                   <Badge variant="outline" className="text-[8px] font-black h-4 px-2 uppercase border-primary/10 text-primary">{item.productId}</Badge>
                 </div>
                 <div className="font-headline font-black text-base text-foreground">
-                  S/ {((Number(item.price) * Number(item.quantity)) - Number(item.discount)).toFixed(2)}
+                  S/ {((Number(item.price) * Number(item.quantity)) - Number(item.discount)).toFixed(1)}
                 </div>
               </div>
               <div className="flex justify-between items-end mt-2">
@@ -607,9 +604,9 @@ export default function QuotesPage() {
                   <div className="flex gap-3 items-center">
                     <span className="font-black text-primary bg-primary/5 px-2 py-0.5 rounded">{item.quantity} UND</span>
                     <span className="opacity-30">×</span>
-                    <span className="font-black text-foreground/80">S/ {item.price}</span>
+                    <span className="font-black text-foreground/80">S/ {Number(item.price).toFixed(1)}</span>
                     {Number(item.discount) > 0 && (
-                      <><span className="opacity-30">|</span><span className="text-destructive font-black">DESC. - S/ {item.discount}</span></>
+                      <><span className="opacity-30">|</span><span className="text-destructive font-black">DESC. - S/ {Number(item.discount).toFixed(1)}</span></>
                     )}
                   </div>
                 </div>
@@ -646,7 +643,7 @@ export default function QuotesPage() {
           <div className="flex-1 text-right space-y-1">
             <div className="text-[11px] font-black uppercase text-muted-foreground tracking-widest">MONTO TOTAL</div>
             <div className="font-headline font-black text-3xl md:text-5xl text-foreground tracking-tighter whitespace-nowrap">
-              S/ {items.reduce((acc, i) => acc + (Number(i.quantity) * Number(i.price) - Number(i.discount)), 0).toFixed(2)}
+              S/ {items.reduce((acc, i) => acc + (Number(i.quantity) * Number(i.price) - Number(i.discount)), 0).toFixed(1)}
             </div>
           </div>
         </div>

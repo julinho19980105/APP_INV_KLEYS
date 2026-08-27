@@ -35,7 +35,9 @@ import {
 } from "@/components/ui/select"
 import { 
   Dialog,
-  DialogContent
+  DialogContent,
+  DialogHeader,
+  DialogTitle
 } from "@/components/ui/dialog"
 
 function getDriveThumb(url: string, size: number = 400) {
@@ -126,7 +128,6 @@ export default function InventoryList() {
 
   return (
     <div className="space-y-6 pb-20">
-      {/* HEADER CONTROL */}
       <div className="flex flex-col gap-4 sticky top-0 z-40 bg-background/95 backdrop-blur-md pb-4 pt-2 border-b-2 border-primary/10">
         <div className="flex items-center justify-between gap-4">
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
@@ -145,14 +146,13 @@ export default function InventoryList() {
         <div className="relative">
           <Input 
             placeholder="BUSCAR MODELO O CÓDIGO..." 
-            className="pl-4 h-12 rounded-xl border-primary/20 font-black text-[11px] uppercase shadow-inner bg-primary/5"
+            className="pl-4 h-12 rounded-xl border-primary/10 font-black text-[11px] uppercase shadow-inner bg-primary/5"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
           />
         </div>
       </div>
 
-      {/* STOCK UPDATE POPUP */}
       {addStockProduct && (
         <div className="fixed inset-x-4 top-24 z-50 bg-white border-2 border-green-500 rounded-2xl p-4 shadow-2xl flex items-center justify-between gap-4 animate-in slide-in-from-top-4">
           <div className="flex-1">
@@ -167,7 +167,6 @@ export default function InventoryList() {
         </div>
       )}
 
-      {/* GALLERY BY COLLECTIONS */}
       <div className="space-y-8">
         {productsLoading ? (
           <div className="py-20 text-center opacity-30"><Loader2 className="w-8 h-8 animate-spin mx-auto" /></div>
@@ -196,9 +195,7 @@ export default function InventoryList() {
               <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-y-6 gap-x-3 px-1">
                 {visibleProducts.map(p => (
                   <div key={p.id} className="group flex flex-col gap-2">
-                    {/* IMAGE CONTAINER */}
                     <div className="relative aspect-[3/4] rounded-2xl overflow-hidden border-2 border-primary/5 bg-secondary shadow-sm hover:shadow-xl transition-all">
-                      {/* FOTO */}
                       <img 
                         src={getDriveThumb(p.images?.[0], 600)} 
                         className="w-full h-full object-cover cursor-pointer"
@@ -206,12 +203,10 @@ export default function InventoryList() {
                         alt={p.name}
                       />
                       
-                      {/* CÓDIGO (TOP LEFT) */}
                       <div className="absolute top-2 left-2 px-2 py-0.5 bg-black text-white text-[9px] font-black rounded-md shadow-lg">
                         {p.code}
                       </div>
 
-                      {/* STOCK (BOTTOM RIGHT) */}
                       <div className={cn(
                         "absolute bottom-2 right-2 px-2 py-1 text-[10px] font-black rounded-md shadow-lg",
                         p.stock <= 0 ? "bg-red-600 text-white" : "bg-primary text-white"
@@ -219,7 +214,6 @@ export default function InventoryList() {
                         {p.stock} UND
                       </div>
 
-                      {/* BOTONES ACCIÓN (BOTTOM LEFT) */}
                       <div className="absolute bottom-2 left-2 flex gap-1 items-center opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
                         <Button size="icon" className="h-7 w-7 bg-white/90 text-primary hover:bg-white rounded-lg shadow-md" onClick={() => setAddStockProduct(p)}>
                           <PackagePlus className="w-3.5 h-3.5" />
@@ -233,7 +227,6 @@ export default function InventoryList() {
                       </div>
                     </div>
 
-                    {/* NOMBRE DEBAJO */}
                     <div className="px-1">
                       <p className="text-[10px] font-black text-foreground uppercase truncate leading-tight">
                         {p.name}
@@ -247,9 +240,11 @@ export default function InventoryList() {
         })}
       </div>
 
-      {/* DETAIL DIALOG */}
       <Dialog open={!!selectedProduct} onOpenChange={() => setSelectedProduct(null)}>
         <DialogContent className="max-w-[95vw] md:max-w-md p-0 border-none rounded-[2rem] bg-white overflow-hidden shadow-2xl">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Detalles del Producto</DialogTitle>
+          </DialogHeader>
           {selectedProduct && (
             <div className="flex flex-col pb-8">
               <div className="w-full aspect-square bg-secondary relative">
@@ -264,8 +259,8 @@ export default function InventoryList() {
                 </div>
                 <div className="grid grid-cols-3 gap-2 bg-primary/5 p-4 rounded-2xl border border-primary/10">
                   <div className="text-center"><p className="text-[8px] font-black text-primary/50 uppercase">STOCK</p><p className="text-lg font-black">{selectedProduct.stock}</p></div>
-                  <div className="text-center border-x border-primary/10"><p className="text-[8px] font-black text-primary/50 uppercase">MAYOR</p><p className="text-lg font-black">S/ {selectedProduct.priceMayor}</p></div>
-                  <div className="text-center"><p className="text-[8px] font-black text-primary/50 uppercase">UNID</p><p className="text-lg font-black">S/ {selectedProduct.priceUnidad}</p></div>
+                  <div className="text-center border-x border-primary/10"><p className="text-[8px] font-black text-primary/50 uppercase">MAYOR</p><p className="text-lg font-black">S/ {selectedProduct.priceMayor.toFixed(1)}</p></div>
+                  <div className="text-center"><p className="text-[8px] font-black text-primary/50 uppercase">UNID</p><p className="text-lg font-black">S/ {selectedProduct.priceUnidad.toFixed(1)}</p></div>
                 </div>
                 <div className="p-4 bg-secondary/50 rounded-2xl border border-black/5 text-[11px] font-medium text-muted-foreground italic leading-relaxed">
                   "{selectedProduct.description || 'Sin descripción.'}"
