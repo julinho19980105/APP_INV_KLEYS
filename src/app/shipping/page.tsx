@@ -146,12 +146,9 @@ export default function ShippingHubPage() {
       updatedAt: serverTimestamp()
     }, { merge: true })
 
-    for (const q of customerQuotes) await updateDoc(doc(db, "quotes", q.id), { status: 'shipped' })
-    for (const p of customerPayments) await updateDoc(doc(db, "payments", p.id), { isLocked: true })
-
     setCustomerSearch("")
     setIsSearchOpen(false)
-    toast({ title: "CLIENTE AÑADIDO AL LOTE" })
+    toast({ title: "CLIENTE AÑADIDO" })
   }
 
   const handleUpdateShippingCost = async (customerId: string, cost: string) => {
@@ -165,73 +162,58 @@ export default function ShippingHubPage() {
 
   const handleToggleItem = async (customerId: string, itemId: string, type: 'quote' | 'payment') => {
     if (!db || !logisticsDocRef || !logData) return
-    let isSelected = false
     const updatedEntries = logData.entries.map((entry: any) => {
       if (entry.customerId === customerId) {
         if (type === 'quote') {
           return {
             ...entry,
-            quotes: entry.quotes.map((q: any) => {
-              if (q.quoteId === itemId) { isSelected = !q.selected; return { ...q, selected: isSelected }; }
-              return q
-            })
+            quotes: entry.quotes.map((q: any) => q.quoteId === itemId ? { ...q, selected: !q.selected } : q)
           }
         } else {
           return {
             ...entry,
-            payments: entry.payments.map((p: any) => {
-              if (p.paymentId === itemId) { isSelected = !p.selected; return { ...p, selected: isSelected }; }
-              return p
-            })
+            payments: entry.payments.map((p: any) => p.paymentId === itemId ? { ...p, selected: !p.selected } : p)
           }
         }
       }
       return entry
     })
     await updateDoc(logisticsDocRef, { entries: updatedEntries, updatedAt: serverTimestamp() })
-    if (type === 'quote') await updateDoc(doc(db, "quotes", itemId), { status: isSelected ? 'shipped' : 'active' })
-    else await updateDoc(doc(db, "payments", itemId), { isLocked: isSelected })
   }
 
   const handleRemoveEntry = async () => {
     if (!db || !logisticsDocRef || !logData || !deleteConfirm) return
-    const entryToRemove = logData.entries.find((e: any) => e.customerId === deleteConfirm.id)
-    if (entryToRemove) {
-      for (const q of entryToRemove.quotes) await updateDoc(doc(db, "quotes", q.quoteId), { status: 'active' })
-      for (const p of (entryToRemove.payments || [])) await updateDoc(doc(db, "payments", p.paymentId), { isLocked: false })
-    }
     const updatedEntries = logData.entries.filter((e: any) => e.customerId !== deleteConfirm.id)
     await updateDoc(logisticsDocRef, { entries: updatedEntries, updatedAt: serverTimestamp() })
     setDeleteConfirm(null)
-    toast({ title: "REGISTRO REMOVIDO" })
+    toast({ title: "REMOVIDO" })
   }
 
   return (
-    <div className="w-full max-w-5xl mx-auto pt-1 pb-24 px-2 md:px-4">
+    <div className="w-full max-w-4xl mx-auto pt-1 pb-24 px-2 md:px-0">
       <Tabs defaultValue="envios" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 h-14 bg-white border-b-2 border-primary/10 rounded-none mb-4 sticky top-0 z-50 shadow-sm p-1">
-          <TabsTrigger value="clientes" className="rounded-xl data-[state=active]:bg-primary data-[state=active]:text-white font-black text-xs uppercase transition-all flex items-center gap-2">
-            <Users className="w-4 h-4" /> Clientes
+        <TabsList className="grid w-full grid-cols-2 h-12 bg-white border-b border-primary/10 rounded-none mb-4 sticky top-0 z-50 shadow-sm p-1">
+          <TabsTrigger value="clientes" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-white font-black text-[11px] uppercase transition-all flex items-center gap-2">
+            <Users className="w-3.5 h-3.5" /> Clientes
           </TabsTrigger>
-          <TabsTrigger value="envios" className="rounded-xl data-[state=active]:bg-primary data-[state=active]:text-white font-black text-xs uppercase transition-all flex items-center gap-2">
-            <Truck className="w-4 h-4" /> Envíos
+          <TabsTrigger value="envios" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-white font-black text-[11px] uppercase transition-all flex items-center gap-2">
+            <Truck className="w-3.5 h-3.5" /> Envíos
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="clientes" className="mt-0 focus-visible:outline-none">
+        <TabsContent value="clientes" className="mt-0">
           <CustomersHubPage />
         </TabsContent>
 
-        <TabsContent value="envios" className="mt-0 focus-visible:outline-none space-y-4">
-          {/* Cabecera Lote compacta */}
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b-2 border-black pb-4">
+        <TabsContent value="envios" className="mt-0 space-y-4">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-3 border-b-2 border-black pb-3">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg bg-primary">
                 <Truck className="w-5 h-5 text-white" />
               </div>
               <div>
                 <h1 className="text-xl font-headline font-black text-foreground uppercase tracking-tight leading-none">Registro de Envíos</h1>
-                <p className="text-[8px] font-black text-primary uppercase tracking-[0.2em] mt-1">Gestión de Lotes</p>
+                <p className="text-[8px] font-black text-primary uppercase tracking-[0.2em] mt-1">Gestión por Lotes</p>
               </div>
             </div>
             
@@ -245,12 +227,12 @@ export default function ShippingHubPage() {
               </div>
               <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className="h-10 px-4 rounded-xl border-black/10 font-black text-[11px] uppercase gap-2 bg-white shadow-sm">
-                    <CalendarIcon className="w-3.5 h-3.5 text-primary" />
+                  <Button variant="outline" className="h-9 px-4 rounded-lg border-black/10 font-black text-[10px] uppercase gap-2 bg-white shadow-sm">
+                    <CalendarIcon className="w-3 h-3 text-primary" />
                     {format(date, "dd/MM/yyyy")}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 rounded-[2rem] border-none shadow-2xl overflow-hidden" align="end">
+                <PopoverContent className="w-auto p-0 rounded-2xl border-none shadow-2xl overflow-hidden" align="end">
                   <div className="p-2 bg-white">
                     <Calendar mode="single" selected={date} onSelect={(d) => { if(d) { setDate(d); setIsCalendarOpen(false); } }} initialFocus locale={es} />
                     <div className="flex justify-between border-t border-black/5 pt-2 px-1">
@@ -263,173 +245,139 @@ export default function ShippingHubPage() {
             </div>
           </div>
 
-          {/* Buscador compacto */}
           <div className="relative w-full">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-primary/40" />
             <Input 
               placeholder="BUSCAR CLIENTE ACTIVO..." 
-              className="pl-11 h-12 w-full rounded-2xl border-2 border-primary/10 font-black text-xs uppercase bg-white shadow-lg focus:ring-2 focus:ring-primary/5 transition-all"
+              className="pl-11 h-11 w-full rounded-xl border-2 border-primary/10 font-black text-xs uppercase bg-white shadow-md focus:ring-2 focus:ring-primary/5 transition-all"
               value={customerSearch}
               onChange={e => setCustomerSearch(e.target.value)}
               onFocus={() => setIsSearchOpen(true)}
             />
             {isSearchOpen && (
-              <div className="absolute z-[99999] w-full mt-2 bg-white border-2 border-primary/10 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-1">
-                <div className="p-3 bg-primary/5 border-b border-primary/5 flex justify-between items-center px-4">
-                  <span className="text-[9px] font-black uppercase text-primary tracking-widest">Sugerencias (Ventas Activas)</span>
-                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsSearchOpen(false)}><X className="w-3.5 h-3.5" /></Button>
+              <div className="absolute z-[99999] w-full mt-1 bg-white border-2 border-primary/10 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-1">
+                <div className="p-2 bg-primary/5 border-b border-primary/5 flex justify-between items-center px-4">
+                  <span className="text-[8px] font-black uppercase text-primary tracking-widest">Sugerencias</span>
+                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsSearchOpen(false)}><X className="w-3 h-3" /></Button>
                 </div>
-                <div className="max-h-[300px] overflow-y-auto">
+                <div className="max-h-[250px] overflow-y-auto">
                   {filteredSuggestions.map(c => (
-                    <button key={c.id} className="w-full text-left px-6 py-4 hover:bg-primary/5 border-b border-primary/5 last:border-0 flex items-center justify-between group" onClick={() => handleAddCustomer(c)}>
+                    <button key={c.id} className="w-full text-left px-5 py-3 hover:bg-primary/5 border-b border-primary/5 last:border-0 flex items-center justify-between group" onClick={() => handleAddCustomer(c)}>
                       <div className="flex flex-col">
-                        <span className="font-black text-sm uppercase text-black">{c.name}</span>
-                        <span className="text-[9px] font-bold text-primary/40 uppercase">{c.id}</span>
+                        <span className="font-black text-[11px] uppercase text-black">{c.name}</span>
+                        <span className="text-[8px] font-bold text-primary/40 uppercase">{c.id}</span>
                       </div>
-                      <Plus className="w-4 h-4 text-primary opacity-0 group-hover:opacity-100 transition-all" />
+                      <Plus className="w-3.5 h-3.5 text-primary opacity-0 group-hover:opacity-100 transition-all" />
                     </button>
                   ))}
                   {filteredSuggestions.length === 0 && (
-                    <div className="p-8 text-center text-[9px] font-black uppercase opacity-20 tracking-[0.2em]">Sin documentos activos</div>
+                    <div className="p-6 text-center text-[9px] font-black uppercase opacity-20">Sin documentos activos</div>
                   )}
                 </div>
               </div>
             )}
           </div>
 
-          {/* Lote del Día compactado */}
-          <Card className="rounded-[1.5rem] border-none shadow-xl bg-white overflow-hidden w-full">
-            <div className="bg-primary/5 border-b border-primary/10 py-3 px-6 flex justify-between items-center">
+          <Card className="rounded-xl border-none shadow-lg bg-white overflow-hidden w-full">
+            <div className="bg-primary/5 border-b border-primary/10 py-2.5 px-5 flex justify-between items-center">
               <div className="flex items-center gap-2">
-                <PackageCheck className="w-5 h-5 text-primary" />
-                <span className="text-[10px] font-black uppercase text-primary tracking-widest">Lote del Día</span>
+                <PackageCheck className="w-4 h-4 text-primary" />
+                <span className="text-[9px] font-black uppercase text-primary tracking-widest">Lote del Día</span>
               </div>
-              <Badge className="bg-primary text-white font-black text-[9px] px-4 h-6 rounded-xl shadow-md">
+              <Badge className="bg-primary text-white font-black text-[8px] px-3 h-5 rounded-md shadow-sm">
                 {(logData?.entries || []).length} CLIENTES
               </Badge>
             </div>
-            <CardContent className="p-2 space-y-2">
+            <CardContent className="p-1 space-y-1">
               {(logData?.entries || []).length === 0 ? (
                 <div className="p-12 flex flex-col items-center justify-center opacity-10 space-y-3">
-                  <Truck className="w-12 h-12" />
-                  <span className="font-black text-[10px] uppercase tracking-[0.3em]">Esperando...</span>
+                  <Truck className="w-10 h-10" />
+                  <span className="font-black text-[9px] uppercase tracking-[0.3em]">Esperando registros...</span>
                 </div>
               ) : (
-                <Accordion type="single" collapsible className="w-full space-y-2">
+                <Accordion type="single" collapsible className="w-full space-y-1">
                   {(logData?.entries || []).sort((a: any, b: any) => new Date(a.addedAt).getTime() - new Date(b.addedAt).getTime()).map((entry: any, index: number) => {
                     const balance = calculateEntryBalance(entry)
                     return (
-                      <AccordionItem key={entry.customerId} value={entry.customerId} className="border border-primary/10 rounded-xl overflow-hidden bg-white hover:border-primary/20 transition-all px-0 shadow-sm">
-                        <div className="flex items-center w-full px-3">
-                          <span className="w-7 h-7 rounded-full bg-primary/5 text-primary flex items-center justify-center font-black text-[11px] shrink-0 mr-3 shadow-inner">{index + 1}</span>
-                          <AccordionTrigger className="flex-1 hover:no-underline py-4 group">
-                            <div className="flex items-center w-full pr-1">
-                              <div className="flex flex-col text-left">
-                                <span className="font-black text-sm uppercase tracking-tight text-black leading-tight truncate max-w-[150px] md:max-w-none">{entry.customerName}</span>
-                                <span className="text-[9px] font-black text-primary/40 uppercase tracking-[0.1em] mt-0.5">{entry.customerId}</span>
+                      <AccordionItem key={entry.customerId} value={entry.customerId} className="border border-primary/10 rounded-lg overflow-hidden bg-white hover:border-primary/20 transition-all shadow-sm">
+                        <div className="flex items-center w-full px-2">
+                          <span className="w-6 h-6 rounded-md bg-primary/5 text-primary flex items-center justify-center font-black text-[10px] shrink-0 mr-2 shadow-inner">{index + 1}</span>
+                          <AccordionTrigger className="flex-1 hover:no-underline py-2.5 group">
+                            <div className="flex items-center w-full">
+                              <div className="flex flex-col text-left flex-1 min-w-0 mr-2">
+                                <span className="font-black text-[12px] uppercase tracking-tight text-black leading-tight truncate">{entry.customerName}</span>
+                                <span className="text-[8px] font-bold text-primary/40 uppercase">{entry.customerId}</span>
                               </div>
-                              <div className="ml-auto flex items-center gap-2">
-                                <div className={cn(
-                                  "px-2.5 py-1 rounded-lg font-black text-[12px] text-white shadow-md border-2",
-                                  balance < -0.1 ? "bg-red-500 border-red-600" : balance > 0.1 ? "bg-blue-500 border-blue-600" : "bg-green-500 border-green-600"
-                                )}>
-                                  {Math.abs(balance).toFixed(1)}
-                                </div>
+                              {/* Subtotal pegado a la derecha */}
+                              <div className={cn(
+                                "ml-auto mr-1 px-2 py-0.5 rounded-md font-black text-[11px] text-white shadow-sm border",
+                                balance < -0.1 ? "bg-red-500 border-red-600" : balance > 0.1 ? "bg-blue-500 border-blue-600" : "bg-green-500 border-green-600"
+                              )}>
+                                {Math.abs(balance).toFixed(1)}
                               </div>
                             </div>
                           </AccordionTrigger>
                         </div>
 
-                        <AccordionContent className="pb-4 pt-2 px-4 border-t border-primary/5 w-full bg-primary/[0.01]">
-                          <div className="space-y-4 pt-2">
-                            {/* Costo de Envío y Eliminar - Adaptado móvil */}
-                            <div className="flex flex-col md:flex-row items-stretch md:items-end justify-between bg-white p-4 rounded-xl border border-primary/10 gap-4">
-                              <div className="flex-1 space-y-2">
-                                <Label className="text-[9px] font-black text-primary uppercase tracking-[0.1em] ml-1">Costo de Envío</Label>
-                                <div className="relative">
-                                   <span className="absolute left-3 top-1/2 -translate-y-1/2 font-black text-[10px] text-primary/40">S/</span>
-                                   <Input 
-                                      type="number" 
-                                      placeholder="0.0" 
-                                      value={entry.shippingCost || ""} 
-                                      onChange={e => handleUpdateShippingCost(entry.customerId, e.target.value)}
-                                      className="h-11 pl-8 text-lg font-black bg-primary/5 rounded-lg border-none focus:ring-2 ring-primary/10" 
-                                    />
-                                </div>
+                        <AccordionContent className="pb-3 pt-2 px-3 border-t border-primary/5 w-full bg-primary/[0.01]">
+                          <div className="space-y-3 pt-1">
+                            {/* Costo de Envío en 1 sola línea para móvil */}
+                            <div className="flex items-center bg-white px-3 py-2 rounded-lg border border-primary/10 gap-3">
+                              <Label className="text-[8px] font-black text-primary uppercase tracking-[0.1em] shrink-0">ENVÍO</Label>
+                              <div className="relative flex-1 max-w-[140px]">
+                                 <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-black text-[9px] text-primary/40">S/</span>
+                                 <Input 
+                                    type="number" 
+                                    placeholder="0.0" 
+                                    value={entry.shippingCost || ""} 
+                                    onChange={e => handleUpdateShippingCost(entry.customerId, e.target.value)}
+                                    className="h-8 pl-6 text-xs font-black bg-primary/5 rounded border-none shadow-inner" 
+                                  />
                               </div>
-                              <Button variant="outline" className="h-11 px-6 rounded-lg font-black text-[10px] text-red-600 border-red-200 bg-red-50/20 hover:bg-red-50" onClick={() => setDeleteConfirm({ id: entry.customerId, name: entry.customerName })}>
-                                <Trash2 className="w-3.5 h-3.5 mr-2" /> REMOVER
+                              <Button variant="ghost" size="icon" className="h-8 w-8 ml-auto text-red-500 hover:bg-red-50 rounded-md" onClick={() => setDeleteConfirm({ id: entry.customerId, name: entry.customerName })}>
+                                <Trash2 className="w-4 h-4" />
                               </Button>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                               {/* Ventas */}
-                              <div className="space-y-2">
-                                <Label className="text-[9px] font-black text-black uppercase tracking-widest ml-1">Ventas</Label>
+                              <div className="space-y-1.5">
+                                <Label className="text-[8px] font-black text-black/40 uppercase tracking-widest ml-1">Ventas</Label>
                                 {(entry.quotes || []).map((q: any) => (
-                                  <div key={q.quoteId} className={cn("flex items-center justify-between px-4 py-3 rounded-lg border transition-all", q.selected ? "bg-white border-primary/20 shadow-sm" : "bg-black/5 border-transparent opacity-40")}>
-                                    <div className="flex items-center gap-3">
-                                      <Checkbox checked={q.selected} onCheckedChange={() => handleToggleItem(entry.customerId, q.quoteId, 'quote')} className="h-5 w-5 border-2 border-primary rounded" />
+                                  <div key={q.quoteId} className={cn("flex items-center justify-between px-3 py-2 rounded-md border transition-all", q.selected ? "bg-white border-primary/20 shadow-sm" : "bg-black/5 border-transparent opacity-40")}>
+                                    <div className="flex items-center gap-2.5">
+                                      <Checkbox checked={q.selected} onCheckedChange={() => handleToggleItem(entry.customerId, q.quoteId, 'quote')} className="h-4 w-4 border-2 border-primary rounded" />
                                       <div className="flex flex-col">
-                                        <span className="text-[11px] font-black uppercase text-black">{q.quoteId}</span>
-                                        <span className="text-[10px] font-bold text-primary">S/ {Number(q.amount).toFixed(1)}</span>
+                                        <span className="text-[10px] font-black uppercase text-black">{q.quoteId}</span>
+                                        <span className="text-[9px] font-bold text-primary">S/ {Number(q.amount).toFixed(1)}</span>
                                       </div>
                                     </div>
-                                    <button onClick={() => handleToggleItem(entry.customerId, q.quoteId, 'quote')} className="p-2 text-black/20 hover:text-red-500 transition-colors"><X className="w-3.5 h-3.5" /></button>
+                                    <button onClick={() => handleToggleItem(entry.customerId, q.quoteId, 'quote')} className="p-1.5 text-black/20 hover:text-red-500"><X className="w-3.5 h-3.5" /></button>
                                   </div>
                                 ))}
                               </div>
 
                               {/* Pagos */}
-                              <div className="space-y-2">
-                                <Label className="text-[9px] font-black text-black uppercase tracking-widest ml-1">Cobros</Label>
+                              <div className="space-y-1.5">
+                                <Label className="text-[8px] font-black text-black/40 uppercase tracking-widest ml-1">Pagos</Label>
                                 {(entry.payments || []).length === 0 ? (
-                                  <div className="p-6 text-center border border-dashed border-black/10 rounded-lg text-[9px] font-black uppercase opacity-20">Sin cobros</div>
+                                  <div className="p-4 text-center border border-dashed border-black/10 rounded-md text-[8px] font-black uppercase opacity-20">Sin cobros</div>
                                 ) : (
                                   entry.payments.map((p: any) => (
-                                    <div key={p.paymentId} className={cn("flex items-center justify-between px-4 py-3 rounded-lg border transition-all", p.selected ? "bg-green-50 border-green-200 shadow-sm" : "bg-black/5 border-transparent opacity-40")}>
-                                      <div className="flex items-center gap-3">
-                                        <Checkbox checked={p.selected} onCheckedChange={() => handleToggleItem(entry.customerId, p.paymentId, 'payment')} className="h-5 w-5 border-2 border-green-500 rounded" />
+                                    <div key={p.paymentId} className={cn("flex items-center justify-between px-3 py-2 rounded-md border transition-all", p.selected ? "bg-green-50 border-green-200 shadow-sm" : "bg-black/5 border-transparent opacity-40")}>
+                                      <div className="flex items-center gap-2.5">
+                                        <Checkbox checked={p.selected} onCheckedChange={() => handleToggleItem(entry.customerId, p.paymentId, 'payment')} className="h-4 w-4 border-2 border-green-500 rounded" />
                                         <div className="flex flex-col">
-                                          <span className="text-[10px] font-black uppercase text-green-800">COBRO</span>
-                                          <span className="text-[10px] font-bold text-green-600">S/ {Number(p.amount).toFixed(1)}</span>
+                                          <span className="text-[9px] font-black uppercase text-green-800">COBRO</span>
+                                          <span className="text-[9px] font-bold text-green-600">S/ {Number(p.amount).toFixed(1)}</span>
                                         </div>
                                       </div>
-                                      <button onClick={() => handleToggleItem(entry.customerId, p.paymentId, 'payment')} className="p-2 text-black/20 hover:text-red-500 transition-colors"><X className="w-3.5 h-3.5" /></button>
+                                      <button onClick={() => handleToggleItem(entry.customerId, p.paymentId, 'payment')} className="p-1.5 text-black/20 hover:text-red-500"><X className="w-3.5 h-3.5" /></button>
                                     </div>
                                   ))
                                 )}
                               </div>
                             </div>
-
-                            {/* Sugerencias compactas */}
-                            {(() => {
-                              const newQuotes = allQuotes.filter(q => q.customerId === entry.customerId && q.status === 'active')
-                              const newPayments = allPayments.filter(p => p.customerId === entry.customerId && !p.isLocked)
-                              if (newQuotes.length === 0 && newPayments.length === 0) return null;
-                              return (
-                                <div className="p-4 bg-orange-50 rounded-xl border border-dashed border-orange-200 space-y-2">
-                                  <div className="flex items-center gap-2 text-orange-600">
-                                    <AlertCircle className="w-4 h-4" />
-                                    <span className="text-[9px] font-black uppercase">Docs. fuera del lote</span>
-                                  </div>
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                    {newQuotes.map(q => (
-                                      <button key={q.id} className="w-full text-left px-4 py-2 bg-white rounded-lg text-[9px] font-black uppercase text-orange-700 border border-orange-100 flex justify-between items-center hover:border-orange-300 transition-all" onClick={() => handleAddCustomer({ id: entry.customerId, name: entry.customerName })}>
-                                        <span>AGREGAR VENTA: {q.id}</span>
-                                        <Plus className="w-3 h-3 opacity-40" />
-                                      </button>
-                                    ))}
-                                    {newPayments.map(p => (
-                                      <button key={p.id} className="w-full text-left px-4 py-2 bg-white rounded-lg text-[9px] font-black uppercase text-green-700 border border-green-100 flex justify-between items-center hover:border-green-300 transition-all" onClick={() => handleAddCustomer({ id: entry.customerId, name: entry.customerName })}>
-                                        <span>AGREGAR COBRO S/ {p.amount.toFixed(1)}</span>
-                                        <Plus className="w-3 h-3 opacity-40" />
-                                      </button>
-                                    ))}
-                                  </div>
-                                </div>
-                              )
-                            })()}
                           </div>
                         </AccordionContent>
                       </AccordionItem>
@@ -440,14 +388,13 @@ export default function ShippingHubPage() {
             </CardContent>
           </Card>
 
-          {/* Registro Histórico Compactado */}
-          <div className="pt-8 space-y-4">
-            <div className="flex items-center gap-3 border-b-2 border-black pb-3">
+          <div className="pt-6 space-y-3">
+            <div className="flex items-center gap-3 border-b-2 border-black pb-2">
               <History className="w-4 h-4 text-black/40" />
               <h2 className="text-lg font-headline font-black text-foreground uppercase tracking-tight">Historial de Lotes</h2>
             </div>
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
               {historyBatches.map(batch => {
                 const total = batch.totalAmount || 0
                 const entries = batch.entries || []
@@ -462,25 +409,25 @@ export default function ShippingHubPage() {
                 })
 
                 return (
-                  <Card key={batch.date} className="rounded-xl border border-black/5 bg-white shadow-sm hover:shadow-lg hover:border-primary/20 transition-all cursor-pointer group" onClick={() => { setDate(new Date(batch.date + "T12:00:00")); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
-                    <CardContent className="p-4 space-y-3">
+                  <Card key={batch.date} className="rounded-lg border border-black/5 bg-white shadow-sm hover:shadow-md hover:border-primary/20 transition-all cursor-pointer group" onClick={() => { setDate(new Date(batch.date + "T12:00:00")); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
+                    <CardContent className="p-3 space-y-2">
                       <div className="flex justify-between items-start">
                         <div className="flex flex-col">
-                          <span className="text-sm font-black uppercase text-black">{format(new Date(batch.date + "T12:00:00"), "dd/MM/yyyy")}</span>
-                          <span className="text-[9px] font-black text-primary/40 uppercase tracking-widest mt-0.5">{entries.length} CLIENTES</span>
+                          <span className="text-[12px] font-black uppercase text-black">{format(new Date(batch.date + "T12:00:00"), "dd/MM/yyyy")}</span>
+                          <span className="text-[8px] font-black text-primary/40 uppercase tracking-widest">{entries.length} CLIENTES</span>
                         </div>
                         <Badge variant="outline" className={cn(
-                          "text-[8px] font-black h-5 px-3 uppercase border-none rounded-lg",
+                          "text-[8px] font-black h-5 px-2.5 uppercase border-none rounded-md",
                           isZero ? "bg-slate-100 text-slate-500" : hasDebt ? "bg-red-100 text-red-600" : "bg-blue-100 text-blue-600"
                         )}>
                           {isZero ? "CUADRADO" : hasDebt ? "DEUDA" : "EXCEDENTE"}
                         </Badge>
                       </div>
-                      <div className="flex justify-between items-end border-t border-black/5 pt-2">
+                      <div className="flex justify-between items-end border-t border-black/5 pt-1.5">
                         <span className="text-[8px] font-black text-primary/30 uppercase">TOTAL</span>
                         <div className="text-right">
                            <span className="text-[9px] font-black text-primary mr-0.5">S/</span>
-                           <span className="font-headline font-black text-xl text-black group-hover:text-primary transition-colors">{total.toFixed(1)}</span>
+                           <span className="font-headline font-black text-lg text-black group-hover:text-primary transition-colors">{total.toFixed(1)}</span>
                         </div>
                       </div>
                     </CardContent>
@@ -492,7 +439,6 @@ export default function ShippingHubPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Diálogo de Confirmación compacto */}
       <Dialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
         <DialogContent className="rounded-[2rem] max-w-[280px] p-8 text-center border-none shadow-2xl bg-white">
           <div className="flex flex-col items-center gap-6">
