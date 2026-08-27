@@ -133,7 +133,7 @@ export default function RegistryPage() {
         category: editingProduct.category || "",
         collection: editingProduct.collection || "",
         description: editingProduct.description || "",
-        stock: editingProduct.stock?.toString() || "",
+        stock: editingProduct.baseStock?.toString() || editingProduct.stock?.toString() || "0",
         priceFardo: editingProduct.priceFardo?.toString() || "",
         priceMayor: editingProduct.priceMayor?.toString() || "",
         priceUnidad: editingProduct.priceUnidad?.toString() || "",
@@ -156,13 +156,24 @@ export default function RegistryPage() {
     const productCode = nextId.toUpperCase()
     try {
       const isNew = !editId;
+      const inputStock = Number(form.stock);
+      const oldBase = Number(editingProduct?.baseStock || 0);
+      const currentReal = Number(editingProduct?.stock || 0);
+      
+      let finalStock = inputStock;
+      if (!isNew) {
+        const diff = inputStock - oldBase;
+        finalStock = currentReal + diff;
+      }
+
       const productData = {
         name: form.name.toUpperCase(),
         code: productCode,
         category: (form.category || "").toUpperCase(),
         collection: (form.collection || "").toUpperCase(),
         description: form.description,
-        stock: Number(form.stock),
+        stock: finalStock,
+        baseStock: inputStock,
         priceFardo: Number(form.priceFardo || 0),
         priceMayor: Number(form.priceMayor || 0),
         priceUnidad: Number(form.priceUnidad || 0),
@@ -172,11 +183,11 @@ export default function RegistryPage() {
       
       await setDoc(doc(db, "products", productCode), productData, { merge: true })
 
-      if (isNew && Number(form.stock) > 0) {
+      if (isNew && inputStock > 0) {
         addDoc(collection(db, "movements"), {
           productCode: productCode,
           type: "in",
-          quantity: Number(form.stock),
+          quantity: inputStock,
           reason: "STOCK INICIAL AL REGISTRAR",
           timestamp: serverTimestamp()
         });
@@ -339,7 +350,7 @@ export default function RegistryPage() {
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="space-y-1">
-                  <Label className="text-[9px] uppercase font-black text-muted-foreground ml-1">Stock</Label>
+                  <Label className="text-[9px] uppercase font-black text-muted-foreground ml-1">Stock Base</Label>
                   <Input type="number" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} className="h-12 rounded-xl font-black text-center border-green-100 bg-green-50 text-green-700" />
                 </div>
                 <div className="space-y-1">

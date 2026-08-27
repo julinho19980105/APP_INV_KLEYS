@@ -11,6 +11,7 @@
         "category": { "type": "string", "description": "Categoría de moda" },
         "collection": { "type": "string", "description": "Colección de temporada" },
         "stock": { "type": "number", "description": "Cantidad disponible total" },
+        "baseStock": { "type": "number", "description": "Stock inicial o base ajustada" },
         "priceFardo": { "type": "number", "description": "Precio por fardo" },
         "priceMayor": { "type": "number", "description": "Precio al por mayor" },
         "priceUnidad": { "type": "number", "description": "Precio por unidad" },
@@ -135,5 +136,5 @@
     "/logistics/{dateKey}": { "schema": "LogisticsBatch", "description": "Gestión de despachos diarios" },
     "/config/{configId}": { "schema": "AppConfig", "description": "Ajustes de identidad y sistema" }
   },
-  "deployTimestamp": "2024-05-23T14:30:00Z"
+  "deployTimestamp": "2024-05-23T14:40:00Z"
 }
