@@ -55,14 +55,15 @@ export default function SalesHistory() {
   const [searchQuery, setSearchQuery] = React.useState("")
   const [statusFilter, setStatusFilter] = React.useState<string>("active")
   const [daysLimit, setDaysLimit] = React.useState(30)
-  const [isPrinting, setIsPrinting] = React.useState(false)
   const [activeReceipt, setActiveReceipt] = React.useState<any>(null)
 
   const receiptRef = React.useRef<HTMLDivElement>(null)
+  const ticketRef = React.useRef<HTMLDivElement>(null)
   
   const configDocRef = React.useMemo(() => db ? doc(db, "config", "global") : null, [db])
   const { data: companySettings } = useDoc(configDocRef)
   const brandColor = companySettings?.brandColor || "#FF3399"
+  const printerWidth = companySettings?.printerWidth || "80"
 
   const quotesRef = React.useMemo(() => {
     if (!db) return null
@@ -130,7 +131,6 @@ export default function SalesHistory() {
 
   const shareReceipt = async (sale: any) => {
     setActiveReceipt(sale)
-    // Pequeño delay para asegurar renderizado del DOM de la boleta
     setTimeout(async () => {
       if (receiptRef.current) {
         try {
@@ -157,6 +157,25 @@ export default function SalesHistory() {
         }
       }
     }, 500)
+  }
+
+  const printTicket = async (sale: any) => {
+    setActiveReceipt(sale)
+    setTimeout(() => {
+      const printWindow = window.open('', '_blank');
+      if (printWindow && ticketRef.current) {
+        printWindow.document.write('<html><head><title>TICKET</title>');
+        printWindow.document.write('<style>body{margin:0;padding:0;font-family:monospace;font-weight:bold;}</style>');
+        printWindow.document.write('</head><body>');
+        printWindow.document.write(ticketRef.current.innerHTML);
+        printWindow.document.write('</body></html>');
+        printWindow.document.close();
+        printWindow.focus();
+        printWindow.print();
+        printWindow.close();
+      }
+      setActiveReceipt(null);
+    }, 300);
   }
 
   return (
@@ -223,8 +242,11 @@ export default function SalesHistory() {
                       <DropdownMenu>
                          <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-primary"><MoreVertical className="w-4 h-4" /></Button></DropdownMenuTrigger>
                          <DropdownMenuContent align="end" className="rounded-xl p-1.5 w-48 shadow-xl">
+                            <DropdownMenuItem className="text-[10px] font-black uppercase gap-2.5 p-2.5" onClick={() => printTicket(s)}>
+                               <Printer className="w-3.5 h-3.5 text-green-600" /> Imprimir Ticket
+                            </DropdownMenuItem>
                             <DropdownMenuItem className="text-[10px] font-black uppercase gap-2.5 p-2.5" onClick={() => shareReceipt(s)}>
-                               <Share2 className="w-3.5 h-3.5 text-blue-500" /> Compartir Boleta
+                               <Share2 className="w-3.5 h-3.5 text-blue-500" /> Compartir Imagen
                             </DropdownMenuItem>
                             <DropdownMenuItem className="text-[10px] font-black uppercase gap-2.5 p-2.5" onClick={() => router.push(`/sales?edit=${s.id}&tab=quotes`)}>
                                <Edit2 className="w-3.5 h-3.5 text-primary" /> Editar Venta
@@ -335,6 +357,59 @@ export default function SalesHistory() {
             
             <div className="mt-12 text-center p-6 bg-black text-white rounded-[2rem]">
               <p className="text-[10px] font-black uppercase tracking-[0.5em]">GRACIAS POR SU PREFERENCIA</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Template para Ticket Térmico */}
+      {activeReceipt && (
+        <div className="fixed -left-[2000px] top-0">
+          <div 
+            ref={ticketRef}
+            style={{ 
+              width: printerWidth === '58' ? '188px' : '260px', 
+              fontSize: '10px', 
+              padding: '5px' 
+            }}
+          >
+            <div style={{ textAlign: 'center', marginBottom: '10px' }}>
+              <div style={{ fontSize: '14px', fontWeight: 'bold' }}>{companySettings?.companyName || 'STILOSTACK'}</div>
+              <div style={{ fontSize: '7px' }}>INDUSTRIAL HIGH-END FASHION</div>
+              <div>--------------------------------</div>
+              <div>BOLETA: {activeReceipt.id}</div>
+              <div>FECHA: {format(activeReceipt.createdAt?.toDate ? activeReceipt.createdAt.toDate() : new Date(), "dd/MM/yy HH:mm")}</div>
+            </div>
+
+            <div>CLIENTE: {activeReceipt.customerName}</div>
+            <div>ID: {activeReceipt.customerId}</div>
+            <div>--------------------------------</div>
+
+            {activeReceipt.items.map((item: any, idx: number) => (
+              <div key={idx} style={{ marginBottom: '5px' }}>
+                <div>{idx + 1}- {item.name}</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>{item.quantity} x {Number(item.price).toFixed(2)}</span>
+                  <span>S/ {((Number(item.price) * Number(item.quantity)) - Number(item.discount)).toFixed(2)}</span>
+                </div>
+                {Number(item.discount) > 0 && (
+                  <div style={{ fontSize: '8px', color: '#666' }}>DESC: -S/ {Number(item.discount).toFixed(2)}</div>
+                )}
+              </div>
+            ))}
+
+            <div>--------------------------------</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
+              <span>CANT TOTAL:</span>
+              <span>{activeReceipt.items.reduce((acc: number, i: any) => acc + Number(i.quantity), 0)} UND</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', fontWeight: 'bold', marginTop: '5px' }}>
+              <span>TOTAL:</span>
+              <span>S/ {Number(activeReceipt.total).toFixed(2)}</span>
+            </div>
+            <div>--------------------------------</div>
+            <div style={{ textAlign: 'center', fontSize: '8px', marginTop: '10px' }}>
+              GRACIAS POR SU COMPRA
             </div>
           </div>
         </div>

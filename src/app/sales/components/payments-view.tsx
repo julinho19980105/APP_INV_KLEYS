@@ -14,7 +14,11 @@ import {
   CreditCard,
   Loader2,
   Trash2,
-  Filter
+  Filter,
+  Edit2,
+  X,
+  Check,
+  AlertCircle
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -24,11 +28,17 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar"
 import { Switch } from "@/components/ui/switch"
 import { useFirestore, useDoc, useCollection } from "@/firebase"
-import { collection, query, orderBy, addDoc, serverTimestamp, doc, limit, deleteDoc } from "firebase/firestore"
+import { collection, query, orderBy, addDoc, serverTimestamp, doc, limit, deleteDoc, updateDoc } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { errorEmitter } from '@/firebase/error-emitter'
 import { FirestorePermissionError } from '@/firebase/errors'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 const STORAGE_KEY = "stilo_payment_draft"
 
@@ -50,6 +60,9 @@ export default function PaymentsView() {
   const [customerSearch, setCustomerSearch] = React.useState("")
   const [listFilter, setListFilter] = React.useState("")
   const [isBankGrouped, setIsBankGrouped] = React.useState(false)
+  
+  const [editingPayment, setEditingPayment] = React.useState<any>(null)
+  const [deleteConfirmId, setDeleteConfirmId] = React.useState<string | null>(null)
 
   const customersRef = React.useMemo(() => db ? query(collection(db, "customers"), orderBy("name")) : null, [db])
   const { data: dbCustomers = [] } = useCollection(customersRef)
@@ -61,26 +74,30 @@ export default function PaymentsView() {
   const { data: payments = [], loading } = useCollection(paymentsQuery)
 
   React.useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY)
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved)
-        if (parsed.date) setDate(new Date(parsed.date))
-        if (parsed.amount) setAmount(parsed.amount)
-        if (parsed.selectedBank) setSelectedBank(parsed.selectedBank)
-        if (parsed.selectedCustomer) setSelectedCustomer(parsed.selectedCustomer)
-      } catch (e) {}
+    if (!editingPayment) {
+      const saved = localStorage.getItem(STORAGE_KEY)
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved)
+          if (parsed.date) setDate(new Date(parsed.date))
+          if (parsed.amount) setAmount(parsed.amount)
+          if (parsed.selectedBank) setSelectedBank(parsed.selectedBank)
+          if (parsed.selectedCustomer) setSelectedCustomer(parsed.selectedCustomer)
+        } catch (e) {}
+      }
     }
-  }, [])
+  }, [editingPayment])
 
   React.useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      date: date.toISOString(),
-      amount,
-      selectedBank,
-      selectedCustomer
-    }))
-  }, [date, amount, selectedBank, selectedCustomer])
+    if (!editingPayment) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        date: date.toISOString(),
+        amount,
+        selectedBank,
+        selectedCustomer
+      }))
+    }
+  }, [date, amount, selectedBank, selectedCustomer, editingPayment])
 
   React.useEffect(() => {
     if (banks.length > 0 && !selectedBank) {
@@ -90,6 +107,7 @@ export default function PaymentsView() {
   }, [banks, selectedBank])
 
   const handleReset = () => {
+    setEditingPayment(null)
     setDate(new Date())
     setAmount("")
     setSelectedCustomer(null)
@@ -100,7 +118,7 @@ export default function PaymentsView() {
     toast({ title: "Formulario Reiniciado" })
   }
 
-  const handleAddPayment = () => {
+  const handleSavePayment = () => {
     if (!db || !selectedCustomer || !amount || !selectedBank) {
       toast({ variant: "destructive", title: "DATOS INCOMPLETOS" })
       return
@@ -115,24 +133,47 @@ export default function PaymentsView() {
       bankName: selectedBank.name,
       date: format(date, "yyyy-MM-dd"),
       isLocked: false,
-      createdAt: serverTimestamp()
+      updatedAt: serverTimestamp(),
+      ...(editingPayment ? {} : { createdAt: serverTimestamp() })
     }
 
-    addDoc(collection(db, "payments"), paymentData)
-      .then(() => {
-        setAmount("")
+    const action = editingPayment 
+      ? updateDoc(doc(db, "payments", editingPayment.id), paymentData)
+      : addDoc(collection(db, "payments"), paymentData)
+
+    action.then(() => {
+        handleReset()
         setSaving(false)
-        toast({ title: "PAGO REGISTRADO" })
+        toast({ title: editingPayment ? "PAGO ACTUALIZADO" : "PAGO REGISTRADO" })
       })
       .catch(async (err) => {
         setSaving(false)
         const permissionError = new FirestorePermissionError({
-          path: 'payments',
-          operation: 'create',
+          path: editingPayment ? `payments/${editingPayment.id}` : 'payments',
+          operation: editingPayment ? 'update' : 'create',
           requestResourceData: paymentData
         });
         errorEmitter.emit('permission-error', permissionError);
       });
+  }
+
+  const startEditing = (p: any) => {
+    setEditingPayment(p)
+    setDate(new Date(p.date + "T12:00:00"))
+    setAmount(p.amount.toString())
+    setSelectedCustomer({ id: p.customerId, name: p.customerName })
+    setSelectedBank(banks.find((b: any) => b.id === p.bankId) || { id: p.bankId, name: p.bankName })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleDelete = (pId: string) => {
+    if (!db) return
+    const pRef = doc(db, "payments", pId)
+    deleteDoc(pRef).catch(async () => {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({ path: pRef.path, operation: 'delete' }));
+    })
+    setDeleteConfirmId(null)
+    toast({ title: "Pago eliminado" })
   }
 
   const filteredCustomers = React.useMemo(() => {
@@ -176,15 +217,22 @@ export default function PaymentsView() {
 
   return (
     <div className="space-y-6 px-2 md:px-0 pb-24">
-      <Card className="rounded-[2.5rem] border-2 border-primary/20 bg-white shadow-2xl overflow-visible relative">
+      <Card className="rounded-[2.5rem] border-2 border-primary/20 bg-white shadow-2xl relative">
         <div className="bg-primary/5 p-5 border-b border-primary/10 flex justify-between items-center">
           <div className="flex items-center gap-2">
             <CreditCard className="w-5 h-5 text-primary" />
-            <h2 className="text-[12px] font-black uppercase text-primary tracking-widest">Registrar Cobranza</h2>
+            <h2 className="text-[12px] font-black uppercase text-primary tracking-widest">
+              {editingPayment ? "Editar Cobro" : "Registrar Cobranza"}
+            </h2>
           </div>
-          <Button variant="ghost" size="icon" className="h-9 w-9 text-primary/40 hover:text-primary active:rotate-90 transition-all" onClick={handleReset}>
-            <RotateCcw className="w-5 h-5" />
-          </Button>
+          <div className="flex items-center gap-2">
+            {editingPayment && (
+              <Badge className="bg-orange-500 text-white font-black text-[9px] uppercase">MODO EDICIÓN</Badge>
+            )}
+            <Button variant="ghost" size="icon" className="h-9 w-9 text-primary/40 hover:text-primary active:rotate-90 transition-all" onClick={handleReset}>
+              <RotateCcw className="w-5 h-5" />
+            </Button>
+          </div>
         </div>
         <CardContent className="p-6 space-y-6 overflow-visible">
           <div className="grid grid-cols-2 gap-4">
@@ -242,7 +290,7 @@ export default function PaymentsView() {
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Seleccionar Banco</Label>
+            <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Banco Receptor</Label>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
               {banks.length === 0 ? (
                 <div className="col-span-full py-4 text-center text-[9px] font-black uppercase text-muted-foreground opacity-30 border-2 border-dashed rounded-xl">Configure bancos en Ajustes</div>
@@ -269,12 +317,21 @@ export default function PaymentsView() {
                 <Search className="absolute left-3 top-3.5 h-4 w-4 text-primary/30" />
                 <Input 
                   placeholder="BUSCAR CLIENTE..." 
-                  className="h-12 pl-9 text-xs font-black uppercase rounded-xl border-primary/10 bg-white"
+                  className={cn(
+                    "h-12 pl-9 text-xs font-black uppercase rounded-xl border-primary/10 bg-white",
+                    editingPayment && "bg-secondary/20 cursor-not-allowed"
+                  )}
                   value={selectedCustomer ? `${selectedCustomer.name} [${selectedCustomer.id}]` : customerSearch}
-                  onChange={e => { if (selectedCustomer) setSelectedCustomer(null); setCustomerSearch(e.target.value); }}
+                  onChange={e => { 
+                    if (!editingPayment) {
+                      if (selectedCustomer) setSelectedCustomer(null); 
+                      setCustomerSearch(e.target.value); 
+                    }
+                  }}
+                  readOnly={!!editingPayment}
                 />
-                {filteredCustomers.length > 0 && (
-                  <div className="absolute z-[999] w-full mt-2 bg-white border-2 border-primary/10 rounded-xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] overflow-hidden max-h-48 overflow-y-auto">
+                {filteredCustomers.length > 0 && !editingPayment && (
+                  <div className="absolute z-[99999] w-full mt-2 bg-white border-2 border-primary/10 rounded-xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] overflow-hidden max-h-48 overflow-y-auto">
                     {filteredCustomers.map(c => (
                       <button 
                         key={c.id} 
@@ -289,11 +346,14 @@ export default function PaymentsView() {
               </div>
             </div>
             <Button 
-              className="h-12 w-12 rounded-xl bg-primary text-white shadow-lg shadow-primary/20 active:scale-95 transition-all shrink-0"
-              onClick={handleAddPayment}
+              className={cn(
+                "h-12 w-12 rounded-xl text-white shadow-lg active:scale-95 transition-all shrink-0",
+                editingPayment ? "bg-orange-500 shadow-orange-500/20" : "bg-primary shadow-primary/20"
+              )}
+              onClick={handleSavePayment}
               disabled={saving || !amount || !selectedCustomer || !selectedBank}
             >
-              {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-6 h-6" />}
+              {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : editingPayment ? <Check className="w-6 h-6" /> : <Plus className="w-6 h-6" />}
             </Button>
           </div>
         </CardContent>
@@ -356,21 +416,36 @@ export default function PaymentsView() {
                     </div>
                     <div className="text-right flex items-center gap-4">
                       <div className="font-headline font-black text-[15px] text-foreground">S/ {p.amount.toFixed(2)}</div>
-                      <div className="flex items-center gap-2">
-                        <Unlock className="w-4 h-4 text-green-500/40" />
+                      <div className="flex items-center gap-1">
                         <button 
-                          className="opacity-0 group-hover:opacity-100 p-1.5 text-destructive rounded-lg transition-all"
-                          onClick={() => { 
-                            if(confirm("¿ELIMINAR PAGO?")) {
-                              const pRef = doc(db, "payments", p.id);
-                              deleteDoc(pRef).catch(async () => {
-                                errorEmitter.emit('permission-error', new FirestorePermissionError({ path: pRef.path, operation: 'delete' }));
-                              });
-                            }
-                          }}
+                          className="p-2 text-primary/40 hover:text-primary transition-all"
+                          onClick={() => startEditing(p)}
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Edit2 className="w-4 h-4" />
                         </button>
+                        
+                        <Popover open={deleteConfirmId === p.id} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
+                          <PopoverTrigger asChild>
+                            <button 
+                              className="p-2 text-destructive/40 hover:text-destructive transition-all"
+                              onClick={() => setDeleteConfirmId(p.id)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-4 rounded-2xl border-none shadow-2xl bg-destructive text-white" side="top">
+                            <div className="space-y-3 text-center">
+                              <div className="flex items-center justify-center gap-2 mb-2">
+                                <AlertCircle className="w-4 h-4" />
+                                <span className="text-[10px] font-black uppercase tracking-widest">¿BORRAR PAGO?</span>
+                              </div>
+                              <div className="flex gap-2">
+                                <Button size="sm" variant="ghost" className="h-8 px-4 text-[9px] font-black uppercase text-white hover:bg-white/10" onClick={() => setDeleteConfirmId(null)}>NO</Button>
+                                <Button size="sm" className="h-8 px-4 text-[9px] font-black uppercase bg-white text-destructive hover:bg-white/90 shadow-lg" onClick={() => handleDelete(p.id)}>SÍ</Button>
+                              </div>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
                       </div>
                     </div>
                   </CardContent>
