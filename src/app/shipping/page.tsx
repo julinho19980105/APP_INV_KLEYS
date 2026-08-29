@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -42,7 +43,8 @@ import {
   collection, 
   orderBy, 
   updateDoc,
-  where
+  where,
+  getDocs
 } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import CustomersHubPage from "../customers/page"
@@ -81,11 +83,24 @@ export default function ShippingHubPage() {
   const { data: allQuotes = [] } = useCollection(allQuotesRef)
   const { data: allPayments = [] } = useCollection(allPaymentsRef)
 
+  // Sincronización con la lógica de Secciones 1, 2 y 3:
+  // Solo clientes que NO están en logística hoy Y tienen actividad activa (cotizaciones o pagos no bloqueados)
   const activeCustomerSuggestions = React.useMemo(() => {
-    const activeCustIds = new Set(allQuotes.filter(q => q.status === 'active').map(q => q.customerId))
-    const paymentCustIds = new Set(allPayments.filter(p => !p.isLocked).map(p => p.customerId))
-    return dbCustomers.filter(c => activeCustIds.has(c.id) || paymentCustIds.has(c.id))
-  }, [dbCustomers, allQuotes, allPayments])
+    // Clientes que ya están en algún lote de logística histórico o actual
+    const shippedCustIds = new Set(historyBatches.flatMap(l => (l.entries || []).map((e: any) => e.customerId)))
+    if (logData?.entries) {
+      logData.entries.forEach((e: any) => shippedCustIds.add(e.customerId))
+    }
+
+    const activeQuoteCustIds = new Set(allQuotes.filter(q => q.status === 'active').map(q => q.customerId))
+    const pendingPaymentCustIds = new Set(allPayments.filter(p => !p.isLocked).map(p => p.customerId))
+
+    return dbCustomers.filter(c => {
+      const isNotShipped = !shippedCustIds.has(c.id)
+      const hasActivity = activeQuoteCustIds.has(c.id) || pendingPaymentCustIds.has(c.id)
+      return isNotShipped && hasActivity
+    })
+  }, [dbCustomers, allQuotes, allPayments, historyBatches, logData])
 
   const filteredSuggestions = React.useMemo(() => {
     const q = customerSearch.toLowerCase()
@@ -109,11 +124,7 @@ export default function ShippingHubPage() {
     const customerQuotes = allQuotes.filter(q => q.customerId === customer.id && q.status === "active")
     const customerPayments = allPayments.filter(p => p.customerId === customer.id && !p.isLocked)
     
-    if (customerQuotes.length === 0 && customerPayments.length === 0) {
-      toast({ title: "SIN PENDIENTES", description: "No hay boletas activas ni pagos para este cliente." })
-      return
-    }
-
+    // Al añadir a logística, las boletas pasan a 'shipped'
     for (const q of customerQuotes) {
       updateDoc(doc(db, "quotes", q.id), { status: 'shipped' }).catch(() => {})
     }
@@ -214,24 +225,24 @@ export default function ShippingHubPage() {
               </div>
             </div>
 
-            <div className="relative w-full z-20">
+            <div className="relative w-full z-[40]">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
               <Input 
-                placeholder="AÑADIR CLIENTE PENDIENTE..." 
+                placeholder="AÑADIR CLIENTE (SOLO SECC. 1, 2 Y 3)..." 
                 className="pl-11 h-11 w-full rounded-xl border border-slate-300 font-medium text-xs uppercase shadow-sm bg-white" 
                 value={customerSearch} 
                 onChange={e => setCustomerSearch(e.target.value)} 
                 onFocus={() => setIsSearchOpen(true)} 
               />
               {isSearchOpen && (
-                <div className="absolute z-30 w-full mt-1 bg-white border border-slate-300 rounded-xl shadow-2xl overflow-hidden">
+                <div className="absolute z-[50] w-full mt-1 bg-white border border-slate-300 rounded-xl shadow-2xl overflow-hidden">
                   <div className="p-2 bg-slate-50 border-b border-slate-200 flex justify-between items-center px-4">
-                    <span className="text-[8px] font-bold uppercase text-slate-500 tracking-widest">Resultados</span>
+                    <span className="text-[8px] font-bold uppercase text-slate-500 tracking-widest">Clientes en Ciclo Activo</span>
                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsSearchOpen(false)}><X className="w-3.5 h-3.5" /></Button>
                   </div>
                   <div className="max-h-[250px] overflow-y-auto">
                     {filteredSuggestions.length === 0 ? (
-                      <div className="p-10 text-center opacity-20 text-[9px] font-bold uppercase">Sin boletas activas</div>
+                      <div className="p-10 text-center opacity-20 text-[9px] font-bold uppercase">Sin clientes pendientes de envío</div>
                     ) : filteredSuggestions.map(c => (
                       <button key={c.id} className="w-full text-left px-5 py-4 hover:bg-slate-50 border-b last:border-0 flex items-center justify-between group" onClick={() => handleAddCustomer(c)}>
                         <div className="flex flex-col">

@@ -10,7 +10,8 @@ import {
   AlertCircle,
   CheckCircle2,
   Truck,
-  Loader2
+  Loader2,
+  UserMinus
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -46,17 +47,21 @@ export default function CustomersHubPage() {
   const customerData = React.useMemo(() => {
     return customers.map(c => {
       const cQuotes = quotes.filter(q => q.customerId === c.id && q.status !== 'annulled')
+      const activeQuotes = cQuotes.filter(q => q.status === 'active')
       const cPayments = payments.filter(p => p.customerId === c.id)
       
       const totalInvoiced = cQuotes.reduce((acc, q) => acc + (q.total || 0), 0)
       const totalPaid = cPayments.reduce((acc, p) => acc + (p.amount || 0), 0)
       
-      // El balance se calcula considerando el costo de envío de los envíos registrados
       const shipmentHistory = logistics.flatMap(l => 
         (l.entries || [])
           .filter((e: any) => e.customerId === c.id)
           .map((e: any) => ({ ...e, dateKey: l.date }))
       ).sort((a, b) => b.dateKey.localeCompare(a.dateKey))
+
+      // Un pago se considera "procesado" si ya está en un lote de envío
+      const processedPaymentIds = new Set(shipmentHistory.flatMap(h => (h.payments || []).map((p: any) => p.paymentId)))
+      const unlockedPayments = cPayments.filter(p => !p.isLocked && !processedPaymentIds.has(p.id))
 
       const totalShippingCost = shipmentHistory.reduce((acc, h) => acc + Number(h.shippingCost || 0), 0)
       const balance = totalPaid - (totalInvoiced + totalShippingCost)
@@ -73,13 +78,20 @@ export default function CustomersHubPage() {
         return { ...entry, currentBalance: runningBalance }
       })
 
+      const isShipped = shipmentHistory.length > 0
+      const hasActiveBusiness = activeQuotes.length > 0 || unlockedPayments.length > 0
+      const isInactive = !isShipped && !hasActiveBusiness
+
       return {
         ...c,
         totalInvoiced,
         totalPaid,
         balance,
         history,
-        shipmentHistory
+        shipmentHistory,
+        isShipped,
+        hasActiveBusiness,
+        isInactive
       }
     })
   }, [customers, quotes, payments, logistics])
@@ -91,18 +103,18 @@ export default function CustomersHubPage() {
 
   const totalInStreet = React.useMemo(() => {
     return customerData
-      .filter(c => c.balance < -1)
+      .filter(c => c.balance < -1 && !c.isInactive)
       .reduce((acc, c) => acc + Math.abs(c.balance), 0)
   }, [customerData])
 
   const debtorCount = React.useMemo(() => {
-    return customerData.filter(c => c.balance < -1).length
+    return customerData.filter(c => c.balance < -1 && !c.isInactive).length
   }, [customerData])
 
   const sections = React.useMemo(() => {
-    // Lógica Exclusiva: Un cliente solo puede estar en una sección a la vez
-    const shipped = filtered.filter(c => c.shipmentHistory && c.shipmentHistory.length > 0)
-    const notShipped = filtered.filter(c => !c.shipmentHistory || c.shipmentHistory.length === 0)
+    const shipped = filtered.filter(c => c.isShipped)
+    const activeCycle = filtered.filter(c => !c.isShipped && c.hasActiveBusiness)
+    const inactive = filtered.filter(c => c.isInactive)
 
     return [
       { 
@@ -110,21 +122,21 @@ export default function CustomersHubPage() {
         color: "text-red-500", 
         lineColor: "bg-red-200",
         icon: AlertCircle,
-        data: notShipped.filter(c => c.balance < -1).sort((a, b) => a.balance - b.balance)
+        data: activeCycle.filter(c => c.balance < -1).sort((a, b) => a.balance - b.balance)
       },
       { 
         title: "SALDOS A FAVOR", 
         color: "text-blue-500", 
         lineColor: "bg-blue-200",
         icon: CircleDollarSign,
-        data: notShipped.filter(c => c.balance > 1).sort((a, b) => b.balance - a.balance)
+        data: activeCycle.filter(c => c.balance > 1).sort((a, b) => b.balance - a.balance)
       },
       { 
         title: "ACTIVOS / AL DÍA", 
         color: "text-emerald-500", 
         lineColor: "bg-emerald-200",
         icon: CheckCircle2,
-        data: notShipped.filter(c => Math.abs(c.balance) <= 1)
+        data: activeCycle.filter(c => Math.abs(c.balance) <= 1)
       },
       { 
         title: "HISTORIAL DE ENVÍOS CERRADOS", 
@@ -132,13 +144,19 @@ export default function CustomersHubPage() {
         lineColor: "bg-slate-200",
         icon: Truck,
         data: shipped
+      },
+      { 
+        title: "CLIENTES SIN COMPRAS", 
+        color: "text-slate-300", 
+        lineColor: "bg-slate-100",
+        icon: UserMinus,
+        data: inactive
       }
     ]
   }, [filtered])
 
   return (
     <div className="space-y-4 pt-1 pb-24 px-2 md:px-0 max-w-4xl mx-auto animate-in fade-in duration-700">
-      {/* KPI Principal */}
       <div className="bg-[#0f172a] rounded-[2rem] p-6 shadow-2xl flex items-center justify-between relative overflow-hidden">
         <div className="flex items-center gap-5 relative z-10">
           <div className="w-14 h-14 rounded-2xl bg-[#0296FF] flex items-center justify-center shadow-lg shadow-blue-500/20">
@@ -158,7 +176,6 @@ export default function CustomersHubPage() {
         </div>
       </div>
 
-      {/* Buscador */}
       <div className="relative group">
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300 transition-colors group-focus-within:text-primary" />
         <Input 
@@ -169,7 +186,6 @@ export default function CustomersHubPage() {
         />
       </div>
 
-      {/* Lista de Acordeones */}
       <Accordion type="multiple" className="space-y-1">
         {sections.map((section, sIdx) => {
           const sectionTotal = section.data.reduce((acc, c) => acc + Math.abs(c.balance), 0)
@@ -205,71 +221,75 @@ export default function CustomersHubPage() {
                                 sIdx === 1 ? "text-blue-500 bg-blue-50 border-blue-100" : 
                                 sIdx === 3 ? (
                                   c.balance < -1 ? "text-red-500 bg-red-50 border-red-100" : "text-slate-400 bg-slate-50 border-slate-200"
-                                ) : "text-emerald-500 bg-emerald-50 border-emerald-100")}>
-                                {sIdx === 3 ? (
+                                ) : sIdx === 4 ? "text-slate-300 bg-slate-50 border-slate-200" : "text-emerald-500 bg-emerald-50 border-emerald-100")}>
+                                {sIdx >= 3 ? (
                                   c.balance < -1 ? `S/ ${Math.abs(c.balance).toFixed(1)}` : "S/ 0.0"
                                 ) : `S/ ${Math.abs(c.balance).toFixed(1)}`}
                               </div>
                             </div>
                           </AccordionTrigger>
                           <AccordionContent className="px-1 pb-4 pt-1">
-                            <div className="rounded-2xl border border-slate-200 overflow-hidden bg-white shadow-sm mx-1">
-                              <table className="w-full text-left text-[9px] font-medium uppercase">
-                                <thead className="bg-slate-50 border-b border-slate-100">
-                                  {sIdx === 3 ? (
-                                    <tr>
-                                      <th className="px-4 py-2 text-slate-400">FECHA ENVÍO</th>
-                                      <th className="px-4 py-2 text-slate-400">BOLETAS</th>
-                                      <th className="px-4 py-2 text-right text-slate-400">COSTO ENVÍO</th>
-                                    </tr>
-                                  ) : (
-                                    <tr>
-                                      <th className="px-4 py-2 text-slate-400">FECHA</th>
-                                      <th className="px-4 py-2 text-slate-400">REFERENCIA / MONTO</th>
-                                      <th className="px-4 py-2 text-right text-slate-400">SALDO</th>
-                                    </tr>
-                                  )}
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                  {sIdx === 3 ? (
-                                    c.shipmentHistory.map((h: any, hIdx: number) => (
-                                      <tr key={hIdx} className="hover:bg-slate-50/50">
-                                        <td className="px-4 py-3 text-slate-600">{format(new Date(h.dateKey + "T12:00:00"), "dd/MM/yy")}</td>
-                                        <td className="px-4 py-3">
-                                          <div className="flex gap-1 flex-wrap">
-                                            {(h.quotes || []).map((q: any) => (
-                                              <Badge key={q.quoteId} variant="outline" className="text-[7px] font-bold border-blue-100 text-blue-500 h-4">{q.quoteId}</Badge>
-                                            ))}
-                                          </div>
-                                        </td>
-                                        <td className="px-4 py-3 text-right font-headline text-slate-700">S/ {Number(h.shippingCost || 0).toFixed(1)}</td>
+                            {sIdx === 4 ? (
+                              <div className="py-8 text-center text-[10px] font-bold uppercase text-slate-300 tracking-widest border border-dashed rounded-2xl mx-1">Cliente sin actividad registrada</div>
+                            ) : (
+                              <div className="rounded-2xl border border-slate-200 overflow-hidden bg-white shadow-sm mx-1">
+                                <table className="w-full text-left text-[9px] font-medium uppercase">
+                                  <thead className="bg-slate-50 border-b border-slate-100">
+                                    {sIdx === 3 ? (
+                                      <tr>
+                                        <th className="px-4 py-2 text-slate-400">FECHA ENVÍO</th>
+                                        <th className="px-4 py-2 text-slate-400">BOLETAS</th>
+                                        <th className="px-4 py-2 text-right text-slate-400">COSTO ENVÍO</th>
                                       </tr>
-                                    ))
-                                  ) : (
-                                    c.history.map((h, hIdx) => (
-                                      <tr key={hIdx} className="hover:bg-slate-50/50">
-                                        <td className="px-4 py-3 text-slate-500">{format(h.date, "dd/MM/yy")}</td>
-                                        <td className="px-4 py-3">
-                                          <div className="flex flex-col gap-0.5">
-                                             <span className="text-slate-700 font-medium">{h.id}</span>
-                                             <span className={cn("font-bold text-[10px]", 
-                                               h.type === 'quote' || h.type === 'shipping' ? "text-red-500" : "text-blue-500")}>
-                                               S/ {h.amount.toFixed(1)}
-                                             </span>
-                                          </div>
-                                        </td>
-                                        <td className={cn(
-                                          "px-4 py-3 text-right font-headline font-bold text-[11px]",
-                                          h.currentBalance < -0.1 ? "text-red-500" : h.currentBalance > 0.1 ? "text-emerald-500" : "text-red-500"
-                                        )}>
-                                          S/ {h.currentBalance.toFixed(1)}
-                                        </td>
+                                    ) : (
+                                      <tr>
+                                        <th className="px-4 py-2 text-slate-400">FECHA</th>
+                                        <th className="px-4 py-2 text-slate-400">REFERENCIA / MONTO</th>
+                                        <th className="px-4 py-2 text-right text-slate-400">SALDO</th>
                                       </tr>
-                                    ))
-                                  )}
-                                </tbody>
-                              </table>
-                            </div>
+                                    )}
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-100">
+                                    {sIdx === 3 ? (
+                                      c.shipmentHistory.map((h: any, hIdx: number) => (
+                                        <tr key={hIdx} className="hover:bg-slate-50/50">
+                                          <td className="px-4 py-3 text-slate-600">{format(new Date(h.dateKey + "T12:00:00"), "dd/MM/yy")}</td>
+                                          <td className="px-4 py-3">
+                                            <div className="flex gap-1 flex-wrap">
+                                              {(h.quotes || []).map((q: any) => (
+                                                <Badge key={q.quoteId} variant="outline" className="text-[7px] font-bold border-blue-100 text-blue-500 h-4">{q.quoteId}</Badge>
+                                              ))}
+                                            </div>
+                                          </td>
+                                          <td className="px-4 py-3 text-right font-headline text-slate-700">S/ {Number(h.shippingCost || 0).toFixed(1)}</td>
+                                        </tr>
+                                      ))
+                                    ) : (
+                                      c.history.map((h, hIdx) => (
+                                        <tr key={hIdx} className="hover:bg-slate-50/50">
+                                          <td className="px-4 py-3 text-slate-500">{format(h.date, "dd/MM/yy")}</td>
+                                          <td className="px-4 py-3">
+                                            <div className="flex flex-col gap-0.5">
+                                               <span className="text-slate-700 font-medium">{h.id}</span>
+                                               <span className={cn("font-bold text-[10px]", 
+                                                 h.type === 'quote' || h.type === 'shipping' ? "text-red-500" : "text-blue-500")}>
+                                                 S/ {h.amount.toFixed(1)}
+                                               </span>
+                                            </div>
+                                          </td>
+                                          <td className={cn(
+                                            "px-4 py-3 text-right font-headline font-bold text-[11px]",
+                                            h.currentBalance < -0.1 ? "text-red-500" : h.currentBalance > 0.1 ? "text-emerald-500" : "text-red-500"
+                                          )}>
+                                            S/ {h.currentBalance.toFixed(1)}
+                                          </td>
+                                        </tr>
+                                      ))
+                                    )}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
                           </AccordionContent>
                         </AccordionItem>
                       </Accordion>
