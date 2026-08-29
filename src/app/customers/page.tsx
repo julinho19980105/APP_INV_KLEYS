@@ -128,7 +128,7 @@ export default function CustomersHubPage() {
 
   return (
     <div className="space-y-4 pt-1 pb-24 px-2 md:px-0 max-w-4xl mx-auto animate-in fade-in duration-700">
-      {/* KPI Principal Estilo Referencia */}
+      {/* KPI Principal */}
       <div className="bg-[#0f172a] rounded-[2rem] p-6 shadow-2xl flex items-center justify-between relative overflow-hidden">
         <div className="flex items-center gap-5 relative z-10">
           <div className="w-14 h-14 rounded-2xl bg-[#0296FF] flex items-center justify-center shadow-lg shadow-blue-500/20">
@@ -211,8 +211,7 @@ export default function CustomersHubPage() {
                                   ) : (
                                     <tr>
                                       <th className="px-4 py-2 text-slate-400">FECHA</th>
-                                      <th className="px-4 py-2 text-slate-400">REFERENCIA</th>
-                                      <th className="px-4 py-2 text-center text-slate-400">TIPO</th>
+                                      <th className="px-4 py-2 text-slate-400">REFERENCIA / MONTO</th>
                                       <th className="px-4 py-2 text-right text-slate-400">SALDO</th>
                                     </tr>
                                   )}
@@ -236,13 +235,18 @@ export default function CustomersHubPage() {
                                     c.history.map((h, hIdx) => (
                                       <tr key={hIdx} className="hover:bg-slate-50/50">
                                         <td className="px-4 py-3 text-slate-500">{format(h.date, "dd/MM/yy")}</td>
-                                        <td className="px-4 py-3 text-slate-700 font-medium">{h.id}</td>
-                                        <td className="px-4 py-3 text-center">
-                                          <Badge className={cn("text-[7px] font-bold h-3.5 border-none uppercase px-1.5", h.type === 'quote' ? "bg-red-50 text-red-500" : "bg-blue-50 text-blue-500")}>
-                                            {h.type === 'quote' ? 'Cargo' : 'Abono'}
-                                          </Badge>
+                                        <td className="px-4 py-3">
+                                          <div className="flex flex-col gap-0.5">
+                                             <span className="text-slate-700 font-medium">{h.id}</span>
+                                             <span className={cn("font-bold text-[10px]", h.type === 'quote' ? "text-red-500" : "text-blue-500")}>
+                                               S/ {h.amount.toFixed(1)}
+                                             </span>
+                                          </div>
                                         </td>
-                                        <td className={cn("px-4 py-3 text-right font-headline font-bold", h.currentBalance < 0 ? "text-red-500" : "text-blue-500")}>
+                                        <td className={cn(
+                                          "px-4 py-3 text-right font-headline font-bold text-[11px]",
+                                          h.currentBalance < 0 ? "text-red-500" : h.currentBalance > 0 ? "text-emerald-500" : "text-red-500"
+                                        )}>
                                           S/ {h.currentBalance.toFixed(1)}
                                         </td>
                                       </tr>
