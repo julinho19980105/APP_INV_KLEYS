@@ -14,7 +14,8 @@ import {
   ChevronRight,
   MoreVertical,
   CalendarDays,
-  UserPlus
+  UserPlus,
+  AlertCircle
 } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
@@ -191,7 +192,6 @@ export default function ShippingHubPage() {
           <TabsContent value="clientes" className="mt-4 focus-visible:outline-none"><CustomersHubPage /></TabsContent>
 
           <TabsContent value="envios" className="mt-0 space-y-4 focus-visible:outline-none">
-            {/* Cabecera Registro de Envíos Industrial con overflow visible para el buscador */}
             <div className="bg-[#0f172a] rounded-b-[2rem] p-5 pb-7 space-y-4 shadow-2xl relative overflow-visible">
                <div className="flex items-center justify-between relative z-10">
                   <h1 className="text-[13px] font-black text-white uppercase tracking-widest">REGISTRO DE ENVÍOS</h1>
@@ -232,13 +232,11 @@ export default function ShippingHubPage() {
                   )}
                </div>
 
-               {/* Icono decorativo con su propio contenedor para no romper el buscador */}
                <div className="absolute inset-0 rounded-b-[2rem] overflow-hidden pointer-events-none">
                  <Truck className="w-40 h-40 text-white absolute bottom-0 right-0 opacity-5 -mb-8 -mr-8" />
                </div>
             </div>
 
-            {/* Indicadores de Lote Compactos */}
             <div className="grid grid-cols-3 gap-2 px-4 -mt-3 relative z-10">
                <div className="bg-white border border-slate-300 rounded-xl p-3 text-center shadow-md">
                  <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest block">FACTURADO</span>
@@ -254,7 +252,6 @@ export default function ShippingHubPage() {
                </div>
             </div>
 
-            {/* Lista Lote Actual con Altura Mínima */}
             <div className="px-2 space-y-2 min-h-[220px] relative z-0">
                {(!logData?.entries || logData.entries.length === 0) ? (
                  <div className="bg-white border border-dashed border-slate-300 rounded-[2.5rem] py-16 flex flex-col items-center justify-center gap-4 opacity-30 shadow-inner">
@@ -323,7 +320,6 @@ export default function ShippingHubPage() {
                )}
             </div>
 
-            {/* Historial de Lotes Industrial */}
             <div className="px-2 pt-6 space-y-3">
                <div className="flex items-center gap-2 px-2">
                  <History className="w-3.5 h-3.5 text-slate-400" />
@@ -335,6 +331,15 @@ export default function ShippingHubPage() {
                       const qt = (e.quotes || []).reduce((a: number, q: any) => a + Number(q.amount), 0)
                       return acc + qt
                     }, 0)
+                    
+                    const bDebt = (batch.entries || []).reduce((acc: number, e: any) => {
+                      const qT = (e.quotes || []).reduce((a: number, q: any) => a + Number(q.amount), 0)
+                      const pT = (e.payments || []).reduce((a: number, p: any) => a + Number(p.amount), 0)
+                      const ship = Number(e.shippingCost || 0)
+                      const bal = pT - (qT + ship)
+                      return bal < -0.1 ? acc + Math.abs(bal) : acc
+                    }, 0)
+
                     const bEntriesCount = (batch.entries || []).length
                     if (bEntriesCount === 0) return null
 
@@ -353,14 +358,23 @@ export default function ShippingHubPage() {
                               <div className="text-[9px] font-bold text-slate-400">TOTAL FACTURADO: S/ {bTotal.toFixed(0)}</div>
                             </div>
                           </div>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-8 w-8 text-slate-300 hover:text-primary rounded-lg" 
-                            onClick={() => { setDate(new Date(batch.date + "T12:00:00")); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                          >
-                             <Search className="w-4 h-4" />
-                          </Button>
+                          
+                          <div className="flex items-center gap-3">
+                            <div className={cn(
+                              "px-3 py-1 rounded-lg font-black text-[11px] shadow-sm",
+                              bDebt > 0 ? "bg-red-600 text-white" : "bg-slate-100 text-slate-400"
+                            )}>
+                              S/ {bDebt.toFixed(0)}
+                            </div>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8 text-slate-300 hover:text-primary rounded-lg" 
+                              onClick={() => { setDate(new Date(batch.date + "T12:00:00")); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                            >
+                               <Search className="w-4 h-4" />
+                            </Button>
+                          </div>
                         </CardContent>
                       </Card>
                     )
@@ -371,7 +385,6 @@ export default function ShippingHubPage() {
         </div>
       </Tabs>
 
-      {/* Confirmar Eliminación */}
       <Dialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
         <DialogContent className="rounded-[2rem] max-w-[300px] p-8 text-center border-none shadow-2xl">
           <DialogHeader className="sr-only"><DialogTitle>Confirmar Acción</DialogTitle></DialogHeader>

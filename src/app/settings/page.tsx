@@ -2,7 +2,23 @@
 "use client"
 
 import * as React from "react"
-import { Settings, Save, Building2, Upload, X, Loader2, Printer, CreditCard, Plus, Edit2, Package, Tag } from "lucide-react"
+import { 
+  Settings, 
+  Save, 
+  Building2, 
+  Upload, 
+  X, 
+  Loader2, 
+  Printer, 
+  CreditCard, 
+  Plus, 
+  Edit2, 
+  Package, 
+  Tag,
+  ShieldCheck,
+  Zap,
+  ArrowRightLeft
+} from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -136,6 +152,49 @@ export default function SettingsPage() {
         <h1 className="text-3xl font-headline font-black text-black uppercase tracking-tight">Configuración</h1>
       </div>
 
+      {/* Esquema Informativo Blindado */}
+      <Card className="rounded-[2.5rem] border-2 border-emerald-500/20 bg-emerald-50/30 overflow-hidden">
+        <CardHeader className="bg-emerald-500/10 border-b border-emerald-500/10 py-4">
+          <CardTitle className="text-[10px] font-black text-emerald-700 uppercase flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4" /> Esquema de Lógica Blindada (ERP)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-4">
+            <div className="flex gap-3">
+              <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center shrink-0 shadow-lg shadow-emerald-500/20"><Zap className="w-4 h-4 text-white" /></div>
+              <div>
+                <span className="text-[9px] font-black text-emerald-800 uppercase block">Ventas e Inventario</span>
+                <p className="text-[8px] font-medium text-emerald-600 uppercase mt-1 leading-relaxed">Cada venta descuenta stock automáticamente. Los productos manuales no afectan el balance maestro.</p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <div className="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center shrink-0 shadow-lg shadow-blue-500/20"><ArrowRightLeft className="w-4 h-4 text-white" /></div>
+              <div>
+                <span className="text-[9px] font-black text-blue-800 uppercase block">Edición Blindada</span>
+                <p className="text-[8px] font-medium text-blue-600 uppercase mt-1 leading-relaxed">Al editar boletas, el sistema restaura el stock anterior antes de aplicar el nuevo, garantizando cuadres perfectos.</p>
+              </div>
+            </div>
+          </div>
+          <div className="space-y-4">
+            <div className="flex gap-3">
+              <div className="w-8 h-8 rounded-lg bg-red-500 flex items-center justify-center shrink-0 shadow-lg shadow-red-500/20"><X className="w-4 h-4 text-white" /></div>
+              <div>
+                <span className="text-[9px] font-black text-red-800 uppercase block">Anulaciones y Retornos</span>
+                <p className="text-[8px] font-medium text-red-600 uppercase mt-1 leading-relaxed">Anular una boleta genera un movimiento de RETORNO instantáneo, devolviendo las prendas al catálogo.</p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <div className="w-8 h-8 rounded-lg bg-orange-500 flex items-center justify-center shrink-0 shadow-lg shadow-orange-500/20"><Package className="w-4 h-4 text-white" /></div>
+              <div>
+                <span className="text-[9px] font-black text-orange-800 uppercase block">Ajustes de Producto</span>
+                <p className="text-[8px] font-medium text-orange-600 uppercase mt-1 leading-relaxed">Cambiar el stock base de un producto genera un movimiento de AJUSTE (Entrada/Salida) en el Kardex.</p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-6">
           <Card className="rounded-[2.5rem] border shadow-sm bg-white overflow-hidden">
@@ -169,7 +228,6 @@ export default function SettingsPage() {
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-[8px] font-medium text-muted-foreground uppercase mt-2 px-1">Esta categoría se seleccionará automáticamente al abrir el inventario.</p>
               </div>
             </CardContent>
           </Card>
@@ -186,13 +244,10 @@ export default function SettingsPage() {
                 <Button className="h-10 w-10 rounded-xl bg-black text-white" onClick={addBank}><Plus className="w-4 h-4" /></Button>
               </div>
               <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
-                {form.banks.length === 0 && (
-                  <div className="py-4 text-center opacity-20 text-[9px] font-black uppercase border-2 border-dashed rounded-xl">Agregue bancos</div>
-                )}
                 {form.banks.map(bank => (
                   <div key={bank.id} className="flex items-center justify-between p-3 bg-black/5 rounded-xl border group">
                     <div className="flex items-center gap-3">
-                       <button onClick={() => setDefaultBank(bank.id)} className={cn("w-4 h-4 rounded-full border-2", bank.isDefault ? "bg-primary border-primary shadow-[0_0_8px_rgba(255,51,153,0.5)]" : "bg-white border-black/20")} />
+                       <button onClick={() => setDefaultBank(bank.id)} className={cn("w-4 h-4 rounded-full border-2", bank.isDefault ? "bg-primary border-primary" : "bg-white border-black/20")} />
                        <span className={cn("text-[10px] font-black uppercase", bank.isDefault && "text-primary")}>{bank.name}</span>
                     </div>
                     <button className="text-primary/40 hover:text-primary transition-all p-2" onClick={() => setEditingBank(bank)}><Edit2 className="w-3.5 h-3.5" /></button>
@@ -221,14 +276,14 @@ export default function SettingsPage() {
       </div>
 
       <Dialog open={!!editingBank} onOpenChange={() => setEditingBank(null)}>
-        <DialogContent className="rounded-[2rem] max-w-xs p-6 border-none">
-          <DialogHeader className="sr-only"><DialogTitle>Editar Nombre de Banco</DialogTitle></DialogHeader>
+        <DialogContent className="rounded-[2rem] max-w-[300px] p-8 border-none">
+          <DialogHeader className="sr-only"><DialogTitle>Editar Banco</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <Label className="text-[10px] font-black uppercase text-primary">Renombrar Banco</Label>
-            <Input value={editingBank?.name || ''} onChange={e => setEditingBank(prev => prev ? ({ ...prev, name: e.target.value }) : null)} className="h-10 text-[10px] font-black uppercase text-center" />
+            <Label className="text-[10px] font-black uppercase text-primary">Nombre del Banco</Label>
+            <Input value={editingBank?.name || ''} onChange={e => setEditingBank(prev => prev ? ({ ...prev, name: e.target.value }) : null)} className="h-12 text-[12px] font-black uppercase text-center rounded-xl" />
             <div className="grid grid-cols-2 gap-2">
-              <Button variant="outline" className="rounded-xl h-10 text-[9px] font-black uppercase" onClick={() => setEditingBank(null)}>CANCELAR</Button>
-              <Button className="bg-primary text-white rounded-xl h-10 text-[9px] font-black uppercase" onClick={handleRenameBank}>GUARDAR</Button>
+              <Button variant="outline" className="rounded-xl h-11 text-[9px] font-black uppercase" onClick={() => setEditingBank(null)}>CANCELAR</Button>
+              <Button className="bg-primary text-white rounded-xl h-11 text-[9px] font-black uppercase" onClick={handleRenameBank}>GUARDAR</Button>
             </div>
           </div>
         </DialogContent>
