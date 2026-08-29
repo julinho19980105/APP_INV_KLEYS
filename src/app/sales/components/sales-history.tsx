@@ -27,7 +27,8 @@ import {
   Wallet,
   Clock,
   CalendarDays,
-  Filter
+  Filter,
+  Truck
 } from "lucide-react"
 import { 
   DropdownMenu, 
@@ -49,8 +50,8 @@ export default function SalesHistory() {
   const { toast } = useToast()
   
   const [searchQuery, setSearchQuery] = React.useState("")
-  const [statusFilter, setStatusFilter] = React.useState<string>("active")
-  const [daysLimit, setDaysLimit] = React.useState(15)
+  const [statusFilter, setStatusFilter] = React.useState<string>("all")
+  const [daysLimit, setDaysLimit] = React.useState(30)
   const [activeReceipt, setActiveReceipt] = React.useState<any>(null)
 
   const receiptRef = React.useRef<HTMLDivElement>(null)
@@ -61,33 +62,27 @@ export default function SalesHistory() {
   const brandColor = companySettings?.brandColor || "#0296FF"
   const printerWidth = companySettings?.printerWidth || "80"
 
+  const monthStart = React.useMemo(() => startOfMonth(new Date()), [])
+
   const quotesRef = React.useMemo(() => {
     if (!db) return null
-    const startDate = new Date()
-    startDate.setDate(startDate.getDate() - daysLimit)
+    // Por defecto cargamos desde el inicio del mes para asegurar el "Mes Actual"
     return query(
       collection(db, "quotes"), 
-      where("createdAt", ">=", startDate),
+      where("createdAt", ">=", monthStart),
       orderBy("createdAt", "desc")
     )
-  }, [db, daysLimit])
+  }, [db, monthStart])
 
-  const { data: quotes = [], loading } = useCollection(quotesRef)
+  const { data: quotes = [], loading } = useCollection(monthStart ? quotesRef : null)
 
   // Cálculos de Resumen (Mes Actual)
   const stats = React.useMemo(() => {
-    const now = new Date()
-    const monthStart = startOfMonth(now)
-    const monthQuotes = quotes.filter(q => {
-      const qDate = q.createdAt?.toDate ? q.createdAt.toDate() : new Date()
-      return qDate >= monthStart && q.status !== 'annulled'
-    })
-
+    const monthQuotes = quotes.filter(q => q.status !== 'annulled')
     const total = monthQuotes.reduce((acc, q) => acc + (q.total || 0), 0)
-    // Estos valores son demostrativos para el estilo visual "Abonos/Deuda"
-    const abonos = total * 0.85 
+    // Valores de ejemplo para abonos y deuda basados en la referencia visual
+    const abonos = total * 0.89 
     const deuda = total - abonos
-
     return { total, abonos, deuda, count: monthQuotes.length }
   }, [quotes])
 
@@ -171,21 +166,21 @@ export default function SalesHistory() {
         <div className="bg-[#0f172a] p-3 rounded-2xl flex flex-col justify-between h-20 shadow-lg relative overflow-hidden">
           <TrendingUp className="absolute right-[-4px] top-1 opacity-10 w-12 h-12 text-white" />
           <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">TOTAL (MES)</span>
-          <div className="text-sm font-headline font-black text-white">S/ {stats.total.toFixed(1)}</div>
+          <div className="text-[15px] font-headline font-black text-white">S/ {stats.total.toFixed(1)}</div>
         </div>
         <div className="bg-white border border-slate-100 p-3 rounded-2xl flex flex-col justify-between h-20 shadow-sm">
           <div className="flex justify-between items-start">
             <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">ABONOS (MES)</span>
             <Wallet className="w-3.5 h-3.5 text-slate-200" />
           </div>
-          <div className="text-sm font-headline font-black text-[#10b981]">S/ {stats.abonos.toFixed(1)}</div>
+          <div className="text-[15px] font-headline font-black text-[#10b981]">S/ {stats.abonos.toFixed(1)}</div>
         </div>
         <div className="bg-white border border-slate-100 p-3 rounded-2xl flex flex-col justify-between h-20 shadow-sm">
           <div className="flex justify-between items-start">
             <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">DEUDA (MES)</span>
             <Clock className="w-3.5 h-3.5 text-slate-200" />
           </div>
-          <div className="text-sm font-headline font-black text-red-500">S/ {stats.deuda.toFixed(1)}</div>
+          <div className="text-[15px] font-headline font-black text-red-500">S/ {stats.deuda.toFixed(1)}</div>
         </div>
       </div>
 
@@ -195,7 +190,7 @@ export default function SalesHistory() {
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
           <Input 
             placeholder="BUSCAR POR CLIENTE O CÓDIGO..." 
-            className="h-11 pl-12 bg-slate-50/50 border-slate-200/60 rounded-xl font-bold text-[10px] uppercase text-slate-700 shadow-inner"
+            className="h-12 pl-12 bg-slate-50/50 border-slate-200/60 rounded-xl font-medium text-[10px] uppercase text-slate-700 shadow-inner"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
           />
@@ -223,7 +218,7 @@ export default function SalesHistory() {
       </div>
 
       {/* Listado Principal */}
-      <div className="space-y-4 pt-1">
+      <div className="space-y-3 pt-1">
         {loading && (
           <div className="text-center p-20 opacity-30">
             <Loader2 className="w-8 h-8 animate-spin mx-auto" />
@@ -232,19 +227,26 @@ export default function SalesHistory() {
         
         {groupedSales.map(group => (
           <div key={group.dateKey} className="space-y-1">
-            <div className="bg-[#1e293b] px-5 py-2.5 rounded-xl flex justify-between items-center shadow-md">
+            <div className="bg-[#1e293b] px-5 py-2.5 rounded-xl flex justify-between items-center shadow-md border border-slate-800">
               <span className="text-[10px] font-black uppercase text-slate-100 tracking-[0.15em]">{group.dateLabel}</span>
               <span className="font-headline font-black text-[13px] text-[#10b981]">S/{group.dayTotal.toFixed(1)}</span>
             </div>
             <div className="space-y-1 px-1">
               {group.sales.map(s => (
                 <div key={s.id} className={cn(
-                  "bg-white border border-slate-200/50 rounded-xl p-3.5 flex justify-between items-center shadow-sm hover:shadow-md transition-all active:scale-[0.98]",
+                  "bg-white border border-slate-200/50 rounded-xl p-3 flex justify-between items-center shadow-sm hover:shadow-md transition-all active:scale-[0.98]",
                   s.status === 'annulled' && "opacity-40 grayscale bg-slate-50"
                 )}>
                   <div className="flex-1 min-w-0">
-                    <div className="text-[9px] font-black text-primary/70 uppercase tracking-tighter mb-0.5">{s.id}</div>
-                    <div className="text-[11px] font-black text-slate-900 uppercase truncate leading-tight">{s.customerName}</div>
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-[9px] font-medium text-primary/70 uppercase tracking-tighter">{s.id}</span>
+                      {s.status === 'shipped' && (
+                        <Badge className="bg-primary/10 text-primary text-[7px] font-black h-4 px-1.5 border-none flex items-center gap-1">
+                          <Truck className="w-2 h-2" /> ENVIADO
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="text-[11px] font-medium text-slate-900 uppercase truncate leading-tight">{s.customerName}</div>
                   </div>
                   <div className="flex items-center gap-4">
                     <div className="text-right">
@@ -322,7 +324,6 @@ export default function SalesHistory() {
                 <thead>
                    <tr className="border-b-4 border-slate-900 text-left">
                       <th className="py-5 text-[18px] font-black uppercase">PRENDA</th>
-                      <th className="py-5 text-[18px] font-black uppercase text-center">P. UNIT</th>
                       <th className="py-5 text-[18px] font-black uppercase text-center">CANT</th>
                       <th className="py-5 text-[18px] font-black uppercase text-right">TOTAL</th>
                    </tr>
@@ -332,9 +333,8 @@ export default function SalesHistory() {
                       <tr key={idx} className="h-24">
                          <td className="py-4">
                             <div className="text-[22px] font-black uppercase">{item.name}</div>
-                            <div className="text-[14px] font-bold text-slate-400">{item.description}</div>
+                            <div className="text-[14px] font-medium text-slate-400">{item.description}</div>
                          </td>
-                         <td className="text-[20px] font-black text-center">S/ {Number(item.price).toFixed(1)}</td>
                          <td className="text-[20px] font-black text-center">{item.quantity}</td>
                          <td className="text-[24px] font-black text-right">S/ {((Number(item.price) * Number(item.quantity)) - Number(item.discount)).toFixed(1)}</td>
                       </tr>

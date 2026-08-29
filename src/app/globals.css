@@ -33,10 +33,10 @@
     @apply border-border;
   }
   body {
-    @apply bg-white text-foreground font-body antialiased;
+    @apply bg-white text-foreground font-body antialiased font-normal;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+    -moz-osx-smoothing: grayscale;
   }
 }
 
@@ -72,4 +72,13 @@ input[type="number"]::-webkit-outer-spin-button {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* Custom shadows and borders for Premium ERP look */
+.erp-card {
+  @apply border border-slate-200/60 shadow-[0_2px_8px_rgba(0,0,0,0.02)] rounded-2xl bg-white overflow-hidden;
+}
+
+.erp-input {
+  @apply bg-slate-50/50 border-slate-200/80 rounded-xl focus:ring-primary/10 focus:border-primary/40 transition-all font-medium;
 }

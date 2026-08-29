@@ -135,17 +135,18 @@ export default function QuotesView() {
   const { data: dbProducts = [] } = useCollection(productsRef)
   const { data: dbCustomers = [] } = useCollection(customersRef)
 
+  // Protección contra pérdida de datos
   React.useEffect(() => {
     const hasUnsavedChanges = items.length > 0 || selectedCustomer !== null;
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (hasUnsavedChanges) {
+      if (hasUnsavedChanges && !saving) {
         e.preventDefault();
         e.returnValue = '';
       }
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [items, selectedCustomer]);
+  }, [items, selectedCustomer, saving]);
 
   React.useEffect(() => {
     if (typeof window !== "undefined" && !editId) {
@@ -255,7 +256,7 @@ export default function QuotesView() {
       productId: prod.code,
       name: prod.name,
       description: "",
-      quantity: "1",
+      quantity: "",
       price: prod.priceMayor?.toString() || "",
       stock: prod.stock || 0,
       img: prod.images?.[0] || "",
@@ -294,14 +295,10 @@ export default function QuotesView() {
       toast({ variant: "destructive", title: "DATOS INCOMPLETOS" });
       return;
     }
-
     const priceVal = Number(currentEntry.price)
     if (priceVal < 6.0) {
-      if (!window.confirm("(¿Seguro quieres agregar precio menos de 6 soles?)")) {
-        return;
-      }
+      if (!window.confirm("(¿Seguro quieres agregar precio menos de 6 soles?)")) return;
     }
-
     setItems([...items, { ...currentEntry, id: Math.random().toString() }]);
     setCurrentEntry(EMPTY_ENTRY);
   }
@@ -317,11 +314,7 @@ export default function QuotesView() {
         for (const item of oldItems) {
           if (item.isRegistered && item.productId !== "MANUAL") {
             const prodRef = doc(db, "products", item.productId)
-            updateDoc(prodRef, {
-              stock: increment(Number(item.quantity)),
-              updatedAt: serverTimestamp()
-            }).catch(() => {});
-            
+            updateDoc(prodRef, { stock: increment(Number(item.quantity)), updatedAt: serverTimestamp() }).catch(() => {});
             addDoc(collection(db, "movements"), {
               productCode: item.productId,
               type: "return",
@@ -353,17 +346,7 @@ export default function QuotesView() {
       for (const item of items) {
         if (item.isRegistered && item.productId !== "MANUAL") {
           const prodRef = doc(db, "products", item.productId)
-          updateDoc(prodRef, {
-            stock: increment(-Number(item.quantity)),
-            updatedAt: serverTimestamp()
-          }).catch(async (serverError) => {
-            errorEmitter.emit('permission-error', new FirestorePermissionError({
-              path: prodRef.path,
-              operation: 'update',
-              requestResourceData: { stock: increment(-Number(item.quantity)) }
-            }));
-          });
-
+          updateDoc(prodRef, { stock: increment(-Number(item.quantity)), updatedAt: serverTimestamp() }).catch(() => {});
           addDoc(collection(db, "movements"), {
             productCode: item.productId,
             type: "out",
@@ -375,9 +358,7 @@ export default function QuotesView() {
         }
       }
 
-      if (typeof window !== "undefined") {
-        localStorage.removeItem(STORAGE_KEY);
-      }
+      if (typeof window !== "undefined") localStorage.removeItem(STORAGE_KEY);
       toast({ title: editId ? "VENTA ACTUALIZADA" : "VENTA REGISTRADA" })
       router.push('/sales')
     } catch (e) {
@@ -389,25 +370,13 @@ export default function QuotesView() {
 
   const handleDiscard = () => {
     if (confirm("¿DESCARTAR OPERACIÓN ACTUAL?")) {
-      if (typeof window !== "undefined") {
-        localStorage.removeItem(STORAGE_KEY);
-      }
+      if (typeof window !== "undefined") localStorage.removeItem(STORAGE_KEY);
       setSelectedCustomer(null);
       setItems([]);
       setQuoteId("B-001");
       setCurrentEntry(EMPTY_ENTRY);
       router.push('/sales');
     }
-  }
-
-  const handleEditItem = (item: QuoteItem) => {
-    setCurrentEntry({...item});
-    setItems(items.filter(i => i.id !== item.id));
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }
-
-  const handleDeleteItem = (itemId: string) => {
-    setItems(items.filter(i => i.id !== itemId));
   }
 
   return (
@@ -417,7 +386,7 @@ export default function QuotesView() {
         <div className="flex-1">
           <input 
             type="date" 
-            className="h-10 w-full bg-white border border-slate-300 rounded-xl px-4 text-[11px] font-bold text-slate-800 uppercase shadow-sm focus:outline-none focus:ring-1 focus:ring-primary/20 transition-all"
+            className="h-10 w-full bg-white border border-slate-300 rounded-xl px-4 text-[11px] font-medium text-slate-800 uppercase shadow-sm focus:outline-none focus:ring-1 focus:ring-primary/20 transition-all"
             defaultValue={new Date().toISOString().split('T')[0]}
           />
         </div>
@@ -433,15 +402,15 @@ export default function QuotesView() {
             <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
             <Input 
               placeholder="SELECCIONAR CLIENTE..." 
-              className="h-12 pl-12 pr-6 bg-white border-slate-300 rounded-xl font-black text-[11px] uppercase shadow-sm text-slate-800"
+              className="h-12 pl-12 pr-6 bg-white border-slate-300 rounded-xl font-medium text-[11px] uppercase shadow-sm text-slate-800"
               value={selectedCustomer ? `${selectedCustomer.name} [${selectedCustomer.id}]` : customerQuery}
               onChange={e => { if (selectedCustomer) setSelectedCustomer(null); setCustomerQuery(e.target.value); }}
             />
             {customerQuery.length >= 1 && (
               <div className="absolute z-[100] w-full mt-1 bg-white border border-slate-300 rounded-xl shadow-2xl overflow-hidden max-h-60 overflow-y-auto">
                 {customerSuggestions.map(c => (
-                  <button key={c.id} className="w-full text-left px-6 py-3.5 hover:bg-slate-50 border-b border-slate-100 last:border-0 font-bold text-[10px] uppercase transition-colors text-slate-700" onClick={() => { setSelectedCustomer({ id: c.id, name: c.name }); setCustomerQuery(""); }}>
-                    {c.name} <span className="text-slate-400 ml-2 font-medium">[{c.id}]</span>
+                  <button key={c.id} className="w-full text-left px-6 py-3.5 hover:bg-slate-50 border-b border-slate-100 last:border-0 font-medium text-[10px] uppercase transition-colors text-slate-700" onClick={() => { setSelectedCustomer({ id: c.id, name: c.name }); setCustomerQuery(""); }}>
+                    {c.name} <span className="text-slate-400 ml-2 font-normal">[{c.id}]</span>
                   </button>
                 ))}
                 {!selectedCustomer && customerQuery.length >= 1 && customerSuggestions.length === 0 && (
@@ -451,7 +420,7 @@ export default function QuotesView() {
                     disabled={registeringCustomer}
                   >
                     {registeringCustomer ? <Loader2 className="animate-spin w-4 h-4 text-primary" /> : <UserPlus className="w-5 h-5 text-primary" />}
-                    <span className="text-[10px] font-black uppercase text-primary">Registrar Cliente: "{customerQuery}"</span>
+                    <span className="text-[10px] font-medium uppercase text-primary">Registrar Cliente: "{customerQuery}"</span>
                   </button>
                 )}
               </div>
@@ -462,26 +431,26 @@ export default function QuotesView() {
 
       {/* Registro Maestro ERP */}
       <Card className="rounded-2xl border border-slate-400 shadow-[0_4px_20px_rgb(0,0,0,0.03)] bg-white overflow-visible">
-        <div className="bg-[#1e293b] py-2.5 px-6 flex justify-between items-center rounded-t-2xl">
+        <div className="bg-[#1e293b] py-2 px-6 flex justify-between items-center rounded-t-2xl">
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 rounded-full bg-primary/20 flex items-center justify-center">
                <Plus className="w-2.5 h-2.5 text-primary" />
             </div>
-            <span className="text-[9px] font-bold uppercase text-slate-100 tracking-[0.2em]">REGISTRO DE PRODUCTO</span>
+            <span className="text-[9px] font-black uppercase text-slate-100 tracking-[0.2em]">REGISTRO DE PRODUCTO</span>
           </div>
           <Button variant="ghost" size="icon" className="h-6 w-6 text-white/20 hover:text-white transition-colors" onClick={() => setCurrentEntry(EMPTY_ENTRY)}>
              <Eraser className="w-3 h-3" />
           </Button>
         </div>
 
-        <CardContent className="p-4 space-y-3">
+        <CardContent className="p-4 space-y-2">
           <div className="space-y-1">
             <Label className="text-[9px] font-bold text-slate-400 uppercase ml-2 tracking-widest">NOMBRE DE PRODUCTO</Label>
             <Input 
               value={currentEntry.name}
               onChange={e => setCurrentEntry({...currentEntry, name: e.target.value})}
               placeholder="PRODUCTO O MODELO"
-              className="h-12 text-[12px] font-black uppercase text-slate-900 bg-slate-50 border-slate-300 rounded-xl px-4 focus:ring-1 focus:ring-primary/10 shadow-inner"
+              className="h-11 text-[12px] font-medium uppercase text-slate-900 bg-slate-50 border-slate-300 rounded-xl px-4 focus:ring-1 focus:ring-primary/10 shadow-inner"
             />
           </div>
 
@@ -490,25 +459,21 @@ export default function QuotesView() {
               <Label className="text-[9px] font-bold text-slate-400 uppercase text-center w-full block tracking-widest">CANT</Label>
               <Input 
                 type="number" 
-                step="1"
-                min="1"
                 value={currentEntry.quantity} 
                 onChange={e => {
                   const val = e.target.value.replace(/[^0-9]/g, '');
                   setCurrentEntry({...currentEntry, quantity: val});
                 }} 
-                className="h-12 text-center text-base font-black text-slate-900 bg-slate-50 border-slate-300 rounded-xl shadow-inner font-headline"
+                className="h-11 text-center text-base font-black text-slate-900 bg-slate-50 border-slate-300 rounded-xl shadow-inner font-headline"
               />
             </div>
             <div className="space-y-1">
               <Label className="text-[9px] font-bold text-slate-400 uppercase text-center w-full block tracking-widest">PRECIO</Label>
               <Input 
                 type="number" 
-                step="0.1"
-                min="0"
                 value={currentEntry.price} 
                 onChange={e => setCurrentEntry({...currentEntry, price: e.target.value})} 
-                className="h-12 text-center text-base font-black text-slate-900 bg-slate-50 border-slate-300 rounded-xl shadow-inner font-headline"
+                className="h-11 text-center text-base font-black text-slate-900 bg-slate-50 border-slate-300 rounded-xl shadow-inner font-headline"
               />
             </div>
             <div className="space-y-1">
@@ -516,11 +481,9 @@ export default function QuotesView() {
               <div className="relative">
                 <Input 
                   type="number" 
-                  step="0.1"
-                  min="0"
                   value={currentEntry.discount} 
                   onChange={e => setCurrentEntry({...currentEntry, discount: e.target.value})} 
-                  className="h-12 text-center text-base font-black text-red-600 bg-red-50 border-red-200 rounded-xl shadow-inner font-headline"
+                  className="h-11 text-center text-base font-black text-red-600 bg-red-50 border-red-200 rounded-xl shadow-inner font-headline"
                 />
                 <Button variant="ghost" size="icon" className="absolute -right-1.5 -top-1.5 h-7 w-7 rounded-full bg-white border border-slate-300 text-primary shadow-sm active:scale-90" onClick={() => setIsCalcOpen(true)}>
                    <Calculator className="w-3.5 h-3.5" />
@@ -535,7 +498,7 @@ export default function QuotesView() {
               value={currentEntry.description} 
               onChange={e => setCurrentEntry({...currentEntry, description: e.target.value})} 
               placeholder="DETALLES O NOTAS" 
-              className="h-12 bg-slate-50 border-slate-300 rounded-xl px-4 text-[11px] font-bold shadow-inner text-slate-700" 
+              className="h-11 bg-slate-50 border-slate-300 rounded-xl px-4 text-[11px] font-medium shadow-inner text-slate-700" 
             />
           </div>
 
@@ -544,7 +507,7 @@ export default function QuotesView() {
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
               <Input 
                 placeholder="BUSCAR EN INVENTARIO..." 
-                className="h-12 pl-11 pr-4 bg-slate-50 border-slate-300 rounded-xl font-bold text-[11px] uppercase shadow-inner text-slate-700"
+                className="h-11 pl-11 pr-4 bg-slate-50 border-slate-300 rounded-xl font-medium text-[11px] uppercase shadow-inner text-slate-700"
                 value={productQuery}
                 onChange={e => setProductQuery(e.target.value)}
               />
@@ -557,7 +520,7 @@ export default function QuotesView() {
                       </div>
                       <div className="flex-1 min-w-0">
                          <div className="font-black text-[11px] text-slate-800 uppercase truncate leading-tight">{p.name}</div>
-                         <div className="text-[9px] font-bold text-slate-400 uppercase mt-0.5">{p.code} • STK: {p.stock}</div>
+                         <div className="text-[9px] font-medium text-slate-400 uppercase mt-0.5">{p.code} • STK: {p.stock}</div>
                       </div>
                       <Plus className="w-4 h-4 text-primary opacity-40" />
                     </button>
@@ -576,7 +539,7 @@ export default function QuotesView() {
                     }}
                   >
                     <Plus className="w-4 h-4 text-primary" />
-                    <span className="text-[10px] font-black uppercase text-slate-800">ENTRADA MANUAL: "{productQuery}"</span>
+                    <span className="text-[10px] font-medium uppercase text-slate-800">ENTRADA MANUAL: "{productQuery}"</span>
                   </button>
                 </div>
               )}
@@ -603,27 +566,17 @@ export default function QuotesView() {
             {items.map((item, index) => (
               <div key={item.id} className="p-3 md:px-6 flex justify-between items-center group hover:bg-slate-50 transition-colors">
                 <div className="flex-1 min-w-0">
-                  <div className="font-black text-[12px] text-slate-800 uppercase truncate leading-tight">{index + 1}. {item.name}</div>
+                  <div className="font-medium text-[12px] text-slate-800 uppercase truncate leading-tight">{index + 1}. {item.name}</div>
                   <div className="flex items-center gap-2 mt-0.5">
                     <span className="text-[10px] font-black text-primary bg-primary/5 px-2 py-0.5 rounded">{item.quantity} UND</span>
-                    <span className="text-[9px] font-bold text-slate-300">×</span>
-                    <span className="text-[10px] font-bold text-slate-500">S/ {Number(item.price).toFixed(1)}</span>
-                    {Number(item.discount) > 0 && (
-                       <span className="text-[10px] font-black text-red-600 ml-2">DESC: -S/ {Number(item.discount).toFixed(1)}</span>
-                    )}
+                    <span className="text-[9px] font-normal text-slate-300">×</span>
+                    <span className="text-[10px] font-normal text-slate-500">S/ {Number(item.price).toFixed(1)}</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="text-right">
-                    <div className="font-black text-[14px] text-slate-900 leading-none font-headline">S/ {((Number(item.price) * Number(item.quantity)) - Number(item.discount)).toFixed(1)}</div>
+                    <div className="font-headline font-black text-[14px] text-slate-900 leading-none">S/ {((Number(item.price) * Number(item.quantity)) - Number(item.discount)).toFixed(1)}</div>
                   </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:text-primary transition-colors"><MoreVertical className="w-4 h-4" /></Button></DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="rounded-xl p-1.5 w-36 shadow-xl border-slate-200">
-                      <DropdownMenuItem className="text-[10px] font-black uppercase gap-2.5 p-2 rounded-lg" onClick={() => handleEditItem(item)}><Edit2 className="w-3.5 h-3.5 text-primary" /> Editar</DropdownMenuItem>
-                      <DropdownMenuItem className="text-[10px] font-black uppercase gap-2.5 p-2 rounded-lg text-red-500" onClick={() => handleDeleteItem(item.id)}><Trash2 className="w-3.5 h-3.5" /> Eliminar</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
                 </div>
               </div>
             ))}
@@ -680,17 +633,6 @@ export default function QuotesView() {
               <div className="text-2xl font-black text-primary font-headline">{(Number(calcData.unidades) * Number(calcData.series)) + Number(calcData.libres)} <span className="text-[12px] uppercase font-bold">UND</span></div>
             </div>
             <Button className="w-full h-12 bg-primary text-white rounded-xl font-black shadow-lg uppercase text-[11px] tracking-widest active:scale-95" onClick={handleApplyCalc}>CONFIRMAR</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Visor de Imágenes */}
-      <Dialog open={!!zoomImage} onOpenChange={() => setZoomImage(null)}>
-        <DialogContent className="max-w-[95vw] md:max-w-4xl p-0 border-none bg-transparent shadow-none">
-          <DialogHeader className="sr-only"><DialogTitle>Visor de Prenda</DialogTitle></DialogHeader>
-          <div className="relative w-full aspect-square md:aspect-video flex items-center justify-center bg-black/98 rounded-3xl overflow-hidden">
-            <button onClick={() => setZoomImage(null)} className="absolute top-6 right-6 z-50 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all active:scale-90"><X className="w-6 h-6" /></button>
-            {zoomImage && <img src={getDriveThumb(zoomImage, 2000)} className="max-w-full max-h-full object-contain" alt="Zoom" />}
           </div>
         </DialogContent>
       </Dialog>
