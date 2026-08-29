@@ -59,7 +59,6 @@ export default function CustomersHubPage() {
           .map((e: any) => ({ ...e, dateKey: l.date }))
       ).sort((a, b) => b.dateKey.localeCompare(a.dateKey))
 
-      // Un pago se considera "procesado" si ya está en un lote de envío
       const processedPaymentIds = new Set(shipmentHistory.flatMap(h => (h.payments || []).map((p: any) => p.paymentId)))
       const unlockedPayments = cPayments.filter(p => !p.isLocked && !processedPaymentIds.has(p.id))
 
@@ -217,13 +216,16 @@ export default function CustomersHubPage() {
                                 <div className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{c.id}</div>
                               </div>
                               <div className={cn("font-headline font-black text-[14px] px-3 py-1 rounded-lg border", 
-                                sIdx === 0 ? "text-red-500 bg-red-50 border-red-100" : 
-                                sIdx === 1 ? "text-blue-500 bg-blue-50 border-blue-100" : 
                                 sIdx === 3 ? (
                                   c.balance < -1 ? "text-red-500 bg-red-50 border-red-100" : "text-slate-400 bg-slate-50 border-slate-200"
-                                ) : sIdx === 4 ? "text-slate-300 bg-slate-50 border-slate-200" : "text-emerald-500 bg-emerald-50 border-emerald-100")}>
-                                {sIdx >= 3 ? (
-                                  c.balance < -1 ? `S/ ${Math.abs(c.balance).toFixed(1)}` : "S/ 0.0"
+                                ) : (
+                                  c.balance < -1 ? "text-red-500 bg-red-50 border-red-100" : 
+                                  c.balance > 1 ? "text-blue-500 bg-blue-50 border-blue-100" : 
+                                  "text-emerald-500 bg-emerald-50 border-emerald-100"
+                                )
+                              )}>
+                                {sIdx === 3 ? (
+                                  c.balance < -1 ? `S/ ${Math.abs(c.balance).toFixed(1)}` : "0.0"
                                 ) : `S/ ${Math.abs(c.balance).toFixed(1)}`}
                               </div>
                             </div>
@@ -234,7 +236,7 @@ export default function CustomersHubPage() {
                             ) : (
                               <div className="rounded-2xl border border-slate-200 overflow-hidden bg-white shadow-sm mx-1">
                                 <table className="w-full text-left text-[9px] font-medium uppercase">
-                                  <thead className="bg-slate-50 border-b border-slate-100">
+                                  <thead className="bg-slate-900 border-b border-slate-800 text-white">
                                     {sIdx === 3 ? (
                                       <tr>
                                         <th className="px-4 py-2 text-slate-400">FECHA ENVÍO</th>
