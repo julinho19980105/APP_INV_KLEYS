@@ -50,24 +50,28 @@ export default function CustomersHubPage() {
       
       const totalInvoiced = cQuotes.reduce((acc, q) => acc + (q.total || 0), 0)
       const totalPaid = cPayments.reduce((acc, p) => acc + (p.amount || 0), 0)
-      const balance = totalPaid - totalInvoiced
-
-      const ledger = [...cQuotes.map(q => ({ type: 'quote', date: q.createdAt?.toDate ? q.createdAt.toDate() : new Date(), id: q.id, amount: q.total })),
-                      ...cPayments.map(p => ({ type: 'payment', date: p.createdAt?.toDate ? p.createdAt.toDate() : new Date(), id: 'PAGO', amount: p.amount }))]
-                      .sort((a, b) => a.date.getTime() - b.date.getTime())
-
-      let runningBalance = 0
-      const history = ledger.map(entry => {
-        if (entry.type === 'quote') runningBalance -= entry.amount
-        else runningBalance += entry.amount
-        return { ...entry, currentBalance: runningBalance }
-      })
-
+      
+      // El balance se calcula considerando el costo de envío de los envíos registrados
       const shipmentHistory = logistics.flatMap(l => 
         (l.entries || [])
           .filter((e: any) => e.customerId === c.id)
           .map((e: any) => ({ ...e, dateKey: l.date }))
       ).sort((a, b) => b.dateKey.localeCompare(a.dateKey))
+
+      const totalShippingCost = shipmentHistory.reduce((acc, h) => acc + Number(h.shippingCost || 0), 0)
+      const balance = totalPaid - (totalInvoiced + totalShippingCost)
+
+      const ledger = [...cQuotes.map(q => ({ type: 'quote', date: q.createdAt?.toDate ? q.createdAt.toDate() : new Date(), id: q.id, amount: q.total })),
+                      ...cPayments.map(p => ({ type: 'payment', date: p.createdAt?.toDate ? p.createdAt.toDate() : new Date(), id: 'PAGO', amount: p.amount })),
+                      ...shipmentHistory.map(h => ({ type: 'shipping', date: new Date(h.dateKey + "T12:00:00"), id: 'ENVIO', amount: Number(h.shippingCost || 0) }))]
+                      .sort((a, b) => a.date.getTime() - b.date.getTime())
+
+      let runningBalance = 0
+      const history = ledger.map(entry => {
+        if (entry.type === 'quote' || entry.type === 'shipping') runningBalance -= entry.amount
+        else runningBalance += entry.amount
+        return { ...entry, currentBalance: runningBalance }
+      })
 
       return {
         ...c,
@@ -95,36 +99,42 @@ export default function CustomersHubPage() {
     return customerData.filter(c => c.balance < -1).length
   }, [customerData])
 
-  const sections = React.useMemo(() => [
-    { 
-      title: "CUENTAS POR COBRAR", 
-      color: "text-red-500", 
-      lineColor: "bg-red-200",
-      icon: AlertCircle,
-      data: filtered.filter(c => c.balance < -1).sort((a, b) => a.balance - b.balance)
-    },
-    { 
-      title: "SALDOS A FAVOR", 
-      color: "text-blue-500", 
-      lineColor: "bg-blue-200",
-      icon: CircleDollarSign,
-      data: filtered.filter(c => c.balance > 1).sort((a, b) => b.balance - a.balance)
-    },
-    { 
-      title: "ACTIVOS / AL DÍA", 
-      color: "text-emerald-500", 
-      lineColor: "bg-emerald-200",
-      icon: CheckCircle2,
-      data: filtered.filter(c => Math.abs(c.balance) <= 1)
-    },
-    { 
-      title: "HISTORIAL DE ENVÍOS CERRADOS", 
-      color: "text-slate-400", 
-      lineColor: "bg-slate-200",
-      icon: Truck,
-      data: filtered.filter(c => c.shipmentHistory && c.shipmentHistory.length > 0)
-    }
-  ], [filtered])
+  const sections = React.useMemo(() => {
+    // Lógica Exclusiva: Un cliente solo puede estar en una sección a la vez
+    const shipped = filtered.filter(c => c.shipmentHistory && c.shipmentHistory.length > 0)
+    const notShipped = filtered.filter(c => !c.shipmentHistory || c.shipmentHistory.length === 0)
+
+    return [
+      { 
+        title: "CUENTAS POR COBRAR", 
+        color: "text-red-500", 
+        lineColor: "bg-red-200",
+        icon: AlertCircle,
+        data: notShipped.filter(c => c.balance < -1).sort((a, b) => a.balance - b.balance)
+      },
+      { 
+        title: "SALDOS A FAVOR", 
+        color: "text-blue-500", 
+        lineColor: "bg-blue-200",
+        icon: CircleDollarSign,
+        data: notShipped.filter(c => c.balance > 1).sort((a, b) => b.balance - a.balance)
+      },
+      { 
+        title: "ACTIVOS / AL DÍA", 
+        color: "text-emerald-500", 
+        lineColor: "bg-emerald-200",
+        icon: CheckCircle2,
+        data: notShipped.filter(c => Math.abs(c.balance) <= 1)
+      },
+      { 
+        title: "HISTORIAL DE ENVÍOS CERRADOS", 
+        color: "text-slate-400", 
+        lineColor: "bg-slate-200",
+        icon: Truck,
+        data: shipped
+      }
+    ]
+  }, [filtered])
 
   return (
     <div className="space-y-4 pt-1 pb-24 px-2 md:px-0 max-w-4xl mx-auto animate-in fade-in duration-700">
@@ -193,8 +203,12 @@ export default function CustomersHubPage() {
                               <div className={cn("font-headline font-black text-[14px] px-3 py-1 rounded-lg border", 
                                 sIdx === 0 ? "text-red-500 bg-red-50 border-red-100" : 
                                 sIdx === 1 ? "text-blue-500 bg-blue-50 border-blue-100" : 
-                                sIdx === 3 ? "text-slate-400 bg-slate-50 border-slate-200" : "text-emerald-500 bg-emerald-50 border-emerald-100")}>
-                                {sIdx === 3 ? `${c.shipmentHistory.length} ENV` : `S/ ${Math.abs(c.balance).toFixed(1)}`}
+                                sIdx === 3 ? (
+                                  c.balance < -1 ? "text-red-500 bg-red-50 border-red-100" : "text-slate-400 bg-slate-50 border-slate-200"
+                                ) : "text-emerald-500 bg-emerald-50 border-emerald-100")}>
+                                {sIdx === 3 ? (
+                                  c.balance < -1 ? `S/ ${Math.abs(c.balance).toFixed(1)}` : "S/ 0.0"
+                                ) : `S/ ${Math.abs(c.balance).toFixed(1)}`}
                               </div>
                             </div>
                           </AccordionTrigger>
@@ -238,14 +252,15 @@ export default function CustomersHubPage() {
                                         <td className="px-4 py-3">
                                           <div className="flex flex-col gap-0.5">
                                              <span className="text-slate-700 font-medium">{h.id}</span>
-                                             <span className={cn("font-bold text-[10px]", h.type === 'quote' ? "text-red-500" : "text-blue-500")}>
+                                             <span className={cn("font-bold text-[10px]", 
+                                               h.type === 'quote' || h.type === 'shipping' ? "text-red-500" : "text-blue-500")}>
                                                S/ {h.amount.toFixed(1)}
                                              </span>
                                           </div>
                                         </td>
                                         <td className={cn(
                                           "px-4 py-3 text-right font-headline font-bold text-[11px]",
-                                          h.currentBalance < 0 ? "text-red-500" : h.currentBalance > 0 ? "text-emerald-500" : "text-red-500"
+                                          h.currentBalance < -0.1 ? "text-red-500" : h.currentBalance > 0.1 ? "text-emerald-500" : "text-red-500"
                                         )}>
                                           S/ {h.currentBalance.toFixed(1)}
                                         </td>
