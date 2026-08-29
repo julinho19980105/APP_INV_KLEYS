@@ -24,7 +24,12 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { 
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import { 
@@ -227,14 +232,16 @@ export default function PaymentsView() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const handleDelete = (pId: string) => {
+  const handleDelete = async (pId: string) => {
     if (!db) return
     const pRef = doc(db, "payments", pId)
-    deleteDoc(pRef).catch(async () => {
+    try {
+      await deleteDoc(pRef)
+      setDeleteConfirmId(null)
+      toast({ title: "Pago eliminado" })
+    } catch (err) {
       errorEmitter.emit('permission-error', new FirestorePermissionError({ path: pRef.path, operation: 'delete' }));
-    })
-    setDeleteConfirmId(null)
-    toast({ title: "Pago eliminado" })
+    }
   }
 
   const filteredCustomers = React.useMemo(() => {
@@ -280,6 +287,11 @@ export default function PaymentsView() {
 
     return finalGroups
   }, [filteredPayments, isBankGrouped, allDayLocks])
+
+  const deletingPaymentName = React.useMemo(() => {
+    if (!deleteConfirmId) return ""
+    return payments.find(p => p.id === deleteConfirmId)?.customerName || ""
+  }, [deleteConfirmId, payments])
 
   return (
     <div className="space-y-1.5 px-1 md:px-0 pb-24 animate-in fade-in slide-in-from-bottom-2 duration-700">
@@ -440,10 +452,8 @@ export default function PaymentsView() {
                         p={p} 
                         isProcessed={shippedCustomerIds.has(p.customerId)}
                         onEdit={startEditing} 
-                        onDelete={handleDelete} 
+                        onDeleteRequest={(id: string) => setDeleteConfirmId(id)} 
                         onLock={togglePaymentLock} 
-                        deleteConfirmId={deleteConfirmId} 
-                        setDeleteConfirmId={setDeleteConfirmId} 
                       />
                     ))}
                   </div>
@@ -454,21 +464,40 @@ export default function PaymentsView() {
                   p={p} 
                   isProcessed={shippedCustomerIds.has(p.customerId)}
                   onEdit={startEditing} 
-                  onDelete={handleDelete} 
+                  onDeleteRequest={(id: string) => setDeleteConfirmId(id)} 
                   onLock={togglePaymentLock} 
-                  deleteConfirmId={deleteConfirmId} 
-                  setDeleteConfirmId={setDeleteConfirmId} 
                 />
               ))}
             </div>
           </div>
         ))}
       </div>
+
+      <Dialog open={!!deleteConfirmId} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
+        <DialogContent className="rounded-[2.5rem] max-w-[320px] p-8 text-center border-none shadow-2xl">
+          <DialogHeader className="sr-only"><DialogTitle>Confirmar Eliminación</DialogTitle></DialogHeader>
+          <div className="flex flex-col items-center gap-6">
+            <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center">
+              <Trash2 className="w-8 h-8 text-red-500" />
+            </div>
+            <div className="space-y-2">
+              <p className="text-[11px] font-bold uppercase text-slate-800 leading-relaxed">
+                ¿ELIMINAR PAGO DE <span className="text-red-600">{deletingPaymentName}</span>?
+              </p>
+              <p className="text-[9px] text-slate-400 uppercase tracking-widest font-medium">Esta acción no se puede deshacer.</p>
+            </div>
+            <div className="grid grid-cols-2 gap-3 w-full">
+              <Button variant="outline" className="h-11 rounded-xl font-bold text-[10px] uppercase border-slate-200" onClick={() => setDeleteConfirmId(null)}>CANCELAR</Button>
+              <Button className="h-11 bg-red-600 text-white rounded-xl font-bold text-[10px] uppercase shadow-lg shadow-red-200" onClick={() => deleteConfirmId && handleDelete(deleteConfirmId)}>ELIMINAR</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
 
-function PaymentRecord({ p, isProcessed, onEdit, onDelete, onLock, deleteConfirmId, setDeleteConfirmId }: any) {
+function PaymentRecord({ p, isProcessed, onEdit, onDeleteRequest, onLock }: any) {
   return (
     <Card className={cn(
       "rounded-[2rem] border border-[#3b82f6]/30 bg-white shadow-sm transition-all active:scale-[0.98] relative overflow-hidden",
@@ -511,26 +540,19 @@ function PaymentRecord({ p, isProcessed, onEdit, onDelete, onLock, deleteConfirm
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="rounded-2xl p-2 w-44 shadow-2xl border-slate-300">
-                  <DropdownMenuItem className="text-[10px] font-bold uppercase gap-3 p-3 rounded-xl" onClick={() => onEdit(p)}>
+                  <DropdownMenuItem 
+                    className="text-[10px] font-bold uppercase gap-3 p-3 rounded-xl" 
+                    onSelect={(e) => { e.preventDefault(); onEdit(p); }}
+                  >
                     <Edit2 className="w-3.5 h-3.5 text-primary" /> Editar Registro
                   </DropdownMenuItem>
                   
-                  <Popover open={deleteConfirmId === p.id} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
-                    <PopoverTrigger asChild>
-                      <button className="w-full text-left flex items-center gap-3 px-3 py-3 text-[10px] font-bold uppercase text-red-500 hover:bg-red-50 rounded-xl transition-colors" onClick={() => setDeleteConfirmId(p.id)}>
-                        <Trash2 className="w-3.5 h-3.5" /> Eliminar Pago
-                      </button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-4 rounded-2xl border-none shadow-2xl bg-[#1e293b] text-white" side="top">
-                      <div className="flex flex-col items-center gap-3">
-                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">¿ELIMINAR ESTE PAGO?</span>
-                        <div className="flex gap-2">
-                          <Button size="sm" className="h-8 px-4 text-[9px] font-black bg-red-500 text-white hover:bg-red-600 rounded-lg" onClick={() => onDelete(p.id)}>SÍ, BORRAR</Button>
-                          <Button size="sm" variant="ghost" className="h-8 px-4 text-[9px] font-black text-slate-300 hover:bg-white/10 rounded-lg" onClick={() => setDeleteConfirmId(null)}>CANCELAR</Button>
-                        </div>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
+                  <DropdownMenuItem 
+                    className="text-[10px] font-bold uppercase gap-3 p-3 rounded-xl text-red-500 hover:bg-red-50" 
+                    onSelect={(e) => { e.preventDefault(); onDeleteRequest(p.id); }}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Eliminar Pago
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
