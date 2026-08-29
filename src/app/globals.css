@@ -24,7 +24,7 @@
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
     --ring: 205 100% 50%;
-    --radius: 2rem;
+    --radius: 1rem;
   }
 }
 
@@ -33,7 +33,7 @@
     @apply border-border;
   }
   body {
-    @apply bg-white text-foreground font-body antialiased font-normal;
+    @apply bg-white text-foreground font-body antialiased font-light; /* Peso delgado por defecto */
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-smoothing: grayscale;
@@ -74,11 +74,15 @@ input[type="number"]::-webkit-outer-spin-button {
   overflow: hidden;
 }
 
-/* Custom shadows and borders for Premium ERP look */
-.erp-card {
-  @apply border border-slate-200/60 shadow-[0_2px_8px_rgba(0,0,0,0.02)] rounded-2xl bg-white overflow-hidden;
+/* Chrome-like Tabs */
+.chrome-tab-list {
+  @apply flex w-full bg-slate-100/80 border-b border-slate-300 p-0 h-11;
 }
 
-.erp-input {
-  @apply bg-slate-50/50 border-slate-200/80 rounded-xl focus:ring-primary/10 focus:border-primary/40 transition-all font-medium;
+.chrome-tab-trigger {
+  @apply flex-1 h-full rounded-t-xl rounded-b-none border-t-2 border-transparent 
+         data-[state=active]:bg-white data-[state=active]:border-slate-300 
+         data-[state=active]:border-x data-[state=active]:border-t 
+         data-[state=active]:shadow-none font-medium text-[9px] uppercase tracking-widest
+         text-slate-400 data-[state=active]:text-primary transition-all;
 }

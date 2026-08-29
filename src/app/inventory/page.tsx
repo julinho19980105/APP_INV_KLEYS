@@ -17,9 +17,6 @@ export default function InventoryHubPage() {
   const tabParam = searchParams.get('tab') || 'list'
   
   const db = useFirestore()
-  const configDocRef = React.useMemo(() => db ? doc(db, "config", "global") : null, [db])
-  const { data: config } = useDoc(configDocRef)
-  const brandColor = config?.brandColor || "#0296FF"
 
   const onTabChange = (value: string) => {
     const params = new URLSearchParams(searchParams.toString())
@@ -29,38 +26,40 @@ export default function InventoryHubPage() {
   }
 
   return (
-    <div className="w-full max-w-6xl mx-auto pt-2 pb-24">
+    <div className="w-full max-w-6xl mx-auto pt-0 pb-24">
       <Tabs value={tabParam} onValueChange={onTabChange} className="w-full">
-        <TabsList className="grid w-full grid-cols-3 h-16 bg-white border-b border-primary/10 rounded-none mb-6 sticky top-0 z-50 shadow-sm p-1">
+        <TabsList className="chrome-tab-list sticky top-[57px] z-[45]">
           <TabsTrigger 
             value="list" 
-            className="rounded-xl data-[state=active]:bg-primary data-[state=active]:text-white font-black text-xs uppercase transition-all flex items-center gap-2"
+            className="chrome-tab-trigger"
           >
-            <Package className="w-4 h-4" /> Productos
+            <Package className="w-3 h-3 mr-2 opacity-50" /> Productos
           </TabsTrigger>
           <TabsTrigger 
             value="registry" 
-            className="rounded-xl data-[state=active]:bg-primary data-[state=active]:text-white font-black text-xs uppercase transition-all flex items-center gap-2"
+            className="chrome-tab-trigger"
           >
-            <PackagePlus className="w-4 h-4" /> Registro
+            <PackagePlus className="w-3 h-3 mr-2 opacity-50" /> Registro
           </TabsTrigger>
           <TabsTrigger 
             value="movements" 
-            className="rounded-xl data-[state=active]:bg-primary data-[state=active]:text-white font-black text-xs uppercase transition-all flex items-center gap-2"
+            className="chrome-tab-trigger"
           >
-            <History className="w-4 h-4" /> Movimientos
+            <History className="w-3 h-3 mr-2 opacity-50" /> Movimientos
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="list" className="mt-0 focus-visible:outline-none">
-          <InventoryList />
-        </TabsContent>
-        <TabsContent value="registry" className="mt-0 focus-visible:outline-none">
-          <RegistryView />
-        </TabsContent>
-        <TabsContent value="movements" className="mt-0 focus-visible:outline-none">
-          <MovementsView />
-        </TabsContent>
+        <div className="px-1 md:px-0 mt-0">
+          <TabsContent value="list" className="mt-0 focus-visible:outline-none">
+            <InventoryList />
+          </TabsContent>
+          <TabsContent value="registry" className="mt-0 focus-visible:outline-none">
+            <RegistryView />
+          </TabsContent>
+          <TabsContent value="movements" className="mt-0 focus-visible:outline-none">
+            <MovementsView />
+          </TabsContent>
+        </div>
       </Tabs>
     </div>
   )
