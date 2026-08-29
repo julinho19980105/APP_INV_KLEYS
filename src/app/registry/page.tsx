@@ -104,7 +104,6 @@ export default function RegistryPage() {
   const [newTagName, setNewTagName] = React.useState("")
   const [editingTagName, setEditingTagName] = React.useState<{ id: string, name: string } | null>(null)
 
-  // Protección contra pérdida de datos
   React.useEffect(() => {
     const hasUnsavedChanges = form.name !== "" || images.length > 0;
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -301,61 +300,61 @@ export default function RegistryPage() {
   const currentTagsList = tagManagerConfig.type === 'category' ? dbCategories : dbCollections
 
   return (
-    <div className="max-w-6xl mx-auto space-y-4 pt-4 pb-24 px-2 md:px-0">
-      <div className="flex justify-between items-center border-b-2 border-primary/10 pb-4 mb-2">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => router.push('/inventory')} className="h-10 w-10 rounded-xl hover:bg-primary/5">
-            <ArrowLeft className="w-5 h-5 text-primary" />
+    <div className="max-w-6xl mx-auto space-y-2 pt-1 pb-24 px-2 md:px-0">
+      <div className="flex justify-between items-center border-b border-slate-200 pb-2 mb-1">
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" onClick={() => router.push('/inventory')} className="h-8 w-8 rounded-lg hover:bg-primary/5">
+            <ArrowLeft className="w-4 h-4 text-primary" />
           </Button>
-          <h1 className="text-xl font-headline font-black text-foreground uppercase tracking-tight">Registro Maestro</h1>
+          <h1 className="text-lg font-headline font-normal text-foreground uppercase tracking-tight">Registro Maestro</h1>
         </div>
-        <div className="bg-primary text-white px-6 py-1.5 rounded-xl font-black text-xl shadow-lg shadow-primary/20">{nextId}</div>
+        <div className="bg-primary text-white px-4 py-1 rounded-lg font-bold text-base shadow-sm font-headline">{nextId}</div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-          <Card className="border-none shadow-xl bg-white rounded-[2rem] overflow-hidden">
-            <CardContent className="space-y-6 pt-6 px-6 pb-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label className="text-[10px] uppercase font-black ml-1 text-primary tracking-widest">Nombre de Prenda *</Label>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 space-y-3">
+          <Card className="border border-slate-300 shadow-sm bg-white rounded-2xl overflow-hidden">
+            <CardContent className="space-y-3 pt-4 px-5 pb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
                   <Input 
                     value={form.name} 
                     onChange={e => setForm({...form, name: e.target.value})} 
-                    className="h-12 border-primary/10 rounded-xl font-black text-sm uppercase shadow-sm" 
+                    placeholder="NOMBRE DEL PRODUCTO"
+                    className="h-11 border-slate-300 rounded-xl font-medium text-sm uppercase shadow-none bg-slate-50/50" 
                   />
                 </div>
                 
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
                     <div className="flex items-center justify-between ml-1">
-                      <Label className="text-[10px] uppercase font-black text-primary tracking-widest">Categoría *</Label>
+                      <Label className="text-[9px] uppercase font-bold text-slate-400 tracking-[0.12em]">Categoría</Label>
                       <Settings2 className="w-3 h-3 text-primary/30 cursor-pointer" onClick={() => { setTagManagerConfig({ type: 'category', title: 'Categorías' }); setIsTagManagerOpen(true); }} />
                     </div>
                     <Select value={form.category} onValueChange={v => setForm({...form, category: v})}>
-                      <SelectTrigger className="h-12 border-primary/10 rounded-xl font-black text-[10px] uppercase bg-white">
+                      <SelectTrigger className="h-10 border-slate-300 rounded-xl font-medium text-[10px] uppercase bg-white">
                         <SelectValue placeholder="-" />
                       </SelectTrigger>
                       <SelectContent>
                         {uniqueCategories.map(cat => (
-                          <SelectItem key={cat} value={cat} className="text-[10px] font-black uppercase">{cat}</SelectItem>
+                          <SelectItem key={cat} value={cat} className="text-[10px] font-medium uppercase">{cat}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-1">
                     <div className="flex items-center justify-between ml-1">
-                      <Label className="text-[10px] uppercase font-black text-primary tracking-widest">Colección *</Label>
+                      <Label className="text-[9px] uppercase font-bold text-slate-400 tracking-[0.12em]">Colección</Label>
                       <Settings2 className="w-3 h-3 text-primary/30 cursor-pointer" onClick={() => { setTagManagerConfig({ type: 'collection', title: 'Colecciones' }); setIsTagManagerOpen(true); }} />
                     </div>
                     <Select value={form.collection} onValueChange={v => setForm({...form, collection: v})}>
-                      <SelectTrigger className="h-12 border-primary/10 rounded-xl font-black text-[10px] uppercase bg-white">
+                      <SelectTrigger className="h-10 border-slate-300 rounded-xl font-medium text-[10px] uppercase bg-white">
                         <SelectValue placeholder="-" />
                       </SelectTrigger>
                       <SelectContent>
                         {uniqueCollections.map(col => (
-                          <SelectItem key={col} value={col} className="text-[10px] font-black uppercase">{col}</SelectItem>
+                          <SelectItem key={col} value={col} className="text-[10px] font-medium uppercase">{col}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -363,66 +362,54 @@ export default function RegistryPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="space-y-1">
-                  <Label className="text-[9px] uppercase font-black text-muted-foreground ml-1">Stock Inicial (Base)</Label>
-                  <Input type="number" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} className="h-12 rounded-xl font-black text-center border-green-100 bg-green-50 text-green-700 shadow-inner" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[9px] uppercase font-black text-muted-foreground ml-1">P. Fardo</Label>
-                  <Input type="number" value={form.priceFardo} onChange={e => setForm({...form, priceFardo: e.target.value})} className="h-12 rounded-xl font-black text-center border-orange-50 bg-orange-50 text-orange-600 shadow-inner" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[9px] uppercase font-black text-muted-foreground ml-1">P. Mayor</Label>
-                  <Input type="number" value={form.priceMayor} onChange={e => setForm({...form, priceMayor: e.target.value})} className="h-12 rounded-xl font-black text-center border-orange-50 bg-orange-50 text-orange-600 shadow-inner" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[9px] uppercase font-black text-muted-foreground ml-1">P. Unidad</Label>
-                  <Input type="number" value={form.priceUnidad} onChange={e => setForm({...form, priceUnidad: e.target.value})} className="h-12 rounded-xl font-black text-center border-orange-50 bg-orange-50 text-orange-600 shadow-inner" />
-                </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <Input type="number" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} placeholder="STOCK" className="h-11 rounded-xl font-medium text-center border-slate-300 bg-slate-50 text-slate-800" />
+                <Input type="number" value={form.priceFardo} onChange={e => setForm({...form, priceFardo: e.target.value})} placeholder="P. FARDO" className="h-11 rounded-xl font-medium text-center border-slate-300 bg-slate-50 text-slate-800" />
+                <Input type="number" value={form.priceMayor} onChange={e => setForm({...form, priceMayor: e.target.value})} placeholder="P. MAYOR" className="h-11 rounded-xl font-medium text-center border-slate-300 bg-slate-50 text-slate-800" />
+                <Input type="number" value={form.priceUnidad} onChange={e => setForm({...form, priceUnidad: e.target.value})} placeholder="P. UNIDAD" className="h-11 rounded-xl font-medium text-center border-slate-300 bg-slate-50 text-slate-800" />
               </div>
 
-              <div className="space-y-2">
-                <Label className="text-[10px] uppercase font-black ml-1 text-primary">Descripción Industrial</Label>
-                <Textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="min-h-[100px] rounded-2xl bg-primary/5 p-4 text-xs font-medium border-none shadow-inner" />
+              <div className="space-y-1">
+                <Label className="text-[9px] uppercase font-bold ml-1 text-slate-400 tracking-[0.12em]">Descripción</Label>
+                <Textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="min-h-[70px] rounded-xl bg-slate-50/50 p-3 text-[11px] font-normal border-slate-300 shadow-none" placeholder="NOTAS ADICIONALES..." />
               </div>
             </CardContent>
           </Card>
         </div>
 
-        <div className="space-y-6">
-          <Card className="border-none shadow-xl bg-white rounded-[2rem] overflow-hidden">
-            <div className="bg-primary/5 p-4 border-b border-primary/5 flex items-center justify-between">
-              <span className="text-[10px] font-black uppercase text-primary tracking-widest">Galería Drive</span>
-              <span className="text-[9px] font-black text-primary/40">{images.length}/4</span>
+        <div className="space-y-4">
+          <Card className="border border-slate-300 shadow-sm bg-white rounded-2xl overflow-hidden">
+            <div className="bg-slate-50/80 p-3 border-b border-slate-200 flex items-center justify-between">
+              <span className="text-[9px] font-bold uppercase text-slate-500 tracking-[0.2em]">Galería Drive</span>
+              <span className="text-[9px] font-bold text-slate-400">{images.length}/4</span>
             </div>
-            <CardContent className="pt-4 grid grid-cols-2 gap-3 px-4 pb-4">
+            <CardContent className="pt-3 grid grid-cols-2 gap-2 px-3 pb-4">
               {images.map((img, idx) => (
-                <div key={idx} className="relative aspect-square rounded-xl overflow-hidden border border-primary/10 group bg-secondary shadow-sm">
+                <div key={idx} className="relative aspect-square rounded-xl overflow-hidden border border-slate-200 group bg-slate-50 shadow-none">
                   <img src={getDriveThumb(img, 400)} className={cn("w-full h-full object-cover", img.startsWith('data:') && "opacity-40")} alt="Previa" />
                   {img.startsWith('data:') ? (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/10">
-                      <Loader2 className="w-6 h-6 text-white animate-spin" />
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/5">
+                      <Loader2 className="w-5 h-5 text-primary animate-spin" />
                     </div>
                   ) : (
                     <div className="absolute inset-0 flex flex-col justify-between p-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
                       <div className="flex justify-end">
-                        <button onClick={() => setImages(images.filter((_, i) => i !== idx))} className="p-1.5 bg-destructive text-white rounded-lg shadow-lg">
+                        <button onClick={() => setImages(images.filter((_, i) => i !== idx))} className="p-1.5 bg-red-500 text-white rounded-lg shadow-lg">
                           <Trash2 className="w-3 h-3" />
                         </button>
                       </div>
                       <div className="flex justify-center gap-1.5 bg-black/40 p-1.5 rounded-lg backdrop-blur-sm">
-                        <button onClick={(e) => { e.stopPropagation(); moveImage(idx, 'left'); }} disabled={idx === 0} className="text-white disabled:opacity-20"><ChevronLeft className="w-5 h-5" /></button>
-                        <button onClick={(e) => { e.stopPropagation(); moveImage(idx, 'right'); }} disabled={idx === images.length - 1} className="text-white disabled:opacity-20"><ChevronRight className="w-5 h-5" /></button>
+                        <button onClick={(e) => { e.stopPropagation(); moveImage(idx, 'left'); }} disabled={idx === 0} className="text-white disabled:opacity-20"><ChevronLeft className="w-4 h-4" /></button>
+                        <button onClick={(e) => { e.stopPropagation(); moveImage(idx, 'right'); }} disabled={idx === images.length - 1} className="text-white disabled:opacity-20"><ChevronRight className="w-4 h-4" /></button>
                       </div>
                     </div>
                   )}
                 </div>
               ))}
               {images.length < 4 && (
-                <button onClick={() => fileInputRef.current?.click()} className="aspect-square rounded-xl border-2 border-dashed border-primary/20 flex flex-col items-center justify-center gap-2 bg-primary/5 hover:bg-primary/10 transition-all">
-                  <ImagePlus className="w-6 h-6 text-primary" />
-                  <span className="text-[8px] font-black uppercase text-primary/40">Foto</span>
+                <button onClick={() => fileInputRef.current?.click()} className="aspect-square rounded-xl border border-dashed border-slate-300 flex flex-col items-center justify-center gap-2 bg-slate-50/50 hover:bg-slate-50 transition-all">
+                  <ImagePlus className="w-5 h-5 text-slate-300" />
+                  <span className="text-[8px] font-bold uppercase text-slate-400">Subir</span>
                 </button>
               )}
               <input type="file" hidden ref={fileInputRef} onChange={handleFileUpload} accept="image/*" />
@@ -430,31 +417,31 @@ export default function RegistryPage() {
           </Card>
 
           <Button 
-            className="h-16 rounded-2xl bg-primary text-white font-black text-lg shadow-xl shadow-primary/20 hover:opacity-95 active:scale-95 transition-all w-full" 
+            className="h-14 rounded-xl bg-[#0f172a] text-white font-bold text-sm shadow-lg hover:opacity-95 active:scale-95 transition-all w-full tracking-[0.1em] uppercase" 
             onClick={handleSave} 
             disabled={saving || hasPendingUploads}
           >
-            {saving ? <Loader2 className="animate-spin w-5 h-5" /> : <Save className="mr-2 w-5 h-5" />} 
-            {editId ? "ACTUALIZAR" : "GUARDAR"}
+            {saving ? <Loader2 className="animate-spin w-4 h-4" /> : <Save className="mr-2 w-4 h-4" />} 
+            {editId ? "ACTUALIZAR" : "GUARDAR PRENDA"}
           </Button>
         </div>
       </div>
 
       <Dialog open={isTagManagerOpen} onOpenChange={setIsTagManagerOpen}>
-        <DialogContent className="rounded-[2rem] max-w-xs p-6 border-none">
-          <DialogHeader><DialogTitle className="text-xs font-black uppercase text-primary">{tagManagerConfig.title}</DialogTitle></DialogHeader>
+        <DialogContent className="rounded-3xl max-w-xs p-6 border-none shadow-2xl">
+          <DialogHeader><DialogTitle className="text-[10px] font-bold uppercase text-primary tracking-widest">{tagManagerConfig.title}</DialogTitle></DialogHeader>
           <div className="space-y-4 pt-4">
             <div className="flex gap-2">
-              <Input value={newTagName} onChange={e => setNewTagName(e.target.value)} className="h-10 text-[10px] font-black uppercase rounded-xl" placeholder="Nueva..." />
+              <Input value={newTagName} onChange={e => setNewTagName(e.target.value)} className="h-10 text-[10px] font-medium uppercase rounded-xl border-slate-200" placeholder="Nueva..." />
               <Button className="h-10 w-10 bg-primary rounded-xl shrink-0" onClick={handleAddNewTag}><Plus className="w-4 h-4" /></Button>
             </div>
-            <div className="max-h-48 overflow-y-auto space-y-2 pr-1">
+            <div className="max-h-48 overflow-y-auto space-y-2 pr-1 scrollbar-hide">
               {currentTagsList.map(tag => (
-                <div key={tag.id} className="flex items-center justify-between p-3 bg-primary/5 rounded-xl border border-primary/5">
-                  <span className="font-black text-[10px] uppercase">{tag.name}</span>
-                  <div className="flex gap-1">
-                    <Edit2 className="w-3 h-3 text-primary/40 cursor-pointer" onClick={() => setEditingTagName({ id: tag.id, name: tag.name })} />
-                    <Trash2 className="w-3 h-3 text-destructive/40 cursor-pointer" onClick={() => handleRemoveTag(tag.id)} />
+                <div key={tag.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                  <span className="font-medium text-[10px] uppercase text-slate-700">{tag.name}</span>
+                  <div className="flex gap-2">
+                    <Edit2 className="w-3.5 h-3.5 text-slate-300 cursor-pointer hover:text-primary transition-colors" onClick={() => setEditingTagName({ id: tag.id, name: tag.name })} />
+                    <Trash2 className="w-3.5 h-3.5 text-slate-300 cursor-pointer hover:text-red-500 transition-colors" onClick={() => handleRemoveTag(tag.id)} />
                   </div>
                 </div>
               ))}
