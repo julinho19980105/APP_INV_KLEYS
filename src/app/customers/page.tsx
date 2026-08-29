@@ -15,7 +15,9 @@ import {
   AlertCircle,
   CheckCircle2,
   Clock,
-  Loader2
+  Loader2,
+  Truck,
+  PackageCheck
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -28,7 +30,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { useCollection, useFirestore, useDoc } from "@/firebase"
-import { collection, query, orderBy, doc } from "firebase/firestore"
+import { collection, query, orderBy, doc, limit } from "firebase/firestore"
 import { cn } from "@/lib/utils"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
@@ -44,10 +46,12 @@ export default function CustomersHubPage() {
   const customersRef = React.useMemo(() => db ? query(collection(db, "customers"), orderBy("id", "asc")) : null, [db])
   const quotesRef = React.useMemo(() => db ? query(collection(db, "quotes"), orderBy("createdAt", "asc")) : null, [db])
   const paymentsRef = React.useMemo(() => db ? query(collection(db, "payments"), orderBy("createdAt", "asc")) : null, [db])
+  const logisticsRef = React.useMemo(() => db ? query(collection(db, "logistics"), orderBy("date", "desc"), limit(100)) : null, [db])
 
   const { data: customers = [], loading: cLoading } = useCollection(customersRef)
   const { data: quotes = [] } = useCollection(quotesRef)
   const { data: payments = [] } = useCollection(paymentsRef)
+  const { data: logistics = [] } = useCollection(logisticsRef)
 
   const customerData = React.useMemo(() => {
     return customers.map(c => {
@@ -69,19 +73,27 @@ export default function CustomersHubPage() {
         return { ...entry, currentBalance: runningBalance }
       })
 
+      // Historial de Envíos
+      const shipmentHistory = logistics.flatMap(l => 
+        (l.entries || [])
+          .filter((e: any) => e.customerId === c.id)
+          .map((e: any) => ({ ...e, dateKey: l.date }))
+      ).sort((a, b) => b.dateKey.localeCompare(a.dateKey))
+
       return {
         ...c,
         totalInvoiced,
         totalPaid,
         balance,
-        history
+        history,
+        shipmentHistory
       }
     })
-  }, [customers, quotes, payments])
+  }, [customers, quotes, payments, logistics])
 
   const filtered = React.useMemo(() => {
-    const q = searchQuery.toLowerCase()
-    return customerData.filter(c => c.name.toLowerCase().includes(q) || c.id.toLowerCase().includes(q))
+    const q = searchQuery.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    return customerData.filter(c => c.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(q) || c.id.toLowerCase().includes(q))
   }, [customerData, searchQuery])
 
   const sections = React.useMemo(() => [
@@ -108,6 +120,14 @@ export default function CustomersHubPage() {
       borderColor: "border-green-200",
       icon: CheckCircle2,
       data: filtered.filter(c => Math.abs(c.balance) <= 1)
+    },
+    { 
+      title: "HISTORIAL DE ENVÍOS", 
+      color: "text-indigo-600", 
+      bgColor: "bg-indigo-50", 
+      borderColor: "border-indigo-200",
+      icon: Truck,
+      data: filtered.filter(c => c.shipmentHistory && c.shipmentHistory.length > 0)
     }
   ], [filtered])
 
@@ -122,7 +142,7 @@ export default function CustomersHubPage() {
             <Search className="absolute left-3.5 top-3.5 h-4 w-4 text-primary" />
             <Input 
               placeholder="BUSCAR..." 
-              className="pl-10 h-11 rounded-xl border-black/10 font-black text-xs uppercase"
+              className="pl-10 h-11 rounded-xl border-black/10 font-black text-xs uppercase shadow-sm"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
             />
@@ -132,7 +152,7 @@ export default function CustomersHubPage() {
 
       <Accordion type="multiple" className="space-y-4">
         {sections.map((section, sIdx) => {
-          const totalSection = section.data.reduce((acc, c) => acc + Math.abs(c.balance), 0)
+          const totalSection = section.data.length
           return (
             <AccordionItem key={sIdx} value={`section-${sIdx}`} className={cn("border-2 rounded-[2.5rem] overflow-hidden shadow-sm", section.borderColor)}>
               <AccordionTrigger className={cn("px-8 py-5 hover:no-underline", section.bgColor)}>
@@ -140,13 +160,13 @@ export default function CustomersHubPage() {
                   <div className="flex items-center gap-4">
                     <section.icon className={cn("w-6 h-6", section.color)} />
                     <span className={cn("font-black text-[12px] uppercase tracking-[0.2em]", section.color)}>
-                      {section.title}
+                      {sIdx + 1}. {section.title}
                     </span>
                   </div>
                   <div className="flex items-center gap-6">
-                    <span className={cn("font-headline font-black text-lg", section.color)}>
-                      {totalSection > 0 ? `S/ ${totalSection.toFixed(1)}` : '-'}
-                    </span>
+                    <Badge variant="outline" className={cn("font-black text-[10px] border-none", section.bgColor, section.color)}>
+                      {totalSection} CLIENTES
+                    </Badge>
                   </div>
                 </div>
               </AccordionTrigger>
@@ -159,14 +179,14 @@ export default function CustomersHubPage() {
                       <Accordion key={c.id} type="single" collapsible className="w-full">
                         <AccordionItem value={c.id} className="border-none">
                           <AccordionTrigger className="px-8 py-6 hover:bg-black/[0.02] transition-colors w-full flex justify-between group hover:no-underline">
-                            <div className="flex items-center gap-6 w-full pr-10">
-                              <span className="w-8 h-8 rounded-full bg-black/5 flex items-center justify-center font-black text-[11px] text-black/40">{idx + 1}</span>
-                              <div className="flex-1 text-left">
+                            <div className="flex items-center gap-6 w-full pr-10 text-left">
+                              <span className="w-8 h-8 rounded-full bg-black/5 flex items-center justify-center font-black text-[11px] text-black/40 shrink-0">{idx + 1}</span>
+                              <div className="flex-1">
                                 <div className="font-black text-[13px] text-black uppercase">{c.name}</div>
                                 <div className="text-[9px] font-black text-black/40 uppercase tracking-widest">{c.id}</div>
                               </div>
                               <div className={cn("font-headline font-black text-xl", section.color)}>
-                                S/ {Math.abs(c.balance).toFixed(1)}
+                                {sIdx === 3 ? `${c.shipmentHistory.length} ENV` : `S/ ${Math.abs(c.balance).toFixed(1)}`}
                               </div>
                             </div>
                           </AccordionTrigger>
@@ -174,28 +194,52 @@ export default function CustomersHubPage() {
                             <div className="rounded-3xl border border-black/5 overflow-hidden bg-black/[0.01]">
                               <table className="w-full text-left text-[10px] font-black uppercase">
                                 <thead className="bg-black/5">
-                                  <tr>
-                                    <th className="px-6 py-3 w-32">FECHA</th>
-                                    <th className="px-6 py-3">ID</th>
-                                    <th className="px-6 py-3 text-center">TIPO</th>
-                                    <th className="px-6 py-3 text-right">BALANCE</th>
-                                  </tr>
+                                  {sIdx === 3 ? (
+                                    <tr>
+                                      <th className="px-6 py-3">FECHA ENVÍO</th>
+                                      <th className="px-6 py-3">BOLETAS</th>
+                                      <th className="px-6 py-3 text-right">COSTO ENVÍO</th>
+                                    </tr>
+                                  ) : (
+                                    <tr>
+                                      <th className="px-6 py-3 w-32">FECHA</th>
+                                      <th className="px-6 py-3">ID</th>
+                                      <th className="px-6 py-3 text-center">TIPO</th>
+                                      <th className="px-6 py-3 text-right">BALANCE</th>
+                                    </tr>
+                                  )}
                                 </thead>
                                 <tbody>
-                                  {c.history.map((h, hIdx) => (
-                                    <tr key={hIdx} className="border-b border-black/5 last:border-0 h-12">
-                                      <td className="px-6 py-0 font-medium text-black/60">{format(h.date, "dd/MM/yy")}</td>
-                                      <td className="px-6 py-0">{h.id}</td>
-                                      <td className="px-6 py-0 text-center">
-                                        <Badge variant="outline" className={cn("text-[7px]", h.type === 'quote' ? "text-red-500 border-red-200" : "text-blue-500 border-blue-200")}>
-                                          {h.type === 'quote' ? 'CARGO' : 'PAGO'}
-                                        </Badge>
-                                      </td>
-                                      <td className={cn("px-6 py-0 text-right font-headline", h.currentBalance < 0 ? "text-red-600" : "text-blue-600")}>
-                                        S/ {h.currentBalance.toFixed(1)}
-                                      </td>
-                                    </tr>
-                                  ))}
+                                  {sIdx === 3 ? (
+                                    c.shipmentHistory.map((h: any, hIdx: number) => (
+                                      <tr key={hIdx} className="border-b border-black/5 last:border-0 h-12">
+                                        <td className="px-6 py-0 font-medium text-black/60">{format(new Date(h.dateKey + "T12:00:00"), "dd/MM/yy")}</td>
+                                        <td className="px-6 py-0">
+                                          <div className="flex gap-1 flex-wrap">
+                                            {(h.quotes || []).map((q: any) => (
+                                              <Badge key={q.quoteId} variant="outline" className="text-[7px] border-primary/20 text-primary">{q.quoteId}</Badge>
+                                            ))}
+                                          </div>
+                                        </td>
+                                        <td className="px-6 py-0 text-right font-headline text-indigo-600">S/ {Number(h.shippingCost || 0).toFixed(1)}</td>
+                                      </tr>
+                                    ))
+                                  ) : (
+                                    c.history.map((h, hIdx) => (
+                                      <tr key={hIdx} className="border-b border-black/5 last:border-0 h-12">
+                                        <td className="px-6 py-0 font-medium text-black/60">{format(h.date, "dd/MM/yy")}</td>
+                                        <td className="px-6 py-0">{h.id}</td>
+                                        <td className="px-6 py-0 text-center">
+                                          <Badge variant="outline" className={cn("text-[7px]", h.type === 'quote' ? "text-red-500 border-red-200" : "text-blue-500 border-blue-200")}>
+                                            {h.type === 'quote' ? 'CARGO' : 'PAGO'}
+                                          </Badge>
+                                        </td>
+                                        <td className={cn("px-6 py-0 text-right font-headline", h.currentBalance < 0 ? "text-red-600" : "text-blue-600")}>
+                                          S/ {h.currentBalance.toFixed(1)}
+                                        </td>
+                                      </tr>
+                                    ))
+                                  )}
                                 </tbody>
                               </table>
                             </div>
