@@ -417,14 +417,17 @@ export default function PaymentsView() {
 
         {groupedPayments.map(group => (
           <div key={group.dateKey} className="space-y-1">
-            {/* Cabecera de Fecha Estilo Referencia (ROJO) */}
-            <div className="bg-[#dc2626] px-5 py-2.5 rounded-[2rem] flex justify-between items-center shadow-lg border border-red-700/20">
+            {/* Cabecera de Fecha Estilo Referencia (BLACK/NAVY) */}
+            <div className="bg-[#1e293b] px-5 py-2.5 rounded-[2rem] flex justify-between items-center shadow-lg border border-slate-700/20">
               <span className="text-[10px] font-bold uppercase text-white tracking-widest">{group.label}</span>
               <div className="flex items-center gap-3">
-                <span className="font-headline font-black text-[13px] text-white/90">S/{group.total.toFixed(1)}</span>
+                <span className="font-headline font-black text-[13px] text-[#10b981]">S/{group.total.toFixed(1)}</span>
                 <button 
                   onClick={() => toggleDayLock(group.dateKey, group.payments, group.isDayLocked)}
-                  className={cn("transition-all p-1.5 rounded-full bg-white/20 text-white shadow-inner")}
+                  className={cn(
+                    "transition-all p-1.5 rounded-full shadow-inner",
+                    group.isDayLocked ? "bg-[#10b981]/20 text-[#10b981]" : "bg-white/10 text-white/40"
+                  )}
                 >
                   {group.isDayLocked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
                 </button>
@@ -456,7 +459,7 @@ function PaymentRecord({ p, onEdit, onDelete, onLock, deleteConfirmId, setDelete
   return (
     <Card className={cn(
       "rounded-[2rem] border border-[#3b82f6]/30 bg-white shadow-sm transition-all active:scale-[0.98] relative overflow-hidden",
-      p.isLocked && "bg-slate-50/50"
+      p.isLocked && "bg-slate-50/30"
     )}>
       {/* Barra de acento lateral azul */}
       <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#3b82f6]/40" />
@@ -476,20 +479,24 @@ function PaymentRecord({ p, onEdit, onDelete, onLock, deleteConfirmId, setDelete
         <div className="flex items-center gap-4">
           <div className="font-headline font-black text-[15px] text-blue-600 leading-none mr-1">S/{Number(p.amount).toFixed(1)}</div>
           
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
             <button 
               onClick={() => onLock(p)}
               className={cn(
-                "w-9 h-9 rounded-full flex items-center justify-center transition-all", 
-                p.isLocked ? "bg-blue-500 text-white shadow-md shadow-blue-200" : "bg-slate-100 text-slate-300"
+                "w-9 h-9 rounded-full flex items-center justify-center transition-all shadow-md", 
+                p.isLocked ? "bg-blue-500 text-white shadow-blue-200" : "bg-slate-100 text-slate-300"
               )}
             >
               {p.isLocked ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
             </button>
 
+            <Badge variant="outline" className="bg-blue-50/50 text-blue-400 border-blue-100 text-[7px] font-bold h-5 px-2 uppercase tracking-widest">
+              VERIFICADO
+            </Badge>
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button disabled={p.isLocked} className="p-1.5 text-slate-300 hover:text-primary transition-colors disabled:opacity-5">
+                <button disabled={p.isLocked} className="p-1.5 text-slate-300 hover:text-primary transition-colors disabled:opacity-0">
                   <MoreVertical className="w-4.5 h-4.5" />
                 </button>
               </DropdownMenuTrigger>
