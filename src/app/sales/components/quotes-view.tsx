@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -396,7 +395,7 @@ export default function QuotesView() {
       </div>
 
       {/* Selector Cliente */}
-      <div className="relative z-[90]">
+      <div className="relative z-20">
         <div className="relative flex gap-2">
           <div className="relative flex-1">
             <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
@@ -407,7 +406,7 @@ export default function QuotesView() {
               onChange={e => { if (selectedCustomer) setSelectedCustomer(null); setCustomerQuery(e.target.value); }}
             />
             {customerQuery.length >= 1 && (
-              <div className="absolute z-[100] w-full mt-1 bg-white border border-slate-300 rounded-xl shadow-2xl overflow-hidden max-h-60 overflow-y-auto">
+              <div className="absolute z-30 w-full mt-1 bg-white border border-slate-300 rounded-xl shadow-2xl overflow-hidden max-h-60 overflow-y-auto">
                 {customerSuggestions.map(c => (
                   <button key={c.id} className="w-full text-left px-6 py-3.5 hover:bg-slate-50 border-b border-slate-100 last:border-0 font-medium text-[10px] uppercase transition-colors text-slate-700" onClick={() => { setSelectedCustomer({ id: c.id, name: c.name }); setCustomerQuery(""); }}>
                     {c.name} <span className="text-slate-400 ml-2 font-normal">[{c.id}]</span>
@@ -502,7 +501,7 @@ export default function QuotesView() {
             />
           </div>
 
-          <div className="pt-1 relative z-[80]">
+          <div className="pt-1 relative z-10">
             <div className="relative">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
               <Input 
@@ -512,7 +511,7 @@ export default function QuotesView() {
                 onChange={e => setProductQuery(e.target.value)}
               />
               {productQuery.length >= 1 && (
-                <div className="absolute z-[100] w-full mt-1 bg-white border border-slate-300 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-1">
+                <div className="absolute z-30 w-full mt-1 bg-white border border-slate-300 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-1">
                   {productSuggestions.map(p => (
                     <button key={p.code} className="w-full text-left px-5 py-3 hover:bg-slate-50 border-b border-slate-100 last:border-0 flex items-center gap-3 transition-colors" onClick={() => selectProductForEntry(p)}>
                       <div className="w-9 h-9 rounded-lg bg-slate-100 overflow-hidden border border-slate-200 shrink-0">

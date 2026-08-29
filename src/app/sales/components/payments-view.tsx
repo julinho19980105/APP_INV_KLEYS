@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -358,7 +357,7 @@ export default function PaymentsView() {
             </div>
           </div>
 
-          <div className="space-y-1 relative z-[90]">
+          <div className="space-y-1 relative z-20">
             <Label className="text-[9px] font-bold text-slate-400 uppercase ml-2 tracking-widest">CLIENTE</Label>
             <div className="flex gap-2 items-center">
               <div className="relative flex-1">
@@ -371,7 +370,7 @@ export default function PaymentsView() {
                   readOnly={!!editingPayment}
                 />
                 {customerSearch.length > 0 && !editingPayment && (
-                  <div className="absolute z-[100] w-full mt-1 bg-white border border-slate-300 rounded-xl shadow-2xl overflow-hidden max-h-48 overflow-y-auto">
+                  <div className="absolute z-30 w-full mt-1 bg-white border border-slate-300 rounded-xl shadow-2xl overflow-hidden max-h-48 overflow-y-auto">
                     {filteredCustomers.map(c => (
                       <button key={c.id} className="w-full text-left px-6 py-3.5 hover:bg-slate-50 border-b border-slate-100 last:border-0 font-medium text-[10px] uppercase transition-colors text-slate-700" onClick={() => { setSelectedCustomer(c); setCustomerSearch(""); }}>
                         {c.name} <span className="text-slate-400 ml-2 font-normal">[{c.id}]</span>
@@ -534,7 +533,7 @@ function PaymentRecord({ p, isProcessed, onEdit, onDelete, onLock, deleteConfirm
                       <div className="flex flex-col items-center gap-3">
                         <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">¿ELIMINAR ESTE PAGO?</span>
                         <div className="flex gap-2">
-                          <Button size="sm" className="h-8 px-4 text-[9px] font-black bg-red-500 text-white hover:bg-red-600 rounded-lg" onClick={() => onDelete(p.id)}>SÍ, BORRAR</Button>
+                          <Button size="sm" className="h-8 px-4 text-[9px] font-black bg-red-500 text-white hover:bg-red-600 rounded-lg" onClick={() => handleDelete(p.id)}>SÍ, BORRAR</Button>
                           <Button size="sm" variant="ghost" className="h-8 px-4 text-[9px] font-black text-slate-300 hover:bg-white/10 rounded-lg" onClick={() => setDeleteConfirmId(null)}>CANCELAR</Button>
                         </div>
                       </div>

@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -215,7 +214,7 @@ export default function ShippingHubPage() {
               </div>
             </div>
 
-            <div className="relative w-full z-[100]">
+            <div className="relative w-full z-20">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
               <Input 
                 placeholder="AÑADIR CLIENTE PENDIENTE..." 
@@ -225,7 +224,7 @@ export default function ShippingHubPage() {
                 onFocus={() => setIsSearchOpen(true)} 
               />
               {isSearchOpen && (
-                <div className="absolute z-[9999] w-full mt-1 bg-white border border-slate-300 rounded-xl shadow-2xl overflow-hidden">
+                <div className="absolute z-30 w-full mt-1 bg-white border border-slate-300 rounded-xl shadow-2xl overflow-hidden">
                   <div className="p-2 bg-slate-50 border-b border-slate-200 flex justify-between items-center px-4">
                     <span className="text-[8px] font-bold uppercase text-slate-500 tracking-widest">Resultados</span>
                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsSearchOpen(false)}><X className="w-3.5 h-3.5" /></Button>
