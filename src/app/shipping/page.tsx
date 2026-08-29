@@ -61,6 +61,7 @@ export default function ShippingHubPage() {
   
   const [date, setDate] = React.useState<Date>(new Date())
   const [customerSearch, setCustomerSearch] = React.useState("")
+  const [isSearchFocused, setIsSearchFocused] = React.useState(false)
   const [deleteConfirm, setDeleteConfirm] = React.useState<{id: string, name: string} | null>(null)
 
   const dateKey = format(date, "yyyy-MM-dd")
@@ -93,8 +94,8 @@ export default function ShippingHubPage() {
   }, [dbCustomers, allQuotes, allPayments, historyBatches, logData, dateKey])
 
   const filteredSuggestions = React.useMemo(() => {
-    if (!customerSearch) return []
     const q = customerSearch.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    if (!q) return activeCustomerSuggestions
     return activeCustomerSuggestions.filter(c => 
       c.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(q) || 
       c.id.toLowerCase().includes(q)
@@ -148,6 +149,7 @@ export default function ShippingHubPage() {
     }, { merge: true })
     
     setCustomerSearch("")
+    setIsSearchFocused(false)
     toast({ title: "CLIENTE AÑADIDO" })
   }
 
@@ -189,8 +191,8 @@ export default function ShippingHubPage() {
           <TabsContent value="clientes" className="mt-4 focus-visible:outline-none"><CustomersHubPage /></TabsContent>
 
           <TabsContent value="envios" className="mt-0 space-y-4 focus-visible:outline-none">
-            {/* Cabecera Registro de Envíos Industrial */}
-            <div className="bg-[#0f172a] rounded-b-[2rem] p-5 pb-7 space-y-4 shadow-2xl relative overflow-hidden">
+            {/* Cabecera Registro de Envíos Industrial con overflow visible para el buscador */}
+            <div className="bg-[#0f172a] rounded-b-[2rem] p-5 pb-7 space-y-4 shadow-2xl relative overflow-visible">
                <div className="flex items-center justify-between relative z-10">
                   <h1 className="text-[13px] font-black text-white uppercase tracking-widest">REGISTRO DE ENVÍOS</h1>
                   <input 
@@ -208,9 +210,11 @@ export default function ShippingHubPage() {
                     className="h-12 pl-12 bg-white border-slate-300 rounded-xl font-medium text-[11px] uppercase shadow-inner text-slate-800 focus-visible:ring-1 focus-visible:ring-primary/20"
                     value={customerSearch}
                     onChange={e => setCustomerSearch(e.target.value)}
+                    onFocus={() => setIsSearchFocused(true)}
+                    onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
                   />
-                  {customerSearch.length >= 1 && (
-                    <div className="absolute z-50 w-full mt-1 bg-white border border-slate-300 rounded-xl shadow-2xl overflow-hidden max-h-60 overflow-y-auto">
+                  {(isSearchFocused || customerSearch.length >= 1) && (
+                    <div className="absolute z-[70] w-full mt-1 bg-white border border-slate-300 rounded-xl shadow-2xl overflow-hidden max-h-60 overflow-y-auto animate-in fade-in slide-in-from-top-1">
                       {filteredSuggestions.length === 0 ? (
                         <div className="py-8 text-center opacity-30 text-[9px] font-black uppercase">Sin resultados pendientes</div>
                       ) : (
@@ -228,13 +232,14 @@ export default function ShippingHubPage() {
                   )}
                </div>
 
-               <div className="absolute right-0 bottom-0 opacity-5 pointer-events-none">
-                 <Truck className="w-40 h-40 text-white -mb-8 -mr-8" />
+               {/* Icono decorativo con su propio contenedor para no romper el buscador */}
+               <div className="absolute inset-0 rounded-b-[2rem] overflow-hidden pointer-events-none">
+                 <Truck className="w-40 h-40 text-white absolute bottom-0 right-0 opacity-5 -mb-8 -mr-8" />
                </div>
             </div>
 
             {/* Indicadores de Lote Compactos */}
-            <div className="grid grid-cols-3 gap-2 px-4 -mt-3 relative z-20">
+            <div className="grid grid-cols-3 gap-2 px-4 -mt-3 relative z-10">
                <div className="bg-white border border-slate-300 rounded-xl p-3 text-center shadow-md">
                  <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest block">FACTURADO</span>
                  <div className="text-[14px] font-headline font-black text-slate-900 mt-0.5 leading-none">S/ {stats.facturado.toFixed(0)}</div>
@@ -250,7 +255,7 @@ export default function ShippingHubPage() {
             </div>
 
             {/* Lista Lote Actual con Altura Mínima */}
-            <div className="px-2 space-y-2 min-h-[220px]">
+            <div className="px-2 space-y-2 min-h-[220px] relative z-0">
                {(!logData?.entries || logData.entries.length === 0) ? (
                  <div className="bg-white border border-dashed border-slate-300 rounded-[2.5rem] py-16 flex flex-col items-center justify-center gap-4 opacity-30 shadow-inner">
                     <Truck className="w-10 h-10 text-slate-200" />
