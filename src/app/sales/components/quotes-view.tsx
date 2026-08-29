@@ -372,7 +372,6 @@ export default function QuotesView() {
 
       if (typeof window !== "undefined") localStorage.removeItem(STORAGE_KEY);
       
-      // LIMPIEZA ABSOLUTA DE CAMPOS
       setSelectedCustomer(null);
       setItems([]);
       setCurrentEntry(EMPTY_ENTRY);
@@ -380,7 +379,7 @@ export default function QuotesView() {
       setProductQuery("");
 
       toast({ title: editId ? "VENTA ACTUALIZADA" : "VENTA REGISTRADA" })
-      router.push('/sales')
+      router.push('/sales?tab=history')
     } catch (e) {
       toast({ variant: "destructive", title: "ERROR AL GUARDAR" })
     } finally {
