@@ -27,8 +27,8 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: 'KLEYS KIDS | Industrial Management',
-  description: 'Sistema Inteligente de Gestión Industrial',
+  title: 'KLEYS KIDS | Gestión Industrial',
+  description: 'Sistema de Gestión Industrial KLEYS KIDS',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
