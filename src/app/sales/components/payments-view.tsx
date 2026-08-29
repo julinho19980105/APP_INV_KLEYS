@@ -297,15 +297,18 @@ export default function PaymentsView() {
       {/* Registro de Pago ERP */}
       <Card className={cn(
         "rounded-2xl border border-slate-300 bg-white shadow-lg relative transition-all overflow-visible",
-        isDayClosed && !editingPayment && "opacity-80 grayscale"
+        isDayClosed && !editingPayment && "opacity-90"
       )}>
-        <div className="bg-[#1e293b] py-2 px-6 flex justify-between items-center rounded-t-2xl">
+        <div className={cn(
+          "py-2 px-6 flex justify-between items-center rounded-t-2xl transition-colors",
+          isDayClosed && !editingPayment ? "bg-red-600" : "bg-[#1e293b]"
+        )}>
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded-full bg-primary/20 flex items-center justify-center">
-               <CreditCard className="w-2.5 h-2.5 text-primary" />
+            <div className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center">
+               <CreditCard className="w-2.5 h-2.5 text-white" />
             </div>
             <span className="text-[9px] font-bold uppercase text-slate-100 tracking-[0.2em]">
-              {editingPayment ? "EDITAR ABONO" : "REGISTRAR ABONO"}
+              {editingPayment ? "EDITAR ABONO" : isDayClosed ? "FECHA CERRADA" : "REGISTRAR ABONO"}
             </span>
           </div>
           <div className="flex items-center gap-4">
@@ -386,11 +389,11 @@ export default function PaymentsView() {
                 )}
               </div>
               <Button 
-                className={cn("h-12 w-12 rounded-xl text-white shadow-lg shrink-0 active:scale-95 transition-all", editingPayment ? "bg-orange-500" : "bg-[#0296FF]")}
+                className={cn("h-12 w-12 rounded-xl text-white shadow-lg shrink-0 active:scale-95 transition-all", editingPayment ? "bg-orange-500" : isDayClosed ? "bg-red-500" : "bg-[#0296FF]")}
                 onClick={handleSavePayment}
                 disabled={saving || !amount || !selectedCustomer || !selectedBank || (isDayClosed && !editingPayment)}
               >
-                {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : editingPayment ? <Check className="w-6 h-6" /> : <Plus className="w-6 h-6" />}
+                {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : editingPayment ? <Check className="w-6 h-6" /> : isDayClosed ? <Lock className="w-6 h-6" /> : <Plus className="w-6 h-6" />}
               </Button>
             </div>
           </div>
@@ -417,8 +420,11 @@ export default function PaymentsView() {
 
         {groupedPayments.map(group => (
           <div key={group.dateKey} className="space-y-1">
-            {/* Cabecera de Fecha Estilo Referencia (BLACK/NAVY) */}
-            <div className="bg-[#1e293b] px-5 py-2.5 rounded-[2rem] flex justify-between items-center shadow-lg border border-slate-700/20">
+            {/* Cabecera de Fecha Dinámica (Navy o Roja si está cerrada) */}
+            <div className={cn(
+              "px-5 py-2.5 rounded-[2rem] flex justify-between items-center shadow-lg border border-slate-700/20 transition-colors",
+              group.isDayLocked ? "bg-red-600" : "bg-[#1e293b]"
+            )}>
               <span className="text-[10px] font-bold uppercase text-white tracking-widest">{group.label}</span>
               <div className="flex items-center gap-3">
                 <span className="font-headline font-black text-[13px] text-[#10b981]">S/{group.total.toFixed(1)}</span>
@@ -426,7 +432,7 @@ export default function PaymentsView() {
                   onClick={() => toggleDayLock(group.dateKey, group.payments, group.isDayLocked)}
                   className={cn(
                     "transition-all p-1.5 rounded-full shadow-inner",
-                    group.isDayLocked ? "bg-[#10b981]/20 text-[#10b981]" : "bg-white/10 text-white/40"
+                    group.isDayLocked ? "bg-white/20 text-white" : "bg-white/10 text-white/40"
                   )}
                 >
                   {group.isDayLocked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
