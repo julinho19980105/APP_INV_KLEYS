@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -20,7 +21,13 @@ import {
   UserPlus,
   MoreVertical,
   Edit2,
-  RotateCcw
+  RotateCcw,
+  ShoppingCart,
+  ScanLine,
+  User,
+  Eraser,
+  Maximize2,
+  ChevronDown
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -114,8 +121,7 @@ export default function QuotesView() {
   
   const configDocRef = React.useMemo(() => db ? doc(db, "config", "global") : null, [db])
   const { data: config } = useDoc(configDocRef)
-  const brandColor = config?.brandColor || "#FF3399"
-
+  
   const [saving, setSaving] = React.useState(false)
   const [quoteId, setQuoteId] = React.useState("B-001")
   const [customerQuery, setCustomerQuery] = React.useState("")
@@ -137,6 +143,19 @@ export default function QuotesView() {
   const customersRef = React.useMemo(() => db ? query(collection(db, "customers"), orderBy("id")) : null, [db])
   const { data: dbProducts = [] } = useCollection(productsRef)
   const { data: dbCustomers = [] } = useCollection(customersRef)
+
+  // Protección contra pérdida de datos
+  React.useEffect(() => {
+    const hasUnsavedChanges = items.length > 0 || selectedCustomer !== null;
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [items, selectedCustomer]);
 
   React.useEffect(() => {
     if (typeof window !== "undefined" && !editId) {
@@ -246,7 +265,7 @@ export default function QuotesView() {
       productId: prod.code,
       name: prod.name,
       description: "",
-      quantity: "",
+      quantity: "1",
       price: prod.priceMayor?.toString() || "",
       stock: prod.stock || 0,
       img: prod.images?.[0] || "",
@@ -318,7 +337,7 @@ export default function QuotesView() {
         items: items,
         subtotal: subtotal,
         total: total,
-        status: editQuoteStatus === 'shipped' ? 'shipped' : 'active',
+        status: 'active',
         createdAt: serverTimestamp()
       }
 
@@ -330,8 +349,12 @@ export default function QuotesView() {
           updateDoc(prodRef, {
             stock: increment(-Number(item.quantity)),
             updatedAt: serverTimestamp()
-          }).catch(async () => {
-            errorEmitter.emit('permission-error', new FirestorePermissionError({ path: prodRef.path, operation: 'update' }));
+          }).catch(async (serverError) => {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({
+              path: prodRef.path,
+              operation: 'update',
+              requestResourceData: { stock: increment(-Number(item.quantity)) }
+            }));
           });
 
           addDoc(collection(db, "movements"), {
@@ -341,9 +364,7 @@ export default function QuotesView() {
             reason: `SALIDA POR VENTA ${quoteId}`,
             timestamp: serverTimestamp(),
             referenceId: quoteId
-          }).catch(async () => {
-            errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'movements', operation: 'create' }));
-          });
+          }).catch(() => {});
         }
       }
 
@@ -351,8 +372,7 @@ export default function QuotesView() {
         localStorage.removeItem(STORAGE_KEY);
       }
       toast({ title: editId ? "VENTA ACTUALIZADA" : "VENTA REGISTRADA" })
-      if (editId) router.push('/sales')
-      else handleDiscard()
+      router.push('/sales')
     } catch (e) {
       toast({ variant: "destructive", title: "ERROR AL GUARDAR" })
     } finally {
@@ -361,15 +381,16 @@ export default function QuotesView() {
   }
 
   const handleDiscard = () => {
-    if (typeof window !== "undefined") {
-      localStorage.removeItem(STORAGE_KEY);
+    if (confirm("¿DESCARTAR COTIZACIÓN ACTUAL?")) {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem(STORAGE_KEY);
+      }
+      setSelectedCustomer(null);
+      setItems([]);
+      setQuoteId("B-001");
+      setCurrentEntry(EMPTY_ENTRY);
+      router.push('/sales');
     }
-    setSelectedCustomer(null);
-    setItems([]);
-    setQuoteId("B-001");
-    setCurrentEntry(EMPTY_ENTRY);
-    setCustomerQuery("");
-    setProductQuery("");
   }
 
   const handleEditItem = (item: QuoteItem) => {
@@ -383,221 +404,271 @@ export default function QuotesView() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center border-b-2 border-primary/20 pb-4">
-        <div className="flex items-center gap-3">
-          <h1 className="text-xl font-headline font-black text-foreground uppercase tracking-tight">Registro Comercial</h1>
-        </div>
-        <div className="flex items-center gap-4">
-          <span className="text-xl font-headline font-black text-primary uppercase">{quoteId}</span>
-          <Button variant="ghost" size="icon" onClick={handleDiscard} className="h-9 w-9 text-primary/40"><RotateCcw className="w-5 h-5" /></Button>
-        </div>
-      </div>
-
-      <div className="space-y-1">
-        <Label className="text-[10px] uppercase text-primary font-black ml-1 tracking-widest">CLIENTE</Label>
-        <div className="relative flex gap-2">
-          <div className="relative flex-1">
-            <Input 
-              placeholder="Nombre o ID..." 
-              className="h-12 text-xs font-black uppercase rounded-xl border-primary/10 bg-white shadow-sm"
-              value={selectedCustomer ? `${selectedCustomer.name} [${selectedCustomer.id}]` : customerQuery}
-              onChange={e => { if (selectedCustomer) setSelectedCustomer(null); setCustomerQuery(e.target.value); }}
-            />
-            {customerSuggestions.length > 0 && (
-              <div className="absolute z-50 w-full mt-1 bg-white border border-primary/10 rounded-xl shadow-2xl overflow-hidden">
-                {customerSuggestions.map(c => (
-                  <button key={c.id} className="w-full text-left px-4 py-4 hover:bg-primary/5 border-b last:border-0" onClick={() => { setSelectedCustomer({ id: c.id, name: c.name }); setCustomerQuery(""); }}>
-                    <span className="text-[11px] font-black uppercase text-foreground">{c.name} <span className="ml-1 text-primary">[{c.id}]</span></span>
-                  </button>
-                ))}
-              </div>
-            )}
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+      {/* Cabecera Tipo ERP */}
+      <div className="bg-white rounded-[2.5rem] border border-black/5 shadow-xl p-6 flex flex-col md:flex-row justify-between items-center gap-4">
+        <div className="flex items-center gap-4 w-full md:w-auto">
+          <div className="w-12 h-12 rounded-[1.5rem] bg-[#f8fafc] border border-primary/10 flex items-center justify-center shadow-inner">
+             <ShoppingCart className="w-6 h-6 text-primary" />
           </div>
-          {!selectedCustomer && customerQuery.length >= 1 && (
-            <Button className="h-12 w-12 rounded-xl bg-primary text-white shadow-lg" onClick={handleQuickRegisterCustomer} disabled={registeringCustomer}>
-              {registeringCustomer ? <Loader2 className="animate-spin w-4 h-4" /> : <UserPlus className="w-5 h-5" />}
-            </Button>
-          )}
+          <div>
+            <h2 className="text-lg font-black text-[#1e293b] uppercase tracking-tighter leading-none">Venta</h2>
+            <p className="text-[10px] font-black text-primary/40 uppercase tracking-[0.2em] mt-1">{quoteId}</p>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          <div className="flex-1 md:flex-none">
+            <input 
+              type="date" 
+              className="h-12 w-full md:w-48 bg-[#f8fafc] border border-black/5 rounded-2xl px-4 font-black text-[11px] text-[#1e293b] uppercase shadow-inner focus:outline-none focus:ring-2 focus:ring-primary/20"
+              defaultValue={new Date().toISOString().split('T')[0]}
+            />
+          </div>
+          <Button variant="ghost" size="icon" className="h-12 w-12 rounded-2xl bg-[#f8fafc] text-primary/40" onClick={() => router.push('/sales')}>
+             <ChevronDown className="w-6 h-6" />
+          </Button>
         </div>
       </div>
 
-      <div className="space-y-1">
-        <Label className="text-[10px] uppercase font-black text-primary ml-1 tracking-widest">BUSCAR PRENDA</Label>
-        <div className="relative">
-          <Search className="absolute left-4 top-4 h-4 w-4 text-primary/40" />
-          <Input 
-            placeholder="CÓDIGO O NOMBRE..." 
-            className="pl-11 h-12 rounded-xl border-primary/10 font-black text-xs uppercase bg-white shadow-sm" 
-            value={productQuery} 
-            onChange={e => setProductQuery(e.target.value)} 
-          />
-          {productQuery.length >= 1 && (
-            <div className="absolute z-50 w-full mt-2 bg-white border border-primary/10 rounded-2xl shadow-2xl overflow-hidden">
-              {productSuggestions.map(p => (
-                <div key={p.code} className="w-full text-left px-4 py-3 hover:bg-primary/5 flex items-center gap-3 border-b last:border-0 group">
-                  <div className="w-12 h-12 rounded-lg border border-primary/10 overflow-hidden bg-secondary cursor-pointer shrink-0" onClick={(e) => { e.stopPropagation(); setZoomImage(p.images?.[0] || null); }}>
-                    {p.images?.[0] ? <img src={getDriveThumb(p.images[0], 200)} className="w-full h-full object-cover" /> : <ImageIcon className="w-full h-full p-3 opacity-20" />}
-                  </div>
-                  <button className="flex-1 min-w-0 text-left" onClick={() => selectProductForEntry(p)}>
-                    <div className="font-black text-[11px] text-foreground uppercase">{p.name}</div>
-                    <div className="text-[8px] font-black text-muted-foreground uppercase">{p.code} • STOCK: {p.stock}</div>
-                  </button>
-                </div>
-              ))}
-              <button 
-                className="w-full text-left px-4 py-5 hover:bg-primary/5 bg-primary/5 border-t flex items-center gap-3"
-                onClick={() => {
-                  setCurrentEntry({
-                    ...EMPTY_ENTRY,
-                    id: Math.random().toString(),
-                    name: productQuery.toUpperCase(),
-                    productId: "MANUAL",
-                    isRegistered: false
-                  });
-                  setProductQuery("");
-                }}
-              >
-                <Plus className="w-4 h-4 text-primary" />
-                <span className="text-[11px] font-black uppercase text-foreground">ENTRADA MANUAL: "{productQuery}"</span>
-              </button>
+      {/* Tarjeta de Registro Maestro */}
+      <Card className="rounded-[2.5rem] border-none shadow-2xl bg-white overflow-hidden">
+        <div className="bg-[#1e293b] py-4 px-8 flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
+               <Plus className="w-4 h-4 text-primary" />
             </div>
-          )}
+            <span className="text-[11px] font-black uppercase text-white tracking-[0.2em]">Registro</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="sm" className="h-8 px-4 bg-primary text-white rounded-full text-[9px] font-black uppercase gap-2 hover:bg-primary/90">
+               <Maximize2 className="w-3.5 h-3.5" /> Tools
+            </Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8 text-white/30 hover:text-white" onClick={() => setCurrentEntry(EMPTY_ENTRY)}>
+               <Eraser className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
-      </div>
 
-      <Card className="rounded-[2rem] border-2 border-primary/20 bg-white overflow-hidden shadow-2xl">
-        <CardContent className="p-5 md:p-8 space-y-5">
-           <div className="flex gap-4 items-center">
-             <div className="w-20 h-20 rounded-2xl border bg-muted overflow-hidden flex items-center justify-center shrink-0 cursor-pointer" onClick={() => setZoomImage(currentEntry.img)}>
-                {currentEntry.img ? <img src={getDriveThumb(currentEntry.img, 200)} className="w-full h-full object-cover" /> : <PackageSearch className="w-8 h-8 opacity-20" />}
-             </div>
-             <div className="flex-1 min-w-0">
-                <Input value={currentEntry.name} onChange={e => setCurrentEntry({...currentEntry, name: e.target.value.toUpperCase()})} placeholder="PRENDA..." className="h-10 text-sm font-black uppercase border-none p-0 focus-visible:ring-0 shadow-none" />
-                <div className="text-[9px] font-black text-primary/40 uppercase">{currentEntry.productId || "MANUAL"}</div>
-             </div>
-           </div>
+        <CardContent className="p-8 space-y-6">
+          {/* Nombre de Prenda */}
+          <div className="space-y-2">
+            <Input 
+              value={currentEntry.name}
+              onChange={e => setCurrentEntry({...currentEntry, name: e.target.value.toUpperCase()})}
+              placeholder="PRODUCTO / CATEGORÍA"
+              className="h-14 text-[14px] font-black uppercase text-[#1e293b] bg-[#f8fafc] border-black/5 rounded-2xl px-6 focus:ring-2 focus:ring-primary/20 shadow-inner"
+            />
+          </div>
 
-           <div className="flex gap-2 pb-1">
-             <Button variant="outline" className="flex-1 h-10 text-[9px] font-black uppercase border-primary/10" onClick={() => setCurrentEntry({...currentEntry, price: currentEntry.refFardo?.toString() || ""})}>Fardo: {currentEntry.refFardo?.toFixed(1) || '-'}</Button>
-             <Button variant="outline" className="flex-1 h-10 text-[9px] font-black uppercase border-primary/10 bg-primary/5" onClick={() => setCurrentEntry({...currentEntry, price: currentEntry.refMayor?.toString() || ""})}>Mayor: {currentEntry.refMayor?.toFixed(1) || '-'}</Button>
-             <Button variant="outline" className="flex-1 h-10 text-[9px] font-black uppercase border-primary/10" onClick={() => setCurrentEntry({...currentEntry, price: currentEntry.refUnidad?.toString() || ""})}>Unid: {currentEntry.refUnidad?.toFixed(1) || '-'}</Button>
-           </div>
+          {/* Cantidad / Precio / Descuento */}
+          <div className="grid grid-cols-3 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-[9px] font-black text-primary/40 uppercase ml-1 tracking-widest">Cant</Label>
+              <Input 
+                type="number" 
+                value={currentEntry.quantity} 
+                onChange={e => setCurrentEntry({...currentEntry, quantity: e.target.value.slice(0, 4)})} 
+                className="h-14 text-center text-lg font-black text-[#1e293b] bg-[#f8fafc] border-black/5 rounded-2xl shadow-inner"
+                placeholder="1"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[9px] font-black text-primary/40 uppercase ml-1 tracking-widest">Precio</Label>
+              <Input 
+                type="number" 
+                value={currentEntry.price} 
+                onChange={e => setCurrentEntry({...currentEntry, price: e.target.value})} 
+                className="h-14 text-center text-lg font-black text-[#1e293b] bg-[#f8fafc] border-black/5 rounded-2xl shadow-inner"
+                placeholder="0.0"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[9px] font-black text-primary/40 uppercase ml-1 tracking-widest">Desc</Label>
+              <div className="relative group">
+                <Input 
+                  type="number" 
+                  value={currentEntry.discount} 
+                  onChange={e => setCurrentEntry({...currentEntry, discount: e.target.value.slice(0, 2)})} 
+                  className="h-14 text-center text-lg font-black text-orange-600 bg-orange-50/50 border-orange-100 rounded-2xl shadow-inner"
+                  placeholder="0"
+                />
+                <Button variant="ghost" size="icon" className="absolute -right-2 -top-2 h-10 w-10 rounded-full bg-white border border-green-500/20 text-green-500 shadow-lg group-active:scale-95 transition-all" onClick={() => setIsCalcOpen(true)}>
+                   <Calculator className="w-5 h-5" />
+                </Button>
+              </div>
+            </div>
+          </div>
 
-           <div className="flex items-end gap-3 w-full">
-             <div className="flex-[2] space-y-1">
-               <Label className="text-[9px] font-black text-muted-foreground uppercase ml-1">PRECIO</Label>
-               <Input type="number" value={currentEntry.price} onChange={e => setCurrentEntry({...currentEntry, price: e.target.value})} className="h-12 font-black text-sm rounded-xl border-primary/10" />
-             </div>
-             <div className="flex-[2] space-y-1">
-               <Label className="text-[9px] font-black text-muted-foreground uppercase ml-1">CANT</Label>
-               <div className="flex gap-1">
-                 <Input 
-                   type="number" 
-                   value={currentEntry.quantity} 
-                   onChange={e => {
-                     const val = e.target.value;
-                     if (val.length <= 4) setCurrentEntry({...currentEntry, quantity: val});
-                   }} 
-                   inputMode="numeric"
-                   className="h-12 font-black text-sm rounded-xl border-primary/10 flex-1" 
-                 />
-                 <Button variant="outline" size="icon" className="h-12 w-12 shrink-0 rounded-xl" onClick={() => setIsCalcOpen(true)}><Calculator className="w-4 h-4" /></Button>
-               </div>
-             </div>
-             <div className="flex-[1] min-w-[60px] space-y-1">
-               <Label className="text-[9px] font-black text-muted-foreground uppercase ml-1">DESC.</Label>
-               <Input 
-                 type="number" 
-                 value={currentEntry.discount} 
-                 onChange={e => {
-                   const val = e.target.value;
-                   if (val.length <= 2) setCurrentEntry({...currentEntry, discount: val});
-                 }} 
-                 inputMode="numeric"
-                 className="h-12 font-black text-sm rounded-xl border-orange-100 bg-orange-50 text-orange-600 px-2" 
-               />
-             </div>
-           </div>
+          {/* Descripción */}
+          <div className="space-y-2 relative">
+             <Input 
+              value={currentEntry.description} 
+              onChange={e => setCurrentEntry({...currentEntry, description: e.target.value})} 
+              placeholder="DESCRIPCIÓN (MODELO, TALLAS...)" 
+              className="h-14 bg-[#f8fafc] border-black/5 rounded-2xl px-6 text-[12px] font-black uppercase shadow-inner" 
+            />
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-primary/20 font-black text-xs uppercase pointer-events-none">T</div>
+          </div>
 
-           <div className="space-y-1">
-             <Label className="text-[9px] font-black text-muted-foreground uppercase ml-1">DESCRIPCIÓN</Label>
-             <Input value={currentEntry.description} onChange={e => setCurrentEntry({...currentEntry, description: e.target.value})} placeholder="Detalles..." className="h-12 rounded-xl border-none bg-primary/5" />
-           </div>
+          {/* Buscador en Inventario */}
+          <div className="pt-4 border-t border-dashed border-black/5">
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-primary/20" />
+                <Input 
+                  placeholder="BUSCAR EN INVENTARIO..." 
+                  className="h-14 pl-14 pr-6 bg-[#f8fafc] border-black/5 rounded-2xl font-black text-[12px] uppercase shadow-inner"
+                  value={productQuery}
+                  onChange={e => setProductQuery(e.target.value)}
+                />
+                {productSuggestions.length > 0 && (
+                  <div className="absolute z-[9999] w-full mt-2 bg-white border border-black/5 rounded-[2rem] shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2">
+                    {productSuggestions.map(p => (
+                      <button key={p.code} className="w-full text-left px-8 py-5 hover:bg-primary/5 border-b last:border-0 flex items-center gap-4 transition-colors" onClick={() => selectProductForEntry(p)}>
+                        <div className="w-12 h-12 rounded-xl bg-slate-100 overflow-hidden border border-black/5 shrink-0">
+                           {p.images?.[0] ? <img src={getDriveThumb(p.images[0], 200)} className="w-full h-full object-cover" /> : <ImageIcon className="w-full h-full p-3 opacity-20" />}
+                        </div>
+                        <div className="flex-1">
+                           <div className="font-black text-[11px] text-[#1e293b] uppercase tracking-tighter">{p.name}</div>
+                           <div className="text-[9px] font-black text-primary/40 uppercase">{p.code} • STOCK: {p.stock}</div>
+                        </div>
+                        <Plus className="w-5 h-5 text-primary/40" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <Button variant="outline" className="h-14 px-6 rounded-2xl border-black/5 bg-white shadow-md text-[#1e293b] font-black uppercase text-[10px] gap-3">
+                 <ScanLine className="w-5 h-5 text-primary" /> Scan
+              </Button>
+            </div>
+          </div>
 
-           <Button 
-            className="w-full h-14 bg-primary text-white rounded-2xl font-black uppercase text-xs shadow-xl active:scale-95 transition-all"
+          {/* Cuadro de Variantes (Dashed) */}
+          <div className="p-8 border-2 border-dashed border-black/5 rounded-[2.5rem] bg-slate-50/50 flex items-center justify-center">
+             <span className="text-[10px] font-black text-primary/20 uppercase tracking-[0.3em]">Cuadro de Variantes Libre...</span>
+          </div>
+
+          {/* Seleccion de Cliente */}
+          <div className="space-y-1.5 relative">
+            <div className="relative">
+              <User className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-primary" />
+              <Input 
+                placeholder="SELECCIONAR CLIENTE..." 
+                className="h-16 pl-14 pr-12 bg-[#f8fafc] border-black/5 rounded-2xl font-black text-[13px] uppercase shadow-inner cursor-pointer"
+                value={selectedCustomer ? `${selectedCustomer.name} [${selectedCustomer.id}]` : customerQuery}
+                onChange={e => { if (selectedCustomer) setSelectedCustomer(null); setCustomerQuery(e.target.value); }}
+              />
+              <ChevronDown className="absolute right-6 top-1/2 -translate-y-1/2 w-5 h-5 text-primary/30" />
+              
+              {customerSuggestions.length > 0 && (
+                <div className="absolute z-[9999] w-full mt-2 bg-white border border-black/5 rounded-[2rem] shadow-2xl overflow-hidden max-h-60 overflow-y-auto">
+                  {customerSuggestions.map(c => (
+                    <button key={c.id} className="w-full text-left px-8 py-5 hover:bg-primary/5 border-b last:border-0 font-black text-[11px] uppercase transition-colors" onClick={() => { setSelectedCustomer({ id: c.id, name: c.name }); setCustomerQuery(""); }}>
+                      {c.name} <span className="text-primary/40 ml-2">[{c.id}]</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Botón de Acción Principal */}
+          <Button 
+            className="w-full h-20 bg-[#10b981] hover:bg-[#059669] text-white rounded-[2rem] font-black text-lg uppercase shadow-xl shadow-green-200 active:scale-95 transition-all mt-4 tracking-widest"
             onClick={() => {
               if (!currentEntry.name || !currentEntry.price || !currentEntry.quantity) return;
               setItems([...items, { ...currentEntry, id: Math.random().toString() }]);
               setCurrentEntry(EMPTY_ENTRY);
             }}
-           >
-             <Plus className="w-5 h-5 mr-2" /> AGREGAR A LISTA
-           </Button>
+          >
+            Agregar al Carrito
+          </Button>
         </CardContent>
       </Card>
 
-      {/* Lista Items */}
-      <Card className="rounded-[2.5rem] border border-primary/10 shadow-sm bg-white overflow-hidden">
-        <div className="bg-primary/5 p-4 border-b border-primary/10">
-          <span className="text-[10px] font-black uppercase text-primary tracking-widest">RESUMEN</span>
-        </div>
-        <div className="divide-y divide-primary/5">
-          {items.map((item, index) => (
-            <div key={item.id} className="p-4 flex justify-between items-center group">
-              <div className="min-w-0 flex-1">
-                <div className="font-black text-[11px] uppercase truncate">{index + 1}- {item.name} <span className="text-primary/40">[{item.productId}]</span></div>
-                <div className="text-[9px] font-medium text-muted-foreground mt-0.5">{item.description || "-"}</div>
-                <div className="text-[9px] font-black text-primary uppercase mt-1">{item.quantity} UND x S/ {Number(item.price).toFixed(1)} {Number(item.discount) > 0 ? `| DESC S/ ${Number(item.discount).toFixed(1)}` : ""}</div>
+      {/* Resumen de Lista */}
+      {items.length > 0 && (
+        <Card className="rounded-[2.5rem] border-none shadow-xl bg-white overflow-hidden">
+          <div className="bg-slate-100/50 p-6 px-10 border-b border-black/5 flex justify-between items-center">
+            <span className="text-[11px] font-black uppercase text-[#1e293b] tracking-[0.2em]">Resumen de Lista</span>
+            <span className="text-[10px] font-black text-primary/40 uppercase">{items.length} Prendas</span>
+          </div>
+          <div className="divide-y divide-black/5">
+            {items.map((item, index) => (
+              <div key={item.id} className="p-6 md:px-10 flex justify-between items-center group hover:bg-slate-50 transition-colors">
+                <div className="flex-1 min-w-0">
+                  <div className="font-black text-[13px] text-[#1e293b] uppercase truncate">{index + 1}. {item.name}</div>
+                  <div className="flex items-center gap-3 mt-1.5">
+                    <Badge variant="outline" className="bg-primary/5 text-primary border-primary/10 text-[9px] font-black uppercase px-2">{item.quantity} UND</Badge>
+                    <span className="text-[10px] font-bold text-slate-400">×</span>
+                    <span className="text-[10px] font-black text-slate-600 uppercase">S/ {Number(item.price).toFixed(1)}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-6">
+                  <div className="text-right">
+                    <div className="font-black text-lg text-[#1e293b] leading-none">S/ {((Number(item.price) * Number(item.quantity)) - Number(item.discount)).toFixed(1)}</div>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-10 w-10 text-slate-300 hover:text-primary transition-colors"><MoreVertical className="w-5 h-5" /></Button></DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="rounded-2xl p-2 w-40 shadow-2xl border-black/5">
+                      <DropdownMenuItem className="text-[10px] font-black uppercase gap-3 p-3 rounded-xl" onClick={() => handleEditItem(item)}><Edit2 className="w-4 h-4 text-primary" /> Editar</DropdownMenuItem>
+                      <DropdownMenuItem className="text-[10px] font-black uppercase gap-3 p-3 rounded-xl text-red-500" onClick={() => handleDeleteItem(item.id)}><Trash2 className="w-4 h-4" /> Eliminar</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               </div>
-              <div className="flex items-center gap-4 ml-4">
-                <div className="font-headline font-black text-sm whitespace-nowrap">S/ {((Number(item.price) * Number(item.quantity)) - Number(item.discount)).toFixed(1)}</div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg"><MoreVertical className="w-4 h-4" /></Button></DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="rounded-xl p-1.5 w-32 shadow-xl">
-                    <DropdownMenuItem className="text-[10px] font-black uppercase gap-2 p-2.5" onClick={() => handleEditItem(item)}><Edit2 className="w-3.5 h-3.5" /> Editar</DropdownMenuItem>
-                    <DropdownMenuItem className="text-[10px] font-black uppercase gap-2 p-2.5 text-destructive" onClick={() => handleDeleteItem(item.id)}><Trash2 className="w-3.5 h-3.5" /> Eliminar</DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </div>
-          ))}
-        </div>
-      </Card>
+            ))}
+          </div>
+        </Card>
+      )}
 
-      <div className="border-t-4 border-primary pt-6 flex flex-row justify-between items-center gap-4">
-        <div className="flex-1">
-          <div className="text-[10px] font-black uppercase text-muted-foreground">TOTAL PRENDAS</div>
-          <div className="font-headline font-black text-3xl">{items.reduce((acc, i) => acc + Number(i.quantity), 0)}</div>
+      {/* Totales Finales */}
+      <div className="bg-white rounded-[2.5rem] border border-black/5 shadow-2xl p-10 space-y-8">
+        <div className="grid grid-cols-2 gap-10">
+          <div className="space-y-1">
+            <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Total Prendas</span>
+            <div className="text-4xl font-black text-[#1e293b]">{items.reduce((acc, i) => acc + Number(i.quantity), 0)} <span className="text-sm opacity-20">UND</span></div>
+          </div>
+          <div className="space-y-1 text-right">
+            <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Monto Total</span>
+            <div className="text-5xl font-black text-[#10b981] tracking-tighter">S/ {items.reduce((acc, i) => acc + (Number(i.quantity) * Number(i.price) - Number(i.discount)), 0).toFixed(1)}</div>
+          </div>
         </div>
-        <div className="flex-1 text-right">
-          <div className="text-[10px] font-black uppercase text-muted-foreground">MONTO TOTAL</div>
-          <div className="font-headline font-black text-3xl text-primary">S/ {items.reduce((acc, i) => acc + (Number(i.quantity) * Number(i.price) - Number(i.discount)), 0).toFixed(1)}</div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+           <Button 
+            className="h-20 bg-[#1e293b] hover:bg-black text-white rounded-[2rem] font-black text-lg uppercase shadow-xl active:scale-95 transition-all tracking-widest" 
+            onClick={handleSaveQuote} 
+            disabled={saving || items.length === 0}
+          >
+            {saving ? <Loader2 className="animate-spin" /> : <Save className="w-6 h-6 mr-4" />} Guardar Venta
+          </Button>
+          <Button 
+            variant="outline"
+            className="h-20 rounded-[2rem] font-black text-[12px] uppercase border-black/5 text-slate-400 hover:bg-red-50 hover:text-red-500 hover:border-red-100 transition-all active:scale-95"
+            onClick={handleDiscard}
+          >
+            Descartar Cotización
+          </Button>
         </div>
       </div>
 
-      <Button 
-        className="w-full h-16 bg-primary text-white rounded-[2rem] font-black text-base uppercase shadow-2xl active:scale-95 transition-all mt-4" 
-        onClick={handleSaveQuote} 
-        disabled={saving || items.length === 0}
-      >
-        {saving ? <Loader2 className="animate-spin" /> : <Save className="w-6 h-6 mr-3" />} GUARDAR VENTA
-      </Button>
-
+      {/* Diálogos (Calculadora / Zoom) */}
       <Dialog open={isCalcOpen} onOpenChange={setIsCalcOpen}>
-        <DialogContent className="rounded-[2.5rem] border-none shadow-2xl max-w-[320px] p-8">
-          <DialogHeader><DialogTitle className="text-xs font-black uppercase text-center">Cálculo de Series</DialogTitle></DialogHeader>
-          <div className="space-y-4 pt-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1"><Label className="text-[9px] font-black uppercase text-muted-foreground">Unid x Serie</Label><Input type="number" value={calcData.unidades} onChange={e => setCalcData({...calcData, unidades: e.target.value})} className="h-12 text-center border-primary/10 rounded-xl" /></div>
-              <div className="space-y-1"><Label className="text-[9px] font-black uppercase text-muted-foreground">N° Series</Label><Input type="number" value={calcData.series} onChange={e => setCalcData({...calcData, series: e.target.value})} className="h-12 text-center border-primary/10 rounded-xl" /></div>
+        <DialogContent className="rounded-[3rem] border-none shadow-[0_35px_60px_-15px_rgba(0,0,0,0.3)] max-w-[340px] p-10 bg-white">
+          <DialogHeader><DialogTitle className="text-[10px] font-black uppercase text-center tracking-[0.3em] text-primary mb-4">Cálculo de Series</DialogTitle></DialogHeader>
+          <div className="space-y-5">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1"><Label className="text-[9px] font-black uppercase text-slate-400 ml-1">Unid x Serie</Label><Input type="number" value={calcData.unidades} onChange={e => setCalcData({...calcData, unidades: e.target.value})} className="h-14 text-center text-lg font-black bg-slate-50 border-none rounded-2xl shadow-inner" /></div>
+              <div className="space-y-1"><Label className="text-[9px] font-black uppercase text-slate-400 ml-1">N° Series</Label><Input type="number" value={calcData.series} onChange={e => setCalcData({...calcData, series: e.target.value})} className="h-14 text-center text-lg font-black bg-slate-50 border-none rounded-2xl shadow-inner" /></div>
             </div>
-            <div className="space-y-1"><Label className="text-[9px] font-black uppercase text-muted-foreground">+ Unid Libres</Label><Input type="number" value={calcData.libres} onChange={e => setCalcData({...calcData, libres: e.target.value})} className="h-12 text-center border-primary/10 rounded-xl" /></div>
-            <div className="bg-primary/5 p-4 rounded-xl text-center">
-              <div className="text-2xl font-black text-primary">{(Number(calcData.unidades) * Number(calcData.series)) + Number(calcData.libres)} UND</div>
+            <div className="space-y-1"><Label className="text-[9px] font-black uppercase text-slate-400 ml-1">+ Unid Libres</Label><Input type="number" value={calcData.libres} onChange={e => setCalcData({...calcData, libres: e.target.value})} className="h-14 text-center text-lg font-black bg-slate-50 border-none rounded-2xl shadow-inner" /></div>
+            <div className="bg-primary/5 p-6 rounded-3xl text-center border border-primary/10">
+              <div className="text-3xl font-black text-primary">{(Number(calcData.unidades) * Number(calcData.series)) + Number(calcData.libres)} <span className="text-xs">UND</span></div>
             </div>
-            <Button className="w-full h-12 bg-primary text-white rounded-xl font-black" onClick={handleApplyCalc}>CONFIRMAR</Button>
+            <Button className="w-full h-16 bg-primary text-white rounded-2xl font-black shadow-lg" onClick={handleApplyCalc}>Confirmar</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -605,8 +676,8 @@ export default function QuotesView() {
       <Dialog open={!!zoomImage} onOpenChange={() => setZoomImage(null)}>
         <DialogContent className="max-w-[95vw] md:max-w-4xl p-0 border-none bg-transparent shadow-none">
           <DialogHeader className="sr-only"><DialogTitle>Vista de Prenda</DialogTitle></DialogHeader>
-          <div className="relative w-full aspect-square md:aspect-video flex items-center justify-center bg-black/95 rounded-[2.5rem] overflow-hidden">
-            <button onClick={() => setZoomImage(null)} className="absolute top-6 right-6 z-50 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all active:scale-90"><X className="w-8 h-8" /></button>
+          <div className="relative w-full aspect-square md:aspect-video flex items-center justify-center bg-black/95 rounded-[3rem] overflow-hidden">
+            <button onClick={() => setZoomImage(null)} className="absolute top-8 right-8 z-50 p-4 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all active:scale-90"><X className="w-8 h-8" /></button>
             {zoomImage && <img src={getDriveThumb(zoomImage, 2000)} className="max-w-full max-h-full object-contain" alt="Zoom" />}
           </div>
         </DialogContent>
