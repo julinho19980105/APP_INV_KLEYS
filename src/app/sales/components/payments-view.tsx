@@ -81,29 +81,25 @@ export default function PaymentsView() {
   const { data: dayLock } = useDoc(dayLockRef)
   const isDayClosed = !!dayLock?.isLocked
 
-  React.useEffect(() => {
-    const hasUnsavedChanges = amount !== "" || selectedCustomer !== null;
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (hasUnsavedChanges && !saving) {
-        e.preventDefault();
-        e.returnValue = '';
-      }
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [amount, selectedCustomer, saving]);
-
   const customersRef = React.useMemo(() => db ? query(collection(db, "customers"), orderBy("name")) : null, [db])
   const { data: dbCustomers = [] } = useCollection(customersRef)
 
   const dayLocksRef = React.useMemo(() => db ? collection(db, "dayLocks") : null, [db])
   const { data: allDayLocks = [] } = useCollection(dayLocksRef)
 
+  const quotesRef = React.useMemo(() => db ? collection(db, "quotes") : null, [db])
+  const { data: allQuotes = [] } = useCollection(quotesRef)
+
   const paymentsQuery = React.useMemo(() => {
     if (!db) return null
     return query(collection(db, "payments"), orderBy("date", "desc"), limit(200))
   }, [db])
   const { data: payments = [], loading } = useCollection(paymentsQuery)
+
+  // Determinar qué clientes ya han sido enviados
+  const shippedCustomerIds = React.useMemo(() => {
+    return new Set(allQuotes.filter(q => q.status === 'shipped').map(q => q.customerId))
+  }, [allQuotes])
 
   React.useEffect(() => {
     if (!editingPayment) {
@@ -135,9 +131,6 @@ export default function PaymentsView() {
   }, [banks, selectedBank])
 
   const handleReset = () => {
-    if (amount !== "" || selectedCustomer !== null) {
-      if (!confirm("¿DESCARTAR DATOS DEL PAGO ACTUAL?")) return;
-    }
     setEditingPayment(null)
     setDate(new Date())
     setAmount("")
@@ -229,7 +222,7 @@ export default function PaymentsView() {
   }
 
   const startEditing = (p: any) => {
-    if (p.isLocked) return
+    if (p.isLocked || shippedCustomerIds.has(p.customerId)) return
     setEditingPayment(p)
     setDate(new Date(p.date + "T12:00:00"))
     setAmount(p.amount.toString())
@@ -294,7 +287,6 @@ export default function PaymentsView() {
 
   return (
     <div className="space-y-1.5 px-1 md:px-0 pb-24 animate-in fade-in slide-in-from-bottom-2 duration-700">
-      {/* Registro de Pago ERP */}
       <Card className={cn(
         "rounded-2xl border border-slate-300 bg-white shadow-lg relative transition-all overflow-visible",
         isDayClosed && !editingPayment && "opacity-90"
@@ -400,7 +392,6 @@ export default function PaymentsView() {
         </CardContent>
       </Card>
 
-      {/* Listado y Filtros */}
       <div className="space-y-2 pt-1">
         <div className="relative">
           <div className="absolute left-4 top-1/2 -translate-y-1/2 bg-primary/10 p-1.5 rounded-lg">
@@ -420,7 +411,6 @@ export default function PaymentsView() {
 
         {groupedPayments.map(group => (
           <div key={group.dateKey} className="space-y-1">
-            {/* Cabecera de Fecha Dinámica (Navy o Roja si está cerrada) */}
             <div className={cn(
               "px-5 py-2.5 rounded-[2rem] flex justify-between items-center shadow-lg border border-slate-700/20 transition-colors",
               group.isDayLocked ? "bg-red-600" : "bg-[#1e293b]"
@@ -443,16 +433,37 @@ export default function PaymentsView() {
             <div className="space-y-1 px-1">
               {isBankGrouped ? group.bankGroups.map((bg, idx) => (
                 <div key={idx} className="space-y-1">
-                  {/* Cabecera de Banco Estilo Referencia (NARANJA) */}
                   <div className="flex items-center justify-between px-6 py-1.5 bg-[#f97316] rounded-[2rem] border border-orange-600/20 shadow-md">
                     <span className="text-[9px] font-bold text-white uppercase tracking-widest">{bg.bankName}</span>
                     <span className="text-[11px] font-black text-white/90">S/ {bg.total.toFixed(1)}</span>
                   </div>
                   <div className="space-y-1 mt-1">
-                    {bg.records.map(p => <PaymentRecord key={p.id} p={p} onEdit={startEditing} onDelete={handleDelete} onLock={togglePaymentLock} deleteConfirmId={deleteConfirmId} setDeleteConfirmId={setDeleteConfirmId} />)}
+                    {bg.records.map(p => (
+                      <PaymentRecord 
+                        key={p.id} 
+                        p={p} 
+                        isProcessed={shippedCustomerIds.has(p.customerId)}
+                        onEdit={startEditing} 
+                        onDelete={handleDelete} 
+                        onLock={togglePaymentLock} 
+                        deleteConfirmId={deleteConfirmId} 
+                        setDeleteConfirmId={setDeleteConfirmId} 
+                      />
+                    ))}
                   </div>
                 </div>
-              )) : group.payments.map(p => <PaymentRecord key={p.id} p={p} onEdit={startEditing} onDelete={handleDelete} onLock={togglePaymentLock} deleteConfirmId={deleteConfirmId} setDeleteConfirmId={setDeleteConfirmId} />)}
+              )) : group.payments.map(p => (
+                <PaymentRecord 
+                  key={p.id} 
+                  p={p} 
+                  isProcessed={shippedCustomerIds.has(p.customerId)}
+                  onEdit={startEditing} 
+                  onDelete={handleDelete} 
+                  onLock={togglePaymentLock} 
+                  deleteConfirmId={deleteConfirmId} 
+                  setDeleteConfirmId={setDeleteConfirmId} 
+                />
+              ))}
             </div>
           </div>
         ))}
@@ -461,24 +472,27 @@ export default function PaymentsView() {
   )
 }
 
-function PaymentRecord({ p, onEdit, onDelete, onLock, deleteConfirmId, setDeleteConfirmId }: any) {
+function PaymentRecord({ p, isProcessed, onEdit, onDelete, onLock, deleteConfirmId, setDeleteConfirmId }: any) {
+  const isProtected = p.isLocked || isProcessed
+
   return (
     <Card className={cn(
       "rounded-[2rem] border border-[#3b82f6]/30 bg-white shadow-sm transition-all active:scale-[0.98] relative overflow-hidden",
       p.isLocked && "bg-slate-50/30"
     )}>
-      {/* Barra de acento lateral azul */}
       <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#3b82f6]/40" />
       
       <CardContent className="p-3 pl-6 flex items-center justify-between">
         <div className="flex flex-col flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="font-bold text-[13px] text-slate-800 uppercase truncate leading-tight">{p.customerName}</span>
-            <ShieldCheck className="w-3.5 h-3.5 text-blue-500/60" />
+            {isProcessed && <ShieldCheck className="w-3.5 h-3.5 text-blue-500/60" />}
           </div>
           <div className="flex items-center gap-2 mt-1">
              <span className="text-[8px] font-bold text-blue-400/80 uppercase tracking-widest">{p.bankName}</span>
-             <Badge className="bg-blue-50 text-blue-500 text-[7px] font-bold h-3.5 px-1.5 border border-blue-100 uppercase">PROCESADO</Badge>
+             {isProcessed && (
+               <Badge className="bg-blue-50 text-blue-500 text-[7px] font-bold h-3.5 px-1.5 border border-blue-100 uppercase">PROCESADO</Badge>
+             )}
           </div>
         </div>
 
@@ -488,47 +502,53 @@ function PaymentRecord({ p, onEdit, onDelete, onLock, deleteConfirmId, setDelete
           <div className="flex items-center gap-2">
             <button 
               onClick={() => onLock(p)}
+              disabled={isProcessed}
               className={cn(
                 "w-9 h-9 rounded-full flex items-center justify-center transition-all shadow-md", 
-                p.isLocked ? "bg-blue-500 text-white shadow-blue-200" : "bg-slate-100 text-slate-300"
+                p.isLocked ? "bg-blue-500 text-white shadow-blue-200" : "bg-slate-100 text-slate-300",
+                isProcessed && "opacity-50 cursor-not-allowed"
               )}
             >
               {p.isLocked ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
             </button>
 
-            <Badge variant="outline" className="bg-blue-50/50 text-blue-400 border-blue-100 text-[7px] font-bold h-5 px-2 uppercase tracking-widest">
-              VERIFICADO
-            </Badge>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button disabled={p.isLocked} className="p-1.5 text-slate-300 hover:text-primary transition-colors disabled:opacity-0">
-                  <MoreVertical className="w-4.5 h-4.5" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="rounded-2xl p-2 w-44 shadow-2xl border-slate-300">
-                <DropdownMenuItem className="text-[10px] font-bold uppercase gap-3 p-3 rounded-xl" onClick={() => onEdit(p)}>
-                  <Edit2 className="w-3.5 h-3.5 text-primary" /> Editar Registro
-                </DropdownMenuItem>
-                
-                <Popover open={deleteConfirmId === p.id} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
-                  <PopoverTrigger asChild>
-                    <button className="w-full text-left flex items-center gap-3 px-3 py-3 text-[10px] font-bold uppercase text-red-500 hover:bg-red-50 rounded-xl transition-colors" onClick={() => setDeleteConfirmId(p.id)}>
-                      <Trash2 className="w-3.5 h-3.5" /> Eliminar Pago
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-4 rounded-2xl border-none shadow-2xl bg-[#1e293b] text-white" side="top">
-                    <div className="flex flex-col items-center gap-3">
-                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">¿ELIMINAR ESTE PAGO?</span>
-                      <div className="flex gap-2">
-                        <Button size="sm" className="h-8 px-4 text-[9px] font-black bg-red-500 text-white hover:bg-red-600 rounded-lg" onClick={() => onDelete(p.id)}>SÍ, BORRAR</Button>
-                        <Button size="sm" variant="ghost" className="h-8 px-4 text-[9px] font-black text-slate-300 hover:bg-white/10 rounded-lg" onClick={() => setDeleteConfirmId(null)}>CANCELAR</Button>
+            {!isProtected && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="p-1.5 text-slate-300 hover:text-primary transition-colors">
+                    <MoreVertical className="w-4.5 h-4.5" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="rounded-2xl p-2 w-44 shadow-2xl border-slate-300">
+                  <DropdownMenuItem className="text-[10px] font-bold uppercase gap-3 p-3 rounded-xl" onClick={() => onEdit(p)}>
+                    <Edit2 className="w-3.5 h-3.5 text-primary" /> Editar Registro
+                  </DropdownMenuItem>
+                  
+                  <Popover open={deleteConfirmId === p.id} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
+                    <PopoverTrigger asChild>
+                      <button className="w-full text-left flex items-center gap-3 px-3 py-3 text-[10px] font-bold uppercase text-red-500 hover:bg-red-50 rounded-xl transition-colors" onClick={() => setDeleteConfirmId(p.id)}>
+                        <Trash2 className="w-3.5 h-3.5" /> Eliminar Pago
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-4 rounded-2xl border-none shadow-2xl bg-[#1e293b] text-white" side="top">
+                      <div className="flex flex-col items-center gap-3">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">¿ELIMINAR ESTE PAGO?</span>
+                        <div className="flex gap-2">
+                          <Button size="sm" className="h-8 px-4 text-[9px] font-black bg-red-500 text-white hover:bg-red-600 rounded-lg" onClick={() => onDelete(p.id)}>SÍ, BORRAR</Button>
+                          <Button size="sm" variant="ghost" className="h-8 px-4 text-[9px] font-black text-slate-300 hover:bg-white/10 rounded-lg" onClick={() => setDeleteConfirmId(null)}>CANCELAR</Button>
+                        </div>
                       </div>
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                    </PopoverContent>
+                  </Popover>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+            
+            {isProcessed && (
+              <div className="w-7 h-7 flex items-center justify-center">
+                 <ShieldCheck className="w-5 h-5 text-blue-500 opacity-40" />
+              </div>
+            )}
           </div>
         </div>
       </CardContent>
