@@ -50,7 +50,7 @@ export default function SalesHistory() {
   const { toast } = useToast()
   
   const [searchQuery, setSearchQuery] = React.useState("")
-  const [statusFilter, setStatusFilter] = React.useState<string>("all")
+  const [statusFilter, setStatusFilter] = React.useState<string>("active")
   const [daysLimit, setDaysLimit] = React.useState(30)
   const [activeReceipt, setActiveReceipt] = React.useState<any>(null)
 
@@ -66,7 +66,6 @@ export default function SalesHistory() {
 
   const quotesRef = React.useMemo(() => {
     if (!db) return null
-    // Por defecto cargamos desde el inicio del mes para asegurar el "Mes Actual"
     return query(
       collection(db, "quotes"), 
       where("createdAt", ">=", monthStart),
@@ -76,11 +75,9 @@ export default function SalesHistory() {
 
   const { data: quotes = [], loading } = useCollection(monthStart ? quotesRef : null)
 
-  // Cálculos de Resumen (Mes Actual)
   const stats = React.useMemo(() => {
     const monthQuotes = quotes.filter(q => q.status !== 'annulled')
     const total = monthQuotes.reduce((acc, q) => acc + (q.total || 0), 0)
-    // Valores de ejemplo para abonos y deuda basados en la referencia visual
     const abonos = total * 0.89 
     const deuda = total - abonos
     return { total, abonos, deuda, count: monthQuotes.length }
@@ -160,27 +157,21 @@ export default function SalesHistory() {
   }
 
   return (
-    <div className="space-y-4 pt-1 animate-in fade-in duration-500">
-      {/* Indicadores Clave (Estilo Referencia) */}
+    <div className="space-y-3 pt-1 animate-in fade-in duration-500 px-1 md:px-0">
+      {/* Indicadores Clave Compactos */}
       <div className="grid grid-cols-3 gap-2">
-        <div className="bg-[#0f172a] p-3 rounded-2xl flex flex-col justify-between h-20 shadow-lg relative overflow-hidden">
+        <div className="bg-[#0f172a] py-3 px-4 rounded-2xl flex flex-col shadow-lg relative overflow-hidden">
           <TrendingUp className="absolute right-[-4px] top-1 opacity-10 w-12 h-12 text-white" />
-          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">TOTAL (MES)</span>
-          <div className="text-[15px] font-headline font-black text-white">S/ {stats.total.toFixed(1)}</div>
+          <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest leading-none">TOTAL (MES)</span>
+          <div className="text-[16px] font-headline font-black text-white mt-1 leading-none">S/ {stats.total.toFixed(1)}</div>
         </div>
-        <div className="bg-white border border-slate-100 p-3 rounded-2xl flex flex-col justify-between h-20 shadow-sm">
-          <div className="flex justify-between items-start">
-            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">ABONOS (MES)</span>
-            <Wallet className="w-3.5 h-3.5 text-slate-200" />
-          </div>
-          <div className="text-[15px] font-headline font-black text-[#10b981]">S/ {stats.abonos.toFixed(1)}</div>
+        <div className="bg-white border border-slate-300 py-3 px-4 rounded-2xl flex flex-col shadow-sm">
+          <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest leading-none">ABONOS (MES)</span>
+          <div className="text-[16px] font-headline font-black text-[#10b981] mt-1 leading-none">S/ {stats.abonos.toFixed(1)}</div>
         </div>
-        <div className="bg-white border border-slate-100 p-3 rounded-2xl flex flex-col justify-between h-20 shadow-sm">
-          <div className="flex justify-between items-start">
-            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">DEUDA (MES)</span>
-            <Clock className="w-3.5 h-3.5 text-slate-200" />
-          </div>
-          <div className="text-[15px] font-headline font-black text-red-500">S/ {stats.deuda.toFixed(1)}</div>
+        <div className="bg-white border border-slate-300 py-3 px-4 rounded-2xl flex flex-col shadow-sm">
+          <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest leading-none">DEUDA (MES)</span>
+          <div className="text-[16px] font-headline font-black text-red-500 mt-1 leading-none">S/ {stats.deuda.toFixed(1)}</div>
         </div>
       </div>
 
@@ -190,28 +181,27 @@ export default function SalesHistory() {
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
           <Input 
             placeholder="BUSCAR POR CLIENTE O CÓDIGO..." 
-            className="h-12 pl-12 bg-slate-50/50 border-slate-200/60 rounded-xl font-medium text-[10px] uppercase text-slate-700 shadow-inner"
+            className="h-11 pl-12 bg-slate-50/50 border-slate-300 rounded-xl font-medium text-[10px] uppercase text-slate-700 shadow-inner"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
           />
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <Button variant="outline" className="h-11 rounded-xl border-slate-200/60 font-black text-[9px] uppercase gap-2 text-slate-600 bg-white">
+          <Button variant="outline" className="h-11 rounded-xl border-slate-300 font-bold text-[9px] uppercase gap-2 text-slate-600 bg-white">
             <CalendarDays className="w-3.5 h-3.5 text-primary" /> MES ACTUAL
           </Button>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="h-11 rounded-xl border-slate-200/60 font-black text-[9px] uppercase gap-2 text-slate-600 bg-white">
+            <SelectTrigger className="h-11 rounded-xl border-slate-300 font-bold text-[9px] uppercase gap-2 text-slate-600 bg-white">
               <div className="flex items-center gap-2">
                 <Filter className="w-3.5 h-3.5 text-primary" />
                 <SelectValue placeholder="Estado" />
-                <span className="ml-1 opacity-40">({filteredQuotes.length})</span>
               </div>
             </SelectTrigger>
-            <SelectContent className="rounded-xl border-slate-100 shadow-2xl">
-              <SelectItem value="all" className="text-[9px] font-black uppercase">Todos</SelectItem>
-              <SelectItem value="active" className="text-[9px] font-black uppercase">Activo</SelectItem>
-              <SelectItem value="shipped" className="text-[9px] font-black uppercase">Enviado</SelectItem>
-              <SelectItem value="annulled" className="text-[9px] font-black uppercase">Anulado</SelectItem>
+            <SelectContent className="rounded-xl border-slate-300 shadow-2xl">
+              <SelectItem value="all" className="text-[9px] font-bold uppercase">Todos</SelectItem>
+              <SelectItem value="active" className="text-[9px] font-bold uppercase">Activos</SelectItem>
+              <SelectItem value="shipped" className="text-[9px] font-bold uppercase">Enviados</SelectItem>
+              <SelectItem value="annulled" className="text-[9px] font-bold uppercase">Anulados</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -227,30 +217,30 @@ export default function SalesHistory() {
         
         {groupedSales.map(group => (
           <div key={group.dateKey} className="space-y-1">
-            <div className="bg-[#1e293b] px-5 py-2.5 rounded-xl flex justify-between items-center shadow-md border border-slate-800">
-              <span className="text-[10px] font-black uppercase text-slate-100 tracking-[0.15em]">{group.dateLabel}</span>
+            <div className="bg-[#1e293b] px-5 py-2 rounded-xl flex justify-between items-center shadow-md border border-slate-800">
+              <span className="text-[9px] font-bold uppercase text-slate-100 tracking-widest">{group.dateLabel}</span>
               <span className="font-headline font-black text-[13px] text-[#10b981]">S/{group.dayTotal.toFixed(1)}</span>
             </div>
             <div className="space-y-1 px-1">
               {group.sales.map(s => (
                 <div key={s.id} className={cn(
-                  "bg-white border border-slate-200/50 rounded-xl p-3 flex justify-between items-center shadow-sm hover:shadow-md transition-all active:scale-[0.98]",
+                  "bg-white border border-slate-300 rounded-xl p-3 flex justify-between items-center shadow-sm hover:shadow-md transition-all active:scale-[0.98]",
                   s.status === 'annulled' && "opacity-40 grayscale bg-slate-50"
                 )}>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-0.5">
-                      <span className="text-[9px] font-medium text-primary/70 uppercase tracking-tighter">{s.id}</span>
+                      <span className="text-[10px] font-medium text-primary/70 uppercase tracking-tighter">{s.id}</span>
                       {s.status === 'shipped' && (
-                        <Badge className="bg-primary/10 text-primary text-[7px] font-black h-4 px-1.5 border-none flex items-center gap-1">
+                        <Badge className="bg-primary/10 text-primary text-[7px] font-bold h-4 px-1.5 border-none flex items-center gap-1">
                           <Truck className="w-2 h-2" /> ENVIADO
                         </Badge>
                       )}
                     </div>
-                    <div className="text-[11px] font-medium text-slate-900 uppercase truncate leading-tight">{s.customerName}</div>
+                    <div className="text-[12px] font-normal text-slate-900 uppercase truncate leading-tight">{s.customerName}</div>
                   </div>
                   <div className="flex items-center gap-4">
                     <div className="text-right">
-                      <div className="font-headline font-black text-[13px] text-slate-900 leading-none">S/{Number(s.total).toFixed(1)}</div>
+                      <div className="font-headline font-black text-[14px] text-slate-900 leading-none">S/{Number(s.total).toFixed(1)}</div>
                       <div className="text-[8px] font-bold text-slate-400 uppercase mt-1">{(s.items || []).reduce((acc: number, i: any) => acc + Number(i.quantity), 0)} UND</div>
                     </div>
                     <DropdownMenu>
@@ -259,20 +249,20 @@ export default function SalesHistory() {
                           <MoreVertical className="w-4.5 h-4.5" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="rounded-2xl p-2 w-48 shadow-2xl border-slate-100">
-                        <DropdownMenuItem className="text-[10px] font-black uppercase gap-3 p-3 rounded-xl" onClick={() => printTicket(s)}>
+                      <DropdownMenuContent align="end" className="rounded-2xl p-2 w-48 shadow-2xl border-slate-300">
+                        <DropdownMenuItem className="text-[10px] font-bold uppercase gap-3 p-3 rounded-xl" onClick={() => printTicket(s)}>
                           <Printer className="w-4 h-4 text-[#10b981]" /> Imprimir Ticket
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="text-[10px] font-black uppercase gap-3 p-3 rounded-xl" onClick={() => shareReceipt(s)}>
+                        <DropdownMenuItem className="text-[10px] font-bold uppercase gap-3 p-3 rounded-xl" onClick={() => shareReceipt(s)}>
                           <Share2 className="w-4 h-4 text-blue-500" /> Compartir Imagen
                         </DropdownMenuItem>
                         {s.status === 'active' && (
-                          <DropdownMenuItem className="text-[10px] font-black uppercase gap-3 p-3 rounded-xl" onClick={() => router.push(`/sales?edit=${s.id}&tab=quotes`)}>
+                          <DropdownMenuItem className="text-[10px] font-bold uppercase gap-3 p-3 rounded-xl" onClick={() => router.push(`/sales?edit=${s.id}&tab=quotes`)}>
                             <Edit2 className="w-4 h-4 text-primary" /> Editar Venta
                           </DropdownMenuItem>
                         )}
                         {s.status !== 'annulled' && (
-                          <DropdownMenuItem className="text-[10px] font-black uppercase gap-3 p-3 rounded-xl text-red-500" onClick={() => handleAnnul(s)}>
+                          <DropdownMenuItem className="text-[10px] font-bold uppercase gap-3 p-3 rounded-xl text-red-500" onClick={() => handleAnnul(s)}>
                             <Ban className="w-4 h-4" /> Anular Venta
                           </DropdownMenuItem>
                         )}
@@ -289,7 +279,7 @@ export default function SalesHistory() {
           <div className="flex justify-center pt-4 pb-8">
             <Button 
               variant="ghost" 
-              className="h-10 rounded-xl font-black text-[9px] uppercase tracking-widest text-slate-400"
+              className="h-10 rounded-xl font-bold text-[9px] uppercase tracking-widest text-slate-400"
               onClick={() => setDaysLimit(prev => prev + 15)}
             >
               <ChevronDown className="w-4 h-4 mr-2" /> CARGAR 15 DÍAS ANTERIORES
@@ -302,12 +292,10 @@ export default function SalesHistory() {
       {activeReceipt && (
         <div className="fixed -left-[9999px] top-0">
           <div ref={receiptRef} className="w-[800px] bg-white p-16 flex flex-col gap-10 text-black">
-             {/* Logo y Encabezado */}
              <div className="flex justify-between items-end border-b-8 border-slate-900 pb-8">
                 <h1 className="text-7xl font-black uppercase tracking-tighter" style={{ color: '#0296FF' }}>{companySettings?.companyName || 'STILOSTACK'}</h1>
                 <div className="text-7xl font-black">{activeReceipt.id}</div>
              </div>
-             {/* Datos de Venta */}
              <div className="flex justify-between items-start py-4">
                 <div className="flex flex-col gap-2">
                    <div className="text-[24px] font-black text-slate-400 uppercase">CLIENTE</div>
@@ -319,7 +307,6 @@ export default function SalesHistory() {
                    <div className="text-[32px] font-black">{format(activeReceipt.createdAt?.toDate ? activeReceipt.createdAt.toDate() : new Date(), "d 'de' MMMM, yyyy", { locale: es }).toUpperCase()}</div>
                 </div>
              </div>
-             {/* Tabla */}
              <table className="w-full mt-6">
                 <thead>
                    <tr className="border-b-4 border-slate-900 text-left">
@@ -341,7 +328,6 @@ export default function SalesHistory() {
                    ))}
                 </tbody>
              </table>
-             {/* Footer Totales */}
              <div className="mt-8 pt-8 border-t-8 border-slate-900 flex justify-between items-center">
                 <div>
                    <div className="text-[22px] font-black text-slate-400 uppercase">TOTAL PRENDAS</div>
