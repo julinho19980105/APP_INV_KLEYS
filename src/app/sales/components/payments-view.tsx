@@ -222,7 +222,7 @@ export default function PaymentsView() {
   }
 
   const startEditing = (p: any) => {
-    if (p.isLocked) return
+    if (p.isLocked || shippedCustomerIds.has(p.customerId)) return
     setEditingPayment(p)
     setDate(new Date(p.date + "T12:00:00"))
     setAmount(p.amount.toString())
@@ -504,7 +504,7 @@ function PaymentRecord({ p, isProcessed, onEdit, onDelete, onLock }: any) {
               {p.isLocked ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
             </button>
 
-            {!p.isLocked && (
+            {!p.isLocked && !isProcessed && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className="p-1.5 text-slate-300 hover:text-primary transition-colors">
