@@ -303,6 +303,18 @@ export default function QuotesView() {
     setCurrentEntry(EMPTY_ENTRY);
   }
 
+  const handleEditItem = (item: QuoteItem) => {
+    setCurrentEntry({ ...item });
+    setItems(items.filter(i => i.id !== item.id));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  const handleDeleteItem = (itemId: string) => {
+    if (confirm("¿ELIMINAR PRENDA DE LA LISTA?")) {
+      setItems(items.filter(i => i.id !== itemId));
+    }
+  }
+
   const handleSaveQuote = async () => {
     if (!db || !selectedCustomer || items.length === 0) {
       if (!selectedCustomer) toast({ variant: "destructive", title: "CLIENTE OBLIGATORIO" })
@@ -609,6 +621,22 @@ export default function QuotesView() {
                   <div className="text-right">
                     <div className="font-headline font-black text-[14px] text-slate-900 leading-none">S/ {((Number(item.price) * Number(item.quantity)) - Number(item.discount)).toFixed(1)}</div>
                   </div>
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="h-8 w-8 rounded-lg flex items-center justify-center text-slate-300 hover:text-primary hover:bg-primary/5 transition-all">
+                        <MoreVertical className="w-4.5 h-4.5" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="rounded-xl border-slate-300 p-1.5 w-40 shadow-2xl">
+                      <DropdownMenuItem className="text-[10px] font-bold uppercase gap-2.5 p-2.5 rounded-lg" onClick={() => handleEditItem(item)}>
+                        <Edit2 className="w-3.5 h-3.5 text-primary" /> Editar Registro
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="text-[10px] font-bold uppercase gap-2.5 p-2.5 rounded-lg text-red-500" onClick={() => handleDeleteItem(item.id)}>
+                        <Trash2 className="w-3.5 h-3.5" /> Eliminar de Lista
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
             ))}
