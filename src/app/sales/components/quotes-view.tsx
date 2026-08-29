@@ -20,7 +20,9 @@ import {
   Edit2,
   User,
   Eraser,
-  UserPlus
+  UserPlus,
+  Tag,
+  ChevronDown
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -134,7 +136,6 @@ export default function QuotesView() {
   const { data: dbProducts = [] } = useCollection(productsRef)
   const { data: dbCustomers = [] } = useCollection(customersRef)
 
-  // Protección contra pérdida de datos
   React.useEffect(() => {
     const hasUnsavedChanges = items.length > 0 || selectedCustomer !== null;
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -395,7 +396,7 @@ export default function QuotesView() {
       </div>
 
       {/* Selector Cliente */}
-      <div className="relative z-20">
+      <div className="relative z-[40]">
         <div className="relative flex gap-2">
           <div className="relative flex-1">
             <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
@@ -406,7 +407,7 @@ export default function QuotesView() {
               onChange={e => { if (selectedCustomer) setSelectedCustomer(null); setCustomerQuery(e.target.value); }}
             />
             {customerQuery.length >= 1 && (
-              <div className="absolute z-30 w-full mt-1 bg-white border border-slate-300 rounded-xl shadow-2xl overflow-hidden max-h-60 overflow-y-auto">
+              <div className="absolute z-50 w-full mt-1 bg-white border border-slate-300 rounded-xl shadow-2xl overflow-hidden max-h-60 overflow-y-auto">
                 {customerSuggestions.map(c => (
                   <button key={c.id} className="w-full text-left px-6 py-3.5 hover:bg-slate-50 border-b border-slate-100 last:border-0 font-medium text-[10px] uppercase transition-colors text-slate-700" onClick={() => { setSelectedCustomer({ id: c.id, name: c.name }); setCustomerQuery(""); }}>
                     {c.name} <span className="text-slate-400 ml-2 font-normal">[{c.id}]</span>
@@ -444,7 +445,14 @@ export default function QuotesView() {
 
         <CardContent className="p-4 space-y-2">
           <div className="space-y-1">
-            <Label className="text-[9px] font-bold text-slate-400 uppercase ml-2 tracking-widest">NOMBRE DE PRODUCTO</Label>
+            <div className="flex items-center justify-between ml-1">
+               <Label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">NOMBRE DE PRODUCTO</Label>
+               {currentEntry.productId && currentEntry.productId !== 'MANUAL' && (
+                 <Badge className="bg-[#0296FF] text-white text-[8px] font-black h-4 px-2 border-none">
+                    {currentEntry.productId}
+                 </Badge>
+               )}
+            </div>
             <Input 
               value={currentEntry.name}
               onChange={e => setCurrentEntry({...currentEntry, name: e.target.value})}
@@ -468,12 +476,34 @@ export default function QuotesView() {
             </div>
             <div className="space-y-1">
               <Label className="text-[9px] font-bold text-slate-400 uppercase text-center w-full block tracking-widest">PRECIO</Label>
-              <Input 
-                type="number" 
-                value={currentEntry.price} 
-                onChange={e => setCurrentEntry({...currentEntry, price: e.target.value})} 
-                className="h-11 text-center text-base font-black text-slate-900 bg-slate-50 border-slate-300 rounded-xl shadow-inner font-headline"
-              />
+              <div className="relative">
+                <Input 
+                  type="number" 
+                  value={currentEntry.price} 
+                  onChange={e => setCurrentEntry({...currentEntry, price: e.target.value})} 
+                  className="h-11 text-center text-base font-black text-slate-900 bg-slate-50 border-slate-300 rounded-xl shadow-inner font-headline pr-8"
+                />
+                {currentEntry.isRegistered && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 rounded-full bg-white border border-slate-300 flex items-center justify-center text-primary shadow-sm hover:bg-slate-50 transition-colors">
+                        <Tag className="w-3.5 h-3.5" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="rounded-xl border-slate-300 p-1.5 w-40 shadow-2xl">
+                      <DropdownMenuItem className="text-[10px] font-bold uppercase p-2.5 rounded-lg flex justify-between" onClick={() => setCurrentEntry({...currentEntry, price: currentEntry.refFardo?.toString() || ""})}>
+                         P. FARDO <span className="text-primary">S/ {currentEntry.refFardo?.toFixed(1)}</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="text-[10px] font-bold uppercase p-2.5 rounded-lg flex justify-between" onClick={() => setCurrentEntry({...currentEntry, price: currentEntry.refMayor?.toString() || ""})}>
+                         P. MAYOR <span className="text-primary">S/ {currentEntry.refMayor?.toFixed(1)}</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="text-[10px] font-bold uppercase p-2.5 rounded-lg flex justify-between" onClick={() => setCurrentEntry({...currentEntry, price: currentEntry.refUnidad?.toString() || ""})}>
+                         P. UNIDAD <span className="text-primary">S/ {currentEntry.refUnidad?.toFixed(1)}</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </div>
             </div>
             <div className="space-y-1">
               <Label className="text-[9px] font-bold text-slate-400 uppercase text-center w-full block tracking-widest">DESC</Label>
@@ -501,7 +531,7 @@ export default function QuotesView() {
             />
           </div>
 
-          <div className="pt-1 relative z-10">
+          <div className="pt-1 relative z-30">
             <div className="relative">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
               <Input 
@@ -511,18 +541,21 @@ export default function QuotesView() {
                 onChange={e => setProductQuery(e.target.value)}
               />
               {productQuery.length >= 1 && (
-                <div className="absolute z-30 w-full mt-1 bg-white border border-slate-300 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-1">
+                <div className="absolute z-[100] w-full mt-1 bg-white border border-slate-300 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-1">
                   {productSuggestions.map(p => (
-                    <button key={p.code} className="w-full text-left px-5 py-3 hover:bg-slate-50 border-b border-slate-100 last:border-0 flex items-center gap-3 transition-colors" onClick={() => selectProductForEntry(p)}>
-                      <div className="w-9 h-9 rounded-lg bg-slate-100 overflow-hidden border border-slate-200 shrink-0">
+                    <div key={p.code} className="w-full text-left px-5 py-3 hover:bg-slate-50 border-b border-slate-100 last:border-0 flex items-center gap-3 transition-colors cursor-pointer group" onClick={() => selectProductForEntry(p)}>
+                      <div 
+                        className="w-10 h-10 rounded-lg bg-slate-100 overflow-hidden border border-slate-200 shrink-0 hover:ring-2 hover:ring-primary transition-all"
+                        onClick={(e) => { e.stopPropagation(); setZoomImage(p.images?.[0] || null); }}
+                      >
                          {p.images?.[0] ? <img src={getDriveThumb(p.images[0], 200)} className="w-full h-full object-cover" /> : <ImageIcon className="w-full h-full p-2 opacity-20" />}
                       </div>
                       <div className="flex-1 min-w-0">
-                         <div className="font-black text-[11px] text-slate-800 uppercase truncate leading-tight">{p.name}</div>
+                         <div className="font-black text-[11px] text-slate-800 uppercase truncate leading-tight group-hover:text-primary transition-colors">{p.name}</div>
                          <div className="text-[9px] font-medium text-slate-400 uppercase mt-0.5">{p.code} • STK: {p.stock}</div>
                       </div>
-                      <Plus className="w-4 h-4 text-primary opacity-40" />
-                    </button>
+                      <Plus className="w-4 h-4 text-primary opacity-40 group-hover:opacity-100" />
+                    </div>
                   ))}
                   <button 
                     className="w-full text-left px-5 py-4 bg-slate-50 hover:bg-slate-100 flex items-center gap-3 border-t border-slate-100"
@@ -620,7 +653,7 @@ export default function QuotesView() {
 
       {/* Calculadora de Series */}
       <Dialog open={isCalcOpen} onOpenChange={setIsCalcOpen}>
-        <DialogContent className="rounded-[2rem] border-none shadow-2xl max-w-[320px] p-8 bg-white">
+        <DialogContent className="rounded-[2rem] border-none shadow-2xl max-w-[320px] p-8 bg-white z-[60]">
           <DialogHeader><DialogTitle className="text-[10px] font-black uppercase text-center tracking-widest text-primary mb-4">Cálculo Logístico</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
@@ -632,6 +665,17 @@ export default function QuotesView() {
               <div className="text-2xl font-black text-primary font-headline">{(Number(calcData.unidades) * Number(calcData.series)) + Number(calcData.libres)} <span className="text-[12px] uppercase font-bold">UND</span></div>
             </div>
             <Button className="w-full h-12 bg-primary text-white rounded-xl font-black shadow-lg uppercase text-[11px] tracking-widest active:scale-95" onClick={handleApplyCalc}>CONFIRMAR</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Zoom Imagen */}
+      <Dialog open={!!zoomImage} onOpenChange={() => setZoomImage(null)}>
+        <DialogContent className="max-w-[95vw] md:max-w-4xl p-0 border-none bg-transparent shadow-none z-[70]">
+          <DialogHeader className="sr-only"><DialogTitle>Vista de Prenda</DialogTitle></DialogHeader>
+          <div className="relative w-full aspect-square md:aspect-video flex items-center justify-center bg-black/95 rounded-[2.5rem] overflow-hidden">
+            <button onClick={() => setZoomImage(null)} className="absolute top-6 right-6 z-50 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all active:scale-90"><X className="w-8 h-8" /></button>
+            {zoomImage && <img src={getDriveThumb(zoomImage, 2000)} className="max-w-full max-h-full object-contain" alt="Zoom" />}
           </div>
         </DialogContent>
       </Dialog>
