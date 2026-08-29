@@ -19,22 +19,22 @@ export default function CommercialHubPage() {
   return (
     <div className="w-full max-w-6xl mx-auto pt-0 pb-24 px-1 md:px-0">
       <Tabs defaultValue="quotes" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 h-11 bg-slate-100/60 border border-slate-200/50 rounded-xl mb-1.5 p-1 shadow-inner">
+        <TabsList className="grid w-full grid-cols-3 h-12 bg-slate-100/60 border border-slate-200/50 rounded-xl mb-2 p-1 shadow-inner sticky top-[56px] z-[45] backdrop-blur-md">
           <TabsTrigger 
             value="quotes" 
-            className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-md font-black text-[9px] uppercase transition-all flex items-center gap-1.5 tracking-widest"
+            className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-md font-black text-[9px] uppercase transition-all flex items-center gap-2 tracking-widest"
           >
             <Calculator className="w-3.5 h-3.5" /> CREAR VENTAS
           </TabsTrigger>
           <TabsTrigger 
             value="history" 
-            className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-md font-black text-[9px] uppercase transition-all flex items-center gap-1.5 tracking-widest"
+            className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-md font-black text-[9px] uppercase transition-all flex items-center gap-2 tracking-widest"
           >
             <ShoppingBag className="w-3.5 h-3.5" /> FACTURAS
           </TabsTrigger>
           <TabsTrigger 
             value="payments" 
-            className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-md font-black text-[9px] uppercase transition-all flex items-center gap-1.5 tracking-widest"
+            className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-md font-black text-[9px] uppercase transition-all flex items-center gap-2 tracking-widest"
           >
             <CreditCard className="w-3.5 h-3.5" /> PAGOS
           </TabsTrigger>
