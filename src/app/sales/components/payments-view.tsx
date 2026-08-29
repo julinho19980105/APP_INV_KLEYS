@@ -293,10 +293,13 @@ export default function PaymentsView() {
     <div className="space-y-6 px-2 md:px-0 pb-24">
       {/* Registro de Pago */}
       <Card className={cn(
-        "rounded-[2.5rem] border-2 bg-white shadow-2xl relative transition-all overflow-hidden",
+        "rounded-[2.5rem] border-2 bg-white shadow-2xl relative transition-all",
         isDayClosed && !editingPayment ? "border-red-500 bg-red-50" : "border-primary/20"
       )}>
-        <div className="bg-primary/5 p-4 border-b border-primary/10 flex justify-between items-center">
+        <div className={cn(
+          "bg-primary/5 p-4 border-b border-primary/10 flex justify-between items-center rounded-t-[2.4rem]",
+          isDayClosed && !editingPayment && "bg-red-100/50"
+        )}>
           <div className="flex items-center gap-2">
             <CreditCard className="w-5 h-5 text-primary" />
             <h2 className="text-[12px] font-black uppercase text-primary tracking-widest">
@@ -356,7 +359,7 @@ export default function PaymentsView() {
           </div>
 
           <div className="flex gap-2 items-end">
-            <div className="flex-1 space-y-1 relative">
+            <div className="flex-1 space-y-1 relative z-[100]">
               <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1">CLIENTE</Label>
               <div className="relative">
                 <Search className="absolute left-3 top-3.5 h-4 w-4 text-primary/30" />
