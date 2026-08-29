@@ -8,7 +8,6 @@ import {
   Search, 
   Lock, 
   Unlock, 
-  RotateCcw, 
   CreditCard,
   Loader2,
   Trash2,
@@ -94,7 +93,6 @@ export default function PaymentsView() {
   }, [db])
   const { data: payments = [], loading } = useCollection(paymentsQuery)
 
-  // Determinar qué clientes ya han sido enviados
   const shippedCustomerIds = React.useMemo(() => {
     return new Set(allQuotes.filter(q => q.status === 'shipped').map(q => q.customerId))
   }, [allQuotes])
@@ -527,7 +525,7 @@ function PaymentRecord({ p, isProcessed, onEdit, onDelete, onLock, deleteConfirm
                       <div className="flex flex-col items-center gap-3">
                         <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">¿ELIMINAR ESTE PAGO?</span>
                         <div className="flex gap-2">
-                          <Button size="sm" className="h-8 px-4 text-[9px] font-black bg-red-500 text-white hover:bg-red-600 rounded-lg" onClick={() => handleDelete(p.id)}>SÍ, BORRAR</Button>
+                          <Button size="sm" className="h-8 px-4 text-[9px] font-black bg-red-500 text-white hover:bg-red-600 rounded-lg" onClick={() => onDelete(p.id)}>SÍ, BORRAR</Button>
                           <Button size="sm" variant="ghost" className="h-8 px-4 text-[9px] font-black text-slate-300 hover:bg-white/10 rounded-lg" onClick={() => setDeleteConfirmId(null)}>CANCELAR</Button>
                         </div>
                       </div>
