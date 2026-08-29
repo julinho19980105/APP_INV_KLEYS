@@ -1,4 +1,3 @@
-
 import type { Metadata, Viewport } from 'next';
 import { Inter, Space_Grotesk } from 'next/font/google';
 import './globals.css';
@@ -28,13 +27,13 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: 'StiloStack | Industrial Management',
+  title: 'KLEYS KIDS | Industrial Management',
   description: 'Sistema Inteligente de Gestión Industrial',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'StiloStack',
+    title: 'KLEYS KIDS',
   },
 };
 
