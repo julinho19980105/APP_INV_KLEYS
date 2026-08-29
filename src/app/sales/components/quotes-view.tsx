@@ -20,7 +20,8 @@ import {
   MoreVertical,
   Edit2,
   User,
-  Eraser
+  Eraser,
+  UserPlus
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -79,7 +80,7 @@ const EMPTY_ENTRY: QuoteItem = {
   productId: "",
   name: "",
   description: "",
-  quantity: "1",
+  quantity: "",
   price: "",
   stock: 0,
   img: "",
@@ -113,6 +114,7 @@ export default function QuotesView() {
   const db = useFirestore()
   
   const [saving, setSaving] = React.useState(false)
+  const [registeringCustomer, setRegisteringCustomer] = React.useState(false)
   const [quoteId, setQuoteId] = React.useState("B-001")
   const [customerQuery, setCustomerQuery] = React.useState("")
   const [selectedCustomer, setSelectedCustomer] = React.useState<{id: string, name: string} | null>(null)
@@ -217,6 +219,36 @@ export default function QuotesView() {
     )
   }, [productQuery, dbProducts])
 
+  const handleQuickRegisterCustomer = async () => {
+    if (!db || !customerQuery.trim()) return
+    setRegisteringCustomer(true)
+    try {
+      const q = query(collection(db, "customers"), orderBy("id", "desc"), limit(1))
+      const snap = await getDocs(q)
+      let nextCustId = "CL-001"
+      if (!snap.empty) {
+        const lastId = snap.docs[0].id
+        const lastNum = parseInt(lastId.split('-')[1]) || 0
+        nextCustId = `CL-${(lastNum + 1).toString().padStart(3, '0')}`
+      }
+      const name = customerQuery.toUpperCase().trim()
+      await setDoc(doc(db, "customers", nextCustId), { 
+        id: nextCustId, 
+        name, 
+        phone: "", 
+        location: "", 
+        createdAt: serverTimestamp() 
+      })
+      setSelectedCustomer({ id: nextCustId, name })
+      setCustomerQuery("")
+      toast({ title: "CLIENTE REGISTRADO" })
+    } catch (e) {
+      toast({ variant: "destructive", title: "ERROR AL REGISTRAR" })
+    } finally {
+      setRegisteringCustomer(false)
+    }
+  }
+
   const selectProductForEntry = (prod: any) => {
     setCurrentEntry({
       id: Math.random().toString(),
@@ -248,13 +280,30 @@ export default function QuotesView() {
     const desc = `${u} UNID X ${s} SERIES${l > 0 ? ` + ${l}` : ''}. `
     setCurrentEntry({ 
       ...currentEntry, 
-      quantity: total.toString().slice(0, 4), 
-      description: desc + (currentEntry.manualNote || ""),
+      quantity: total.toString().slice(0, 5), 
+      description: desc + (currentEntry.description || ""),
       calcUnidades: calcData.unidades,
       calcSeries: calcData.series,
       calcLibres: calcData.libres
     })
     setIsCalcOpen(false)
+  }
+
+  const handleAddItemToList = () => {
+    if (!currentEntry.name || !currentEntry.price || !currentEntry.quantity) {
+      toast({ variant: "destructive", title: "DATOS INCOMPLETOS" });
+      return;
+    }
+
+    const priceVal = Number(currentEntry.price)
+    if (priceVal < 6.0) {
+      if (!window.confirm("(¿Seguro quieres agregar precio menos de 6 soles?)")) {
+        return;
+      }
+    }
+
+    setItems([...items, { ...currentEntry, id: Math.random().toString() }]);
+    setCurrentEntry(EMPTY_ENTRY);
   }
 
   const handleSaveQuote = async () => {
@@ -339,7 +388,7 @@ export default function QuotesView() {
   }
 
   const handleDiscard = () => {
-    if (confirm("¿DESCARTAR COTIZACIÓN ACTUAL?")) {
+    if (confirm("¿DESCARTAR OPERACIÓN ACTUAL?")) {
       if (typeof window !== "undefined") {
         localStorage.removeItem(STORAGE_KEY);
       }
@@ -362,51 +411,63 @@ export default function QuotesView() {
   }
 
   return (
-    <div className="space-y-1 animate-in fade-in slide-in-from-bottom-2 duration-700">
+    <div className="space-y-1.5 animate-in fade-in slide-in-from-bottom-2 duration-700">
       {/* Fila Fecha y Código */}
-      <div className="flex gap-1.5 w-full">
+      <div className="flex gap-2 w-full">
         <div className="flex-1">
           <input 
             type="date" 
-            className="h-10 w-full bg-white border border-slate-300/60 rounded-xl px-4 text-[10px] font-bold text-slate-800 uppercase shadow-sm focus:outline-none focus:ring-1 focus:ring-primary/20 transition-all"
+            className="h-10 w-full bg-white border border-slate-300 rounded-xl px-4 text-[11px] font-bold text-slate-800 uppercase shadow-sm focus:outline-none focus:ring-1 focus:ring-primary/20 transition-all"
             defaultValue={new Date().toISOString().split('T')[0]}
           />
         </div>
-        <div className="flex-1 h-10 bg-white border border-slate-300/60 rounded-xl flex items-center justify-center shadow-sm">
-           <span className="text-[12px] font-black text-primary uppercase tracking-tighter font-headline">{quoteId}</span>
+        <div className="flex-1 h-10 bg-white border border-slate-300 rounded-xl flex items-center justify-center shadow-sm">
+           <span className="text-[13px] font-black text-primary uppercase tracking-tighter font-headline">{quoteId}</span>
         </div>
       </div>
 
-      {/* Selector Cliente - Movido aquí */}
-      <div className="relative z-[100]">
-        <div className="relative">
-          <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
-          <Input 
-            placeholder="SELECCIONAR CLIENTE..." 
-            className="h-12 pl-12 pr-6 bg-white border-slate-300/60 rounded-xl font-black text-[11px] uppercase shadow-sm text-slate-800 cursor-pointer"
-            value={selectedCustomer ? `${selectedCustomer.name} [${selectedCustomer.id}]` : customerQuery}
-            onChange={e => { if (selectedCustomer) setSelectedCustomer(null); setCustomerQuery(e.target.value); }}
-          />
-          {customerSuggestions.length > 0 && (
-            <div className="absolute z-[9999] w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden max-h-60 overflow-y-auto">
-              {customerSuggestions.map(c => (
-                <button key={c.id} className="w-full text-left px-6 py-3.5 hover:bg-slate-50 border-b border-slate-50 last:border-0 font-bold text-[10px] uppercase transition-colors text-slate-700" onClick={() => { setSelectedCustomer({ id: c.id, name: c.name }); setCustomerQuery(""); }}>
-                  {c.name} <span className="text-slate-400 ml-2 font-medium">[{c.id}]</span>
-                </button>
-              ))}
-            </div>
-          )}
+      {/* Selector Cliente */}
+      <div className="relative z-[90]">
+        <div className="relative flex gap-2">
+          <div className="relative flex-1">
+            <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
+            <Input 
+              placeholder="SELECCIONAR CLIENTE..." 
+              className="h-12 pl-12 pr-6 bg-white border-slate-300 rounded-xl font-black text-[11px] uppercase shadow-sm text-slate-800"
+              value={selectedCustomer ? `${selectedCustomer.name} [${selectedCustomer.id}]` : customerQuery}
+              onChange={e => { if (selectedCustomer) setSelectedCustomer(null); setCustomerQuery(e.target.value); }}
+            />
+            {customerQuery.length >= 1 && (
+              <div className="absolute z-[100] w-full mt-1 bg-white border border-slate-300 rounded-xl shadow-2xl overflow-hidden max-h-60 overflow-y-auto">
+                {customerSuggestions.map(c => (
+                  <button key={c.id} className="w-full text-left px-6 py-3.5 hover:bg-slate-50 border-b border-slate-100 last:border-0 font-bold text-[10px] uppercase transition-colors text-slate-700" onClick={() => { setSelectedCustomer({ id: c.id, name: c.name }); setCustomerQuery(""); }}>
+                    {c.name} <span className="text-slate-400 ml-2 font-medium">[{c.id}]</span>
+                  </button>
+                ))}
+                {!selectedCustomer && customerQuery.length >= 1 && customerSuggestions.length === 0 && (
+                  <button 
+                    className="w-full text-left px-6 py-4 bg-primary/5 hover:bg-primary/10 flex items-center gap-3 border-t border-primary/10 transition-colors"
+                    onClick={handleQuickRegisterCustomer}
+                    disabled={registeringCustomer}
+                  >
+                    {registeringCustomer ? <Loader2 className="animate-spin w-4 h-4 text-primary" /> : <UserPlus className="w-5 h-5 text-primary" />}
+                    <span className="text-[10px] font-black uppercase text-primary">Registrar Cliente: "{customerQuery}"</span>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Registro Maestro ERP */}
-      <Card className="rounded-2xl border border-slate-300/60 shadow-[0_4px_20px_rgb(0,0,0,0.03)] bg-white overflow-hidden">
-        <div className="bg-[#1e293b] py-2.5 px-6 flex justify-between items-center">
+      <Card className="rounded-2xl border border-slate-400 shadow-[0_4px_20px_rgb(0,0,0,0.03)] bg-white overflow-visible">
+        <div className="bg-[#1e293b] py-2.5 px-6 flex justify-between items-center rounded-t-2xl">
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 rounded-full bg-primary/20 flex items-center justify-center">
                <Plus className="w-2.5 h-2.5 text-primary" />
             </div>
-            <span className="text-[8px] font-bold uppercase text-slate-100 tracking-[0.2em] opacity-90">ENTRADA DE DATOS</span>
+            <span className="text-[9px] font-bold uppercase text-slate-100 tracking-[0.2em]">REGISTRO DE PRODUCTO</span>
           </div>
           <Button variant="ghost" size="icon" className="h-6 w-6 text-white/20 hover:text-white transition-colors" onClick={() => setCurrentEntry(EMPTY_ENTRY)}>
              <Eraser className="w-3 h-3" />
@@ -415,85 +476,94 @@ export default function QuotesView() {
 
         <CardContent className="p-4 space-y-3">
           <div className="space-y-1">
-            <Label className="text-[8px] font-bold text-slate-400 uppercase ml-2 tracking-widest">NOMBRE DE PRODUCTO</Label>
+            <Label className="text-[9px] font-bold text-slate-400 uppercase ml-2 tracking-widest">NOMBRE DE PRODUCTO</Label>
             <Input 
               value={currentEntry.name}
-              onChange={e => setCurrentEntry({...currentEntry, name: e.target.value.toUpperCase()})}
+              onChange={e => setCurrentEntry({...currentEntry, name: e.target.value})}
               placeholder="PRODUCTO O MODELO"
-              className="h-12 text-[12px] font-black uppercase text-slate-900 bg-slate-50/50 border-slate-200 rounded-xl px-4 focus:ring-1 focus:ring-primary/10 shadow-inner placeholder:text-slate-300"
+              className="h-12 text-[12px] font-black uppercase text-slate-900 bg-slate-50 border-slate-300 rounded-xl px-4 focus:ring-1 focus:ring-primary/10 shadow-inner"
             />
           </div>
 
           <div className="grid grid-cols-3 gap-2">
             <div className="space-y-1">
-              <Label className="text-[8px] font-bold text-slate-400 uppercase text-center w-full block tracking-widest">CANT</Label>
+              <Label className="text-[9px] font-bold text-slate-400 uppercase text-center w-full block tracking-widest">CANT</Label>
               <Input 
                 type="number" 
+                step="1"
+                min="1"
                 value={currentEntry.quantity} 
-                onChange={e => setCurrentEntry({...currentEntry, quantity: e.target.value.slice(0, 4)})} 
-                className="h-12 text-center text-base font-black text-slate-900 bg-slate-50/50 border-slate-200 rounded-xl shadow-inner font-headline"
+                onChange={e => {
+                  const val = e.target.value.replace(/[^0-9]/g, '');
+                  setCurrentEntry({...currentEntry, quantity: val});
+                }} 
+                className="h-12 text-center text-base font-black text-slate-900 bg-slate-50 border-slate-300 rounded-xl shadow-inner font-headline"
               />
             </div>
             <div className="space-y-1">
-              <Label className="text-[8px] font-bold text-slate-400 uppercase text-center w-full block tracking-widest">PRECIO</Label>
+              <Label className="text-[9px] font-bold text-slate-400 uppercase text-center w-full block tracking-widest">PRECIO</Label>
               <Input 
                 type="number" 
+                step="0.1"
+                min="0"
                 value={currentEntry.price} 
                 onChange={e => setCurrentEntry({...currentEntry, price: e.target.value})} 
-                className="h-12 text-center text-base font-black text-slate-900 bg-slate-50/50 border-slate-200 rounded-xl shadow-inner font-headline"
+                className="h-12 text-center text-base font-black text-slate-900 bg-slate-50 border-slate-300 rounded-xl shadow-inner font-headline"
               />
             </div>
             <div className="space-y-1">
-              <Label className="text-[8px] font-bold text-slate-400 uppercase text-center w-full block tracking-widest">DESC</Label>
+              <Label className="text-[9px] font-bold text-slate-400 uppercase text-center w-full block tracking-widest">DESC</Label>
               <div className="relative">
                 <Input 
                   type="number" 
+                  step="0.1"
+                  min="0"
                   value={currentEntry.discount} 
-                  onChange={e => setCurrentEntry({...currentEntry, discount: e.target.value.slice(0, 2)})} 
-                  className="h-12 text-center text-base font-black text-orange-600 bg-orange-50/40 border-orange-200/60 rounded-xl shadow-inner font-headline"
+                  onChange={e => setCurrentEntry({...currentEntry, discount: e.target.value})} 
+                  className="h-12 text-center text-base font-black text-red-600 bg-red-50 border-red-200 rounded-xl shadow-inner font-headline"
                 />
-                <Button variant="ghost" size="icon" className="absolute -right-1 -top-1 h-6 w-6 rounded-full bg-white border border-slate-200 text-primary shadow-sm active:scale-90" onClick={() => setIsCalcOpen(true)}>
-                   <Calculator className="w-3 h-3" />
+                <Button variant="ghost" size="icon" className="absolute -right-1.5 -top-1.5 h-7 w-7 rounded-full bg-white border border-slate-300 text-primary shadow-sm active:scale-90" onClick={() => setIsCalcOpen(true)}>
+                   <Calculator className="w-3.5 h-3.5" />
                 </Button>
               </div>
             </div>
           </div>
 
           <div className="space-y-1">
-             <Label className="text-[8px] font-bold text-slate-400 uppercase ml-2 tracking-widest">DESCRIPCIÓN</Label>
+             <Label className="text-[9px] font-bold text-slate-400 uppercase ml-2 tracking-widest">DESCRIPCIÓN</Label>
              <Input 
               value={currentEntry.description} 
               onChange={e => setCurrentEntry({...currentEntry, description: e.target.value})} 
-              placeholder="DETALLES DE LA PRENDA" 
-              className="h-12 bg-slate-50/50 border-slate-200 rounded-xl px-4 text-[10px] font-bold uppercase shadow-inner text-slate-700" 
+              placeholder="DETALLES O NOTAS" 
+              className="h-12 bg-slate-50 border-slate-300 rounded-xl px-4 text-[11px] font-bold shadow-inner text-slate-700" 
             />
           </div>
 
-          <div className="pt-1">
+          <div className="pt-1 relative z-[80]">
             <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-300" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
               <Input 
                 placeholder="BUSCAR EN INVENTARIO..." 
-                className="h-12 pl-10 pr-4 bg-slate-50/50 border-slate-200 rounded-xl font-bold text-[10px] uppercase shadow-inner text-slate-700"
+                className="h-12 pl-11 pr-4 bg-slate-50 border-slate-300 rounded-xl font-bold text-[11px] uppercase shadow-inner text-slate-700"
                 value={productQuery}
                 onChange={e => setProductQuery(e.target.value)}
               />
-              {productSuggestions.length > 0 && (
-                <div className="absolute z-[9999] w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-1">
+              {productQuery.length >= 1 && (
+                <div className="absolute z-[100] w-full mt-1 bg-white border border-slate-300 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-1">
                   {productSuggestions.map(p => (
-                    <button key={p.code} className="w-full text-left px-5 py-3 hover:bg-slate-50 border-b border-slate-50 last:border-0 flex items-center gap-3 transition-colors" onClick={() => selectProductForEntry(p)}>
+                    <button key={p.code} className="w-full text-left px-5 py-3 hover:bg-slate-50 border-b border-slate-100 last:border-0 flex items-center gap-3 transition-colors" onClick={() => selectProductForEntry(p)}>
                       <div className="w-9 h-9 rounded-lg bg-slate-100 overflow-hidden border border-slate-200 shrink-0">
                          {p.images?.[0] ? <img src={getDriveThumb(p.images[0], 200)} className="w-full h-full object-cover" /> : <ImageIcon className="w-full h-full p-2 opacity-20" />}
                       </div>
                       <div className="flex-1 min-w-0">
-                         <div className="font-black text-[10px] text-slate-800 uppercase truncate leading-tight">{p.name}</div>
-                         <div className="text-[8px] font-bold text-slate-400 uppercase mt-0.5">{p.code} • STK: {p.stock}</div>
+                         <div className="font-black text-[11px] text-slate-800 uppercase truncate leading-tight">{p.name}</div>
+                         <div className="text-[9px] font-bold text-slate-400 uppercase mt-0.5">{p.code} • STK: {p.stock}</div>
                       </div>
-                      <Plus className="w-3.5 h-3.5 text-primary opacity-40" />
+                      <Plus className="w-4 h-4 text-primary opacity-40" />
                     </button>
                   ))}
                   <button 
-                    className="w-full text-left px-5 py-4 bg-slate-50/50 hover:bg-slate-100 flex items-center gap-3 border-t border-slate-50"
+                    className="w-full text-left px-5 py-4 bg-slate-50 hover:bg-slate-100 flex items-center gap-3 border-t border-slate-100"
                     onClick={() => {
                       setCurrentEntry({
                         ...EMPTY_ENTRY,
@@ -505,8 +575,8 @@ export default function QuotesView() {
                       setProductQuery("");
                     }}
                   >
-                    <Plus className="w-3.5 h-3.5 text-primary" />
-                    <span className="text-[9px] font-black uppercase text-slate-800">ENTRADA MANUAL: "{productQuery}"</span>
+                    <Plus className="w-4 h-4 text-primary" />
+                    <span className="text-[10px] font-black uppercase text-slate-800">ENTRADA MANUAL: "{productQuery}"</span>
                   </button>
                 </div>
               )}
@@ -514,15 +584,8 @@ export default function QuotesView() {
           </div>
 
           <Button 
-            className="w-full h-12 bg-[#10b981] hover:bg-[#059669] text-white rounded-xl font-black text-[13px] uppercase shadow-lg active:scale-95 transition-all mt-1 tracking-widest"
-            onClick={() => {
-              if (!currentEntry.name || !currentEntry.price || !currentEntry.quantity) {
-                toast({ variant: "destructive", title: "DATOS INCOMPLETOS" });
-                return;
-              }
-              setItems([...items, { ...currentEntry, id: Math.random().toString() }]);
-              setCurrentEntry(EMPTY_ENTRY);
-            }}
+            className="w-full h-12 bg-[#10b981] hover:bg-[#059669] text-white rounded-xl font-black text-[14px] uppercase shadow-lg active:scale-95 transition-all mt-1 tracking-widest"
+            onClick={handleAddItemToList}
           >
             Añadir a la Lista
           </Button>
@@ -531,31 +594,34 @@ export default function QuotesView() {
 
       {/* Resumen de Lista */}
       {items.length > 0 && (
-        <Card className="rounded-2xl border border-slate-300/60 shadow-sm bg-white overflow-hidden">
-          <div className="bg-slate-50/80 p-2.5 px-6 border-b border-slate-100 flex justify-between items-center">
-            <span className="text-[8px] font-black uppercase text-slate-500 tracking-[0.2em]">RESUMEN DE OPERACIÓN</span>
-            <Badge className="bg-slate-100 text-slate-500 hover:bg-slate-100 border-none text-[8px] font-black">{items.length} LÍNEAS</Badge>
+        <Card className="rounded-2xl border border-slate-400 shadow-sm bg-white overflow-hidden">
+          <div className="bg-slate-50 p-2.5 px-6 border-b border-slate-100 flex justify-between items-center">
+            <span className="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">RESUMEN DE COTIZACIÓN</span>
+            <Badge className="bg-slate-200 text-slate-600 hover:bg-slate-200 border-none text-[9px] font-black">{items.length} PRENDAS</Badge>
           </div>
-          <div className="divide-y divide-slate-50">
+          <div className="divide-y divide-slate-100">
             {items.map((item, index) => (
-              <div key={item.id} className="p-3 md:px-6 flex justify-between items-center group hover:bg-slate-50/50 transition-colors">
+              <div key={item.id} className="p-3 md:px-6 flex justify-between items-center group hover:bg-slate-50 transition-colors">
                 <div className="flex-1 min-w-0">
-                  <div className="font-black text-[11px] text-slate-800 uppercase truncate leading-tight">{index + 1}. {item.name}</div>
+                  <div className="font-black text-[12px] text-slate-800 uppercase truncate leading-tight">{index + 1}. {item.name}</div>
                   <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-[9px] font-black text-primary bg-primary/5 px-1.5 py-0.5 rounded">{item.quantity} UND</span>
-                    <span className="text-[8px] font-bold text-slate-300">×</span>
-                    <span className="text-[9px] font-bold text-slate-500">S/ {Number(item.price).toFixed(1)}</span>
+                    <span className="text-[10px] font-black text-primary bg-primary/5 px-2 py-0.5 rounded">{item.quantity} UND</span>
+                    <span className="text-[9px] font-bold text-slate-300">×</span>
+                    <span className="text-[10px] font-bold text-slate-500">S/ {Number(item.price).toFixed(1)}</span>
+                    {Number(item.discount) > 0 && (
+                       <span className="text-[10px] font-black text-red-600 ml-2">DESC: -S/ {Number(item.discount).toFixed(1)}</span>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="text-right">
-                    <div className="font-black text-[13px] text-slate-900 leading-none font-headline">S/ {((Number(item.price) * Number(item.quantity)) - Number(item.discount)).toFixed(1)}</div>
+                    <div className="font-black text-[14px] text-slate-900 leading-none font-headline">S/ {((Number(item.price) * Number(item.quantity)) - Number(item.discount)).toFixed(1)}</div>
                   </div>
                   <DropdownMenu>
-                    <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7 text-slate-200 hover:text-primary transition-colors"><MoreVertical className="w-3.5 h-3.5" /></Button></DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="rounded-xl p-1 w-36 shadow-xl border-slate-200">
-                      <DropdownMenuItem className="text-[9px] font-black uppercase gap-2.5 p-2 rounded-lg" onClick={() => handleEditItem(item)}><Edit2 className="w-3 h-3 text-primary" /> Editar</DropdownMenuItem>
-                      <DropdownMenuItem className="text-[9px] font-black uppercase gap-2.5 p-2 rounded-lg text-red-500" onClick={() => handleDeleteItem(item.id)}><Trash2 className="w-3 h-3" /> Eliminar</DropdownMenuItem>
+                    <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:text-primary transition-colors"><MoreVertical className="w-4 h-4" /></Button></DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="rounded-xl p-1.5 w-36 shadow-xl border-slate-200">
+                      <DropdownMenuItem className="text-[10px] font-black uppercase gap-2.5 p-2 rounded-lg" onClick={() => handleEditItem(item)}><Edit2 className="w-3.5 h-3.5 text-primary" /> Editar</DropdownMenuItem>
+                      <DropdownMenuItem className="text-[10px] font-black uppercase gap-2.5 p-2 rounded-lg text-red-500" onClick={() => handleDeleteItem(item.id)}><Trash2 className="w-3.5 h-3.5" /> Eliminar</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
@@ -566,17 +632,17 @@ export default function QuotesView() {
       )}
 
       {/* Totales y Acciones Finales */}
-      <div className="bg-white rounded-2xl border border-slate-300/60 shadow-lg p-5 space-y-4">
+      <div className="bg-white rounded-2xl border border-slate-400 shadow-lg p-5 space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-0.5">
-            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">TOTAL PRENDAS</span>
-            <div className="text-xl font-black text-slate-900 font-headline leading-none">
-              {items.reduce((acc, i) => acc + Number(i.quantity), 0)} <span className="text-[9px] text-slate-300 uppercase ml-1">UNIDADES</span>
+            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">TOTAL PRENDAS</span>
+            <div className="text-2xl font-black text-slate-900 font-headline leading-none">
+              {items.reduce((acc, i) => acc + Number(i.quantity), 0)} <span className="text-[10px] text-slate-300 uppercase ml-1">UNIDADES</span>
             </div>
           </div>
           <div className="space-y-0.5 text-right">
-            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mr-1">MONTO TOTAL</span>
-            <div className="text-3xl font-black text-[#10b981] tracking-tighter font-headline leading-none">
+            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mr-1">MONTO TOTAL</span>
+            <div className="text-4xl font-black text-[#10b981] tracking-tighter font-headline leading-none">
               S/ {items.reduce((acc, i) => acc + (Number(i.quantity) * Number(i.price) - Number(i.discount)), 0).toFixed(1)}
             </div>
           </div>
@@ -584,15 +650,15 @@ export default function QuotesView() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
            <Button 
-            className="h-14 bg-[#1e293b] hover:bg-black text-white rounded-xl font-black text-[14px] uppercase shadow-lg active:scale-95 transition-all tracking-widest" 
+            className="h-14 bg-[#1e293b] hover:bg-black text-white rounded-xl font-black text-[15px] uppercase shadow-lg active:scale-95 transition-all tracking-widest" 
             onClick={handleSaveQuote} 
             disabled={saving || items.length === 0}
           >
-            {saving ? <Loader2 className="animate-spin" /> : <Save className="w-4 h-4 mr-3" />} GUARDAR VENTA
+            {saving ? <Loader2 className="animate-spin" /> : <Save className="w-5 h-5 mr-3" />} GUARDAR VENTA
           </Button>
           <Button 
             variant="outline"
-            className="h-14 rounded-xl font-black text-[9px] uppercase border-slate-200 text-slate-400 hover:bg-red-50/50 hover:text-red-500 transition-all active:scale-95"
+            className="h-14 rounded-xl font-black text-[10px] uppercase border-slate-300 text-slate-400 hover:bg-red-50 hover:text-red-500 transition-all active:scale-95"
             onClick={handleDiscard}
           >
             DESCARTAR OPERACIÓN
@@ -602,18 +668,18 @@ export default function QuotesView() {
 
       {/* Calculadora de Series */}
       <Dialog open={isCalcOpen} onOpenChange={setIsCalcOpen}>
-        <DialogContent className="rounded-[2.5rem] border-none shadow-2xl max-w-[320px] p-8 bg-white">
-          <DialogHeader><DialogTitle className="text-[9px] font-black uppercase text-center tracking-widest text-primary mb-4">Cálculo Logístico</DialogTitle></DialogHeader>
+        <DialogContent className="rounded-[2rem] border-none shadow-2xl max-w-[320px] p-8 bg-white">
+          <DialogHeader><DialogTitle className="text-[10px] font-black uppercase text-center tracking-widest text-primary mb-4">Cálculo Logístico</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1"><Label className="text-[7px] font-bold uppercase text-slate-400 ml-1">UNID X SERIE</Label><Input type="number" value={calcData.unidades} onChange={e => setCalcData({...calcData, unidades: e.target.value})} className="h-12 text-center text-base font-black bg-slate-50 border-slate-200 rounded-xl font-headline" /></div>
-              <div className="space-y-1"><Label className="text-[7px] font-bold uppercase text-slate-400 ml-1">N° SERIES</Label><Input type="number" value={calcData.series} onChange={e => setCalcData({...calcData, series: e.target.value})} className="h-12 text-center text-base font-black bg-slate-50 border-slate-200 rounded-xl font-headline" /></div>
+              <div className="space-y-1"><Label className="text-[8px] font-bold uppercase text-slate-400 ml-1">UNID X SERIE</Label><Input type="number" value={calcData.unidades} onChange={e => setCalcData({...calcData, unidades: e.target.value})} className="h-12 text-center text-base font-black bg-slate-50 border-slate-300 rounded-xl font-headline" /></div>
+              <div className="space-y-1"><Label className="text-[8px] font-bold uppercase text-slate-400 ml-1">N° SERIES</Label><Input type="number" value={calcData.series} onChange={e => setCalcData({...calcData, series: e.target.value})} className="h-12 text-center text-base font-black bg-slate-50 border-slate-300 rounded-xl font-headline" /></div>
             </div>
-            <div className="space-y-1"><Label className="text-[7px] font-bold uppercase text-slate-400 ml-1">+ LIBRES</Label><Input type="number" value={calcData.libres} onChange={e => setCalcData({...calcData, libres: e.target.value})} className="h-12 text-center text-base font-black bg-slate-50 border-slate-200 rounded-xl font-headline" /></div>
+            <div className="space-y-1"><Label className="text-[8px] font-bold uppercase text-slate-400 ml-1">+ LIBRES</Label><Input type="number" value={calcData.libres} onChange={e => setCalcData({...calcData, libres: e.target.value})} className="h-12 text-center text-base font-black bg-slate-50 border-slate-300 rounded-xl font-headline" /></div>
             <div className="bg-primary/5 p-5 rounded-2xl text-center border border-primary/10">
-              <div className="text-2xl font-black text-primary font-headline">{(Number(calcData.unidades) * Number(calcData.series)) + Number(calcData.libres)} <span className="text-[10px] uppercase font-bold">UND</span></div>
+              <div className="text-2xl font-black text-primary font-headline">{(Number(calcData.unidades) * Number(calcData.series)) + Number(calcData.libres)} <span className="text-[12px] uppercase font-bold">UND</span></div>
             </div>
-            <Button className="w-full h-12 bg-primary text-white rounded-xl font-black shadow-lg uppercase text-[10px] tracking-widest active:scale-95" onClick={handleApplyCalc}>CONFIRMAR</Button>
+            <Button className="w-full h-12 bg-primary text-white rounded-xl font-black shadow-lg uppercase text-[11px] tracking-widest active:scale-95" onClick={handleApplyCalc}>CONFIRMAR</Button>
           </div>
         </DialogContent>
       </Dialog>
