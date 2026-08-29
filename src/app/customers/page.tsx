@@ -5,23 +5,14 @@ import * as React from "react"
 import { 
   Users,
   Search,
-  UserPlus,
-  ChevronRight,
   ChevronDown,
-  ArrowUpRight,
-  ArrowDownLeft,
   CircleDollarSign,
-  History,
   AlertCircle,
   CheckCircle2,
-  Clock,
-  Loader2,
   Truck,
-  PackageCheck
+  Loader2
 } from "lucide-react"
-import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
   Accordion,
@@ -33,7 +24,6 @@ import { useCollection, useFirestore, useDoc } from "@/firebase"
 import { collection, query, orderBy, doc, limit } from "firebase/firestore"
 import { cn } from "@/lib/utils"
 import { format } from "date-fns"
-import { es } from "date-fns/locale"
 
 export default function CustomersHubPage() {
   const db = useFirestore()
@@ -43,7 +33,7 @@ export default function CustomersHubPage() {
   const config = useDoc(configDocRef).data
   const brandColor = config?.brandColor || "#0296FF"
 
-  const customersRef = React.useMemo(() => db ? query(collection(db, "customers"), orderBy("id", "asc")) : null, [db])
+  const customersRef = React.useMemo(() => db ? query(collection(db, "customers"), orderBy("name", "asc")) : null, [db])
   const quotesRef = React.useMemo(() => db ? query(collection(db, "quotes"), orderBy("createdAt", "asc")) : null, [db])
   const paymentsRef = React.useMemo(() => db ? query(collection(db, "payments"), orderBy("createdAt", "asc")) : null, [db])
   const logisticsRef = React.useMemo(() => db ? query(collection(db, "logistics"), orderBy("date", "desc"), limit(100)) : null, [db])
@@ -73,7 +63,6 @@ export default function CustomersHubPage() {
         return { ...entry, currentBalance: runningBalance }
       })
 
-      // Historial de Envíos
       const shipmentHistory = logistics.flatMap(l => 
         (l.entries || [])
           .filter((e: any) => e.customerId === c.id)
@@ -96,145 +85,164 @@ export default function CustomersHubPage() {
     return customerData.filter(c => c.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(q) || c.id.toLowerCase().includes(q))
   }, [customerData, searchQuery])
 
+  const totalInStreet = React.useMemo(() => {
+    return customerData
+      .filter(c => c.balance < -1)
+      .reduce((acc, c) => acc + Math.abs(c.balance), 0)
+  }, [customerData])
+
+  const debtorCount = React.useMemo(() => {
+    return customerData.filter(c => c.balance < -1).length
+  }, [customerData])
+
   const sections = React.useMemo(() => [
     { 
       title: "CUENTAS POR COBRAR", 
-      color: "text-red-600", 
-      bgColor: "bg-red-50", 
-      borderColor: "border-red-200",
+      color: "text-red-500", 
+      lineColor: "bg-red-200",
       icon: AlertCircle,
       data: filtered.filter(c => c.balance < -1).sort((a, b) => a.balance - b.balance)
     },
     { 
       title: "SALDOS A FAVOR", 
-      color: "text-blue-600", 
-      bgColor: "bg-blue-50", 
-      borderColor: "border-blue-200",
+      color: "text-blue-500", 
+      lineColor: "bg-blue-200",
       icon: CircleDollarSign,
       data: filtered.filter(c => c.balance > 1).sort((a, b) => b.balance - a.balance)
     },
     { 
-      title: "CLIENTES AL DÍA", 
-      color: "text-green-600", 
-      bgColor: "bg-green-50", 
-      borderColor: "border-green-200",
+      title: "ACTIVOS / AL DÍA", 
+      color: "text-emerald-500", 
+      lineColor: "bg-emerald-200",
       icon: CheckCircle2,
       data: filtered.filter(c => Math.abs(c.balance) <= 1)
     },
     { 
-      title: "HISTORIAL DE ENVÍOS", 
-      color: "text-indigo-600", 
-      bgColor: "bg-indigo-50", 
-      borderColor: "border-indigo-200",
+      title: "HISTORIAL DE ENVÍOS CERRADOS", 
+      color: "text-slate-400", 
+      lineColor: "bg-slate-200",
       icon: Truck,
       data: filtered.filter(c => c.shipmentHistory && c.shipmentHistory.length > 0)
     }
   ], [filtered])
 
   return (
-    <div className="space-y-6 pt-2 pb-24 px-2 md:px-0 max-w-4xl mx-auto">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 border-b-2 border-black pb-4">
-        <div>
-          <h1 className="text-3xl font-headline font-black text-black uppercase tracking-tight">GESTIÓN DE CLIENTES</h1>
-        </div>
-        <div className="flex w-full md:w-auto gap-3">
-          <div className="relative flex-1 md:w-64">
-            <Search className="absolute left-3.5 top-3.5 h-4 w-4 text-primary" />
-            <Input 
-              placeholder="BUSCAR..." 
-              className="pl-10 h-11 rounded-xl border-black/10 font-black text-xs uppercase shadow-sm"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-            />
+    <div className="space-y-4 pt-1 pb-24 px-2 md:px-0 max-w-4xl mx-auto animate-in fade-in duration-700">
+      {/* KPI Principal Estilo Referencia */}
+      <div className="bg-[#0f172a] rounded-[2rem] p-6 shadow-2xl flex items-center justify-between relative overflow-hidden">
+        <div className="flex items-center gap-5 relative z-10">
+          <div className="w-14 h-14 rounded-2xl bg-[#0296FF] flex items-center justify-center shadow-lg shadow-blue-500/20">
+            <CircleDollarSign className="w-8 h-8 text-white" />
           </div>
+          <div>
+            <span className="text-[10px] font-bold text-blue-400 uppercase tracking-[0.2em] leading-none">TOTAL EN CALLE</span>
+            <div className="text-3xl font-headline font-black text-white mt-1 leading-none">S/ {totalInStreet.toFixed(1)}</div>
+          </div>
+        </div>
+        <div className="text-right relative z-10">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">DEUDORAS</span>
+          <div className="text-3xl font-headline font-black text-white mt-1 leading-none">{debtorCount}</div>
+        </div>
+        <div className="absolute right-0 bottom-0 opacity-5 pointer-events-none">
+           <Users className="w-40 h-40 text-white -mb-10 -mr-10" />
         </div>
       </div>
 
-      <Accordion type="multiple" className="space-y-4">
+      {/* Buscador */}
+      <div className="relative group">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300 transition-colors group-focus-within:text-primary" />
+        <Input 
+          placeholder="BUSCAR POR NOMBRE O CÓDIGO..." 
+          className="pl-11 h-12 rounded-2xl border-slate-200 bg-white font-medium text-[11px] uppercase shadow-sm focus:ring-1 focus:ring-primary/10"
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+        />
+      </div>
+
+      {/* Lista de Acordeones */}
+      <Accordion type="multiple" className="space-y-1">
         {sections.map((section, sIdx) => {
-          const totalSection = section.data.length
+          const sectionTotal = section.data.reduce((acc, c) => acc + Math.abs(c.balance), 0)
           return (
-            <AccordionItem key={sIdx} value={`section-${sIdx}`} className={cn("border-2 rounded-[2.5rem] overflow-hidden shadow-sm", section.borderColor)}>
-              <AccordionTrigger className={cn("px-8 py-5 hover:no-underline", section.bgColor)}>
-                <div className="flex items-center justify-between w-full pr-4">
-                  <div className="flex items-center gap-4">
-                    <section.icon className={cn("w-6 h-6", section.color)} />
-                    <span className={cn("font-black text-[12px] uppercase tracking-[0.2em]", section.color)}>
-                      {sIdx + 1}. {section.title}
-                    </span>
+            <AccordionItem key={sIdx} value={`section-${sIdx}`} className="border-none">
+              <AccordionTrigger className="hover:no-underline py-4 px-2 group">
+                <div className="flex items-center gap-3 w-full">
+                  <div className={cn("flex items-center gap-2 shrink-0 font-bold text-[11px] uppercase tracking-wider", section.color)}>
+                     <section.icon className="w-4 h-4" />
+                     <span>{sIdx + 1}. {section.title}</span>
+                     {sIdx < 3 && <span className="ml-1 opacity-70">(S/ {sectionTotal.toFixed(1)})</span>}
                   </div>
-                  <div className="flex items-center gap-6">
-                    <Badge variant="outline" className={cn("font-black text-[10px] border-none", section.bgColor, section.color)}>
-                      {totalSection} CLIENTES
-                    </Badge>
-                  </div>
+                  <div className={cn("flex-1 h-[1px] ml-2", section.lineColor)} />
                 </div>
               </AccordionTrigger>
-              <AccordionContent className="bg-white p-0">
+              <AccordionContent className="pt-0">
                 {section.data.length === 0 ? (
-                  <div className="p-10 text-center opacity-20 font-black text-[10px] uppercase tracking-widest">Sin registros</div>
+                  <div className="py-10 text-center opacity-20 font-bold text-[9px] uppercase tracking-widest bg-slate-50/50 rounded-2xl border border-dashed border-slate-200 mx-2">Sin registros</div>
                 ) : (
-                  <div className="divide-y divide-black/5">
+                  <div className="space-y-1 px-2">
                     {section.data.map((c, idx) => (
                       <Accordion key={c.id} type="single" collapsible className="w-full">
                         <AccordionItem value={c.id} className="border-none">
-                          <AccordionTrigger className="px-8 py-6 hover:bg-black/[0.02] transition-colors w-full flex justify-between group hover:no-underline">
-                            <div className="flex items-center gap-6 w-full pr-10 text-left">
-                              <span className="w-8 h-8 rounded-full bg-black/5 flex items-center justify-center font-black text-[11px] text-black/40 shrink-0">{idx + 1}</span>
-                              <div className="flex-1">
-                                <div className="font-black text-[13px] text-black uppercase">{c.name}</div>
-                                <div className="text-[9px] font-black text-black/40 uppercase tracking-widest">{c.id}</div>
+                          <AccordionTrigger className="px-4 py-3.5 hover:bg-slate-50/80 rounded-xl transition-all w-full flex justify-between group/item hover:no-underline border border-transparent hover:border-slate-200">
+                            <div className="flex items-center gap-4 w-full text-left">
+                              <span className="w-6 h-6 rounded-lg bg-slate-100 flex items-center justify-center font-bold text-[9px] text-slate-400 shrink-0 border border-slate-200">{idx + 1}</span>
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium text-[12px] text-slate-800 uppercase truncate leading-tight">{c.name}</div>
+                                <div className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{c.id}</div>
                               </div>
-                              <div className={cn("font-headline font-black text-xl", section.color)}>
+                              <div className={cn("font-headline font-black text-[14px] px-3 py-1 rounded-lg border", 
+                                sIdx === 0 ? "text-red-500 bg-red-50 border-red-100" : 
+                                sIdx === 1 ? "text-blue-500 bg-blue-50 border-blue-100" : 
+                                sIdx === 3 ? "text-slate-400 bg-slate-50 border-slate-200" : "text-emerald-500 bg-emerald-50 border-emerald-100")}>
                                 {sIdx === 3 ? `${c.shipmentHistory.length} ENV` : `S/ ${Math.abs(c.balance).toFixed(1)}`}
                               </div>
                             </div>
                           </AccordionTrigger>
-                          <AccordionContent className="px-8 pb-8">
-                            <div className="rounded-3xl border border-black/5 overflow-hidden bg-black/[0.01]">
-                              <table className="w-full text-left text-[10px] font-black uppercase">
-                                <thead className="bg-black/5">
+                          <AccordionContent className="px-1 pb-4 pt-1">
+                            <div className="rounded-2xl border border-slate-200 overflow-hidden bg-white shadow-sm mx-1">
+                              <table className="w-full text-left text-[9px] font-medium uppercase">
+                                <thead className="bg-slate-50 border-b border-slate-100">
                                   {sIdx === 3 ? (
                                     <tr>
-                                      <th className="px-6 py-3">FECHA ENVÍO</th>
-                                      <th className="px-6 py-3">BOLETAS</th>
-                                      <th className="px-6 py-3 text-right">COSTO ENVÍO</th>
+                                      <th className="px-4 py-2 text-slate-400">FECHA ENVÍO</th>
+                                      <th className="px-4 py-2 text-slate-400">BOLETAS</th>
+                                      <th className="px-4 py-2 text-right text-slate-400">COSTO ENVÍO</th>
                                     </tr>
                                   ) : (
                                     <tr>
-                                      <th className="px-6 py-3 w-32">FECHA</th>
-                                      <th className="px-6 py-3">ID</th>
-                                      <th className="px-6 py-3 text-center">TIPO</th>
-                                      <th className="px-6 py-3 text-right">BALANCE</th>
+                                      <th className="px-4 py-2 text-slate-400">FECHA</th>
+                                      <th className="px-4 py-2 text-slate-400">REFERENCIA</th>
+                                      <th className="px-4 py-2 text-center text-slate-400">TIPO</th>
+                                      <th className="px-4 py-2 text-right text-slate-400">SALDO</th>
                                     </tr>
                                   )}
                                 </thead>
-                                <tbody>
+                                <tbody className="divide-y divide-slate-100">
                                   {sIdx === 3 ? (
                                     c.shipmentHistory.map((h: any, hIdx: number) => (
-                                      <tr key={hIdx} className="border-b border-black/5 last:border-0 h-12">
-                                        <td className="px-6 py-0 font-medium text-black/60">{format(new Date(h.dateKey + "T12:00:00"), "dd/MM/yy")}</td>
-                                        <td className="px-6 py-0">
+                                      <tr key={hIdx} className="hover:bg-slate-50/50">
+                                        <td className="px-4 py-3 text-slate-600">{format(new Date(h.dateKey + "T12:00:00"), "dd/MM/yy")}</td>
+                                        <td className="px-4 py-3">
                                           <div className="flex gap-1 flex-wrap">
                                             {(h.quotes || []).map((q: any) => (
-                                              <Badge key={q.quoteId} variant="outline" className="text-[7px] border-primary/20 text-primary">{q.quoteId}</Badge>
+                                              <Badge key={q.quoteId} variant="outline" className="text-[7px] font-bold border-blue-100 text-blue-500 h-4">{q.quoteId}</Badge>
                                             ))}
                                           </div>
                                         </td>
-                                        <td className="px-6 py-0 text-right font-headline text-indigo-600">S/ {Number(h.shippingCost || 0).toFixed(1)}</td>
+                                        <td className="px-4 py-3 text-right font-headline text-slate-700">S/ {Number(h.shippingCost || 0).toFixed(1)}</td>
                                       </tr>
                                     ))
                                   ) : (
                                     c.history.map((h, hIdx) => (
-                                      <tr key={hIdx} className="border-b border-black/5 last:border-0 h-12">
-                                        <td className="px-6 py-0 font-medium text-black/60">{format(h.date, "dd/MM/yy")}</td>
-                                        <td className="px-6 py-0">{h.id}</td>
-                                        <td className="px-6 py-0 text-center">
-                                          <Badge variant="outline" className={cn("text-[7px]", h.type === 'quote' ? "text-red-500 border-red-200" : "text-blue-500 border-blue-200")}>
-                                            {h.type === 'quote' ? 'CARGO' : 'PAGO'}
+                                      <tr key={hIdx} className="hover:bg-slate-50/50">
+                                        <td className="px-4 py-3 text-slate-500">{format(h.date, "dd/MM/yy")}</td>
+                                        <td className="px-4 py-3 text-slate-700 font-medium">{h.id}</td>
+                                        <td className="px-4 py-3 text-center">
+                                          <Badge className={cn("text-[7px] font-bold h-3.5 border-none uppercase px-1.5", h.type === 'quote' ? "bg-red-50 text-red-500" : "bg-blue-50 text-blue-500")}>
+                                            {h.type === 'quote' ? 'Cargo' : 'Abono'}
                                           </Badge>
                                         </td>
-                                        <td className={cn("px-6 py-0 text-right font-headline", h.currentBalance < 0 ? "text-red-600" : "text-blue-600")}>
+                                        <td className={cn("px-4 py-3 text-right font-headline font-bold", h.currentBalance < 0 ? "text-red-500" : "text-blue-500")}>
                                           S/ {h.currentBalance.toFixed(1)}
                                         </td>
                                       </tr>
