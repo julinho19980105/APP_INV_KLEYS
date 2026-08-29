@@ -36,6 +36,7 @@ export const metadata: Metadata = {
     title: 'KLEYS KIDS',
   },
   icons: {
+    icon: 'https://drive.google.com/thumbnail?id=15o8oqYnmbOjXUIBgPFzl-SDi78SdTo2O&sz=w512',
     apple: 'https://drive.google.com/thumbnail?id=15o8oqYnmbOjXUIBgPFzl-SDi78SdTo2O&sz=w180',
   }
 };
@@ -49,6 +50,8 @@ export default function RootLayout({
     <html lang="es" className={`${inter.variable} ${spaceGrotesk.variable} dark`}>
       <head>
         <link rel="manifest" href="/manifest.json" />
+        <meta name="apple-mobile-web-app-title" content="KLEYS KIDS" />
+        <meta name="application-name" content="KLEYS KIDS" />
         <meta name="theme-color" content="#000000" />
       </head>
       <body className="font-body antialiased bg-background text-foreground">
