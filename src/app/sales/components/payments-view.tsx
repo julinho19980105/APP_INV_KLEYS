@@ -477,12 +477,12 @@ function PaymentRecord({ p, isProcessed, onEdit, onDelete, onLock }: any) {
     )}>
       <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#3b82f6]/40" />
       
-      <CardContent className="p-3 pl-6 flex items-center justify-between">
+      <CardContent className="py-1.5 pl-6 pr-3 flex items-center justify-between">
         <div className="flex flex-col flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="font-bold text-[13px] text-slate-800 uppercase truncate leading-tight">{p.customerName}</span>
           </div>
-          <div className="flex items-center gap-2 mt-1">
+          <div className="flex items-center gap-2 mt-0.5">
              <span className="text-[8px] font-bold text-blue-400/80 uppercase tracking-widest">{p.bankName}</span>
              {isProcessed && (
                <Badge className="bg-blue-50 text-blue-500 text-[7px] font-bold h-3.5 px-1.5 border border-blue-100 uppercase">PROCESADO</Badge>
