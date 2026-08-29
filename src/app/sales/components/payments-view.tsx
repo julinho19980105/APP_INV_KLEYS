@@ -76,7 +76,6 @@ export default function PaymentsView() {
   const [isBankGrouped, setIsBankGrouped] = React.useState(true)
   
   const [editingPayment, setEditingPayment] = React.useState<any>(null)
-  const [deleteConfirmId, setDeleteConfirmId] = React.useState<string | null>(null)
 
   const dateKey = format(date, "yyyy-MM-dd")
   const dayLockRef = React.useMemo(() => db ? doc(db, "dayLocks", dateKey) : null, [db, dateKey])
@@ -237,8 +236,7 @@ export default function PaymentsView() {
     const pRef = doc(db, "payments", pId)
     try {
       await deleteDoc(pRef)
-      setDeleteConfirmId(null)
-      toast({ title: "Pago eliminado" })
+      toast({ title: "PAGO ELIMINADO" })
     } catch (err) {
       errorEmitter.emit('permission-error', new FirestorePermissionError({ path: pRef.path, operation: 'delete' }));
     }
@@ -287,11 +285,6 @@ export default function PaymentsView() {
 
     return finalGroups
   }, [filteredPayments, isBankGrouped, allDayLocks])
-
-  const deletingPaymentName = React.useMemo(() => {
-    if (!deleteConfirmId) return ""
-    return payments.find(p => p.id === deleteConfirmId)?.customerName || ""
-  }, [deleteConfirmId, payments])
 
   return (
     <div className="space-y-1.5 px-1 md:px-0 pb-24 animate-in fade-in slide-in-from-bottom-2 duration-700">
@@ -452,7 +445,7 @@ export default function PaymentsView() {
                         p={p} 
                         isProcessed={shippedCustomerIds.has(p.customerId)}
                         onEdit={startEditing} 
-                        onDeleteRequest={(id: string) => setDeleteConfirmId(id)} 
+                        onDelete={handleDelete} 
                         onLock={togglePaymentLock} 
                       />
                     ))}
@@ -464,7 +457,7 @@ export default function PaymentsView() {
                   p={p} 
                   isProcessed={shippedCustomerIds.has(p.customerId)}
                   onEdit={startEditing} 
-                  onDeleteRequest={(id: string) => setDeleteConfirmId(id)} 
+                  onDelete={handleDelete} 
                   onLock={togglePaymentLock} 
                 />
               ))}
@@ -472,32 +465,11 @@ export default function PaymentsView() {
           </div>
         ))}
       </div>
-
-      <Dialog open={!!deleteConfirmId} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
-        <DialogContent className="rounded-[2.5rem] max-w-[320px] p-8 text-center border-none shadow-2xl">
-          <DialogHeader className="sr-only"><DialogTitle>Confirmar Eliminación</DialogTitle></DialogHeader>
-          <div className="flex flex-col items-center gap-6">
-            <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center">
-              <Trash2 className="w-8 h-8 text-red-500" />
-            </div>
-            <div className="space-y-2">
-              <p className="text-[11px] font-bold uppercase text-slate-800 leading-relaxed">
-                ¿ELIMINAR PAGO DE <span className="text-red-600">{deletingPaymentName}</span>?
-              </p>
-              <p className="text-[9px] text-slate-400 uppercase tracking-widest font-medium">Esta acción no se puede deshacer.</p>
-            </div>
-            <div className="grid grid-cols-2 gap-3 w-full">
-              <Button variant="outline" className="h-11 rounded-xl font-bold text-[10px] uppercase border-slate-200" onClick={() => setDeleteConfirmId(null)}>CANCELAR</Button>
-              <Button className="h-11 bg-red-600 text-white rounded-xl font-bold text-[10px] uppercase shadow-lg shadow-red-200" onClick={() => deleteConfirmId && handleDelete(deleteConfirmId)}>ELIMINAR</Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }
 
-function PaymentRecord({ p, isProcessed, onEdit, onDeleteRequest, onLock }: any) {
+function PaymentRecord({ p, isProcessed, onEdit, onDelete, onLock }: any) {
   return (
     <Card className={cn(
       "rounded-[2rem] border border-[#3b82f6]/30 bg-white shadow-sm transition-all active:scale-[0.98] relative overflow-hidden",
@@ -549,7 +521,7 @@ function PaymentRecord({ p, isProcessed, onEdit, onDeleteRequest, onLock }: any)
                   
                   <DropdownMenuItem 
                     className="text-[10px] font-bold uppercase gap-3 p-3 rounded-xl text-red-500 hover:bg-red-50" 
-                    onSelect={(e) => { e.preventDefault(); onDeleteRequest(p.id); }}
+                    onSelect={(e) => { e.preventDefault(); onDelete(p.id); }}
                   >
                     <Trash2 className="w-3.5 h-3.5" /> Eliminar Pago
                   </DropdownMenuItem>
