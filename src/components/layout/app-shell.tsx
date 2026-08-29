@@ -40,6 +40,15 @@ const navItems = [
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
 
+  const getPageTitle = () => {
+    if (pathname.includes('/sales')) return 'VENTAS'
+    if (pathname.includes('/inventory')) return 'INVENTARIO'
+    if (pathname.includes('/shipping')) return 'ENVÍOS'
+    if (pathname.includes('/catalogo')) return 'CATÁLOGO'
+    if (pathname.includes('/settings')) return 'AJUSTES'
+    return 'INDUSTRIAL'
+  }
+
   return (
     <SidebarProvider defaultOpen>
       <div className="flex min-h-screen w-full bg-background overflow-hidden">
@@ -48,7 +57,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <header className="md:hidden flex items-center justify-between p-4 bg-white border-b border-primary/20 sticky top-0 z-50 shadow-sm">
             <div className="flex items-center gap-3">
               <SidebarTrigger className="h-10 w-10 border border-primary/20 rounded-xl flex items-center justify-center bg-white text-primary active:scale-95" />
-              <span className="font-headline font-black text-xl tracking-tighter uppercase text-primary">Industrial</span>
+              <span className="font-headline font-black text-xl tracking-tighter uppercase text-primary">
+                {getPageTitle()}
+              </span>
             </div>
           </header>
           <main className="p-4 max-w-[1600px] mx-auto w-full pt-2">

@@ -14,20 +14,16 @@ import {
   Search, 
   Save, 
   Loader2, 
-  PackageSearch,
   X,
   Calculator,
   ImageIcon,
-  UserPlus,
   MoreVertical,
   Edit2,
-  RotateCcw,
   ShoppingCart,
   ScanLine,
   User,
   Eraser,
-  Maximize2,
-  ChevronDown
+  Maximize2
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -86,7 +82,7 @@ const EMPTY_ENTRY: QuoteItem = {
   productId: "",
   name: "",
   description: "",
-  quantity: "",
+  quantity: "1",
   price: "",
   stock: 0,
   img: "",
@@ -119,9 +115,6 @@ export default function QuotesView() {
   const { toast } = useToast()
   const db = useFirestore()
   
-  const configDocRef = React.useMemo(() => db ? doc(db, "config", "global") : null, [db])
-  const { data: config } = useDoc(configDocRef)
-  
   const [saving, setSaving] = React.useState(false)
   const [quoteId, setQuoteId] = React.useState("B-001")
   const [customerQuery, setCustomerQuery] = React.useState("")
@@ -136,7 +129,6 @@ export default function QuotesView() {
   const [isCalcOpen, setIsCalcOpen] = React.useState(false)
   const [calcData, setCalcData] = React.useState({ unidades: "", series: "", libres: "" })
   const [zoomImage, setZoomImage] = React.useState<string | null>(null)
-  const [registeringCustomer, setRegisteringCustomer] = React.useState(false)
   const [isInitialized, setIsInitialized] = React.useState(false)
 
   const productsRef = React.useMemo(() => db ? query(collection(db, "products"), orderBy("code")) : null, [db])
@@ -144,7 +136,6 @@ export default function QuotesView() {
   const { data: dbProducts = [] } = useCollection(productsRef)
   const { data: dbCustomers = [] } = useCollection(customersRef)
 
-  // Protección contra pérdida de datos
   React.useEffect(() => {
     const hasUnsavedChanges = items.length > 0 || selectedCustomer !== null;
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -228,36 +219,6 @@ export default function QuotesView() {
       p.code?.toLowerCase().includes(q)
     )
   }, [productQuery, dbProducts])
-
-  const handleQuickRegisterCustomer = async () => {
-    if (!db || !customerQuery.trim()) return
-    setRegisteringCustomer(true)
-    try {
-      const q = query(collection(db, "customers"), orderBy("id", "desc"), limit(1))
-      const snap = await getDocs(q)
-      let nextCustId = "CL-001"
-      if (!snap.empty) {
-        const lastId = snap.docs[0].id
-        const lastNum = parseInt(lastId.split('-')[1]) || 0
-        nextCustId = `CL-${(lastNum + 1).toString().padStart(3, '0')}`
-      }
-      const name = customerQuery.toUpperCase().trim()
-      await setDoc(doc(db, "customers", nextCustId), { 
-        id: nextCustId, 
-        name, 
-        phone: "", 
-        location: "", 
-        createdAt: serverTimestamp() 
-      })
-      setSelectedCustomer({ id: nextCustId, name })
-      setCustomerQuery("")
-      toast({ title: "Cliente Registrado" })
-    } catch (e) {
-      toast({ variant: "destructive", title: "Error" })
-    } finally {
-      setRegisteringCustomer(false)
-    }
-  }
 
   const selectProductForEntry = (prod: any) => {
     setCurrentEntry({
@@ -404,55 +365,43 @@ export default function QuotesView() {
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-      {/* Cabecera Tipo ERP */}
-      <div className="bg-white rounded-[2.5rem] border border-black/5 shadow-xl p-6 flex flex-col md:flex-row justify-between items-center gap-4">
-        <div className="flex items-center gap-4 w-full md:w-auto">
-          <div className="w-12 h-12 rounded-[1.5rem] bg-[#f8fafc] border border-primary/10 flex items-center justify-center shadow-inner">
-             <ShoppingCart className="w-6 h-6 text-primary" />
-          </div>
-          <div>
-            <h2 className="text-lg font-black text-[#1e293b] uppercase tracking-tighter leading-none">Venta</h2>
-            <p className="text-[10px] font-black text-primary/40 uppercase tracking-[0.2em] mt-1">{quoteId}</p>
-          </div>
+    <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-500">
+      {/* Cabecera ID y FECHA en misma fila */}
+      <div className="flex gap-2 w-full">
+        <div className="flex-1">
+          <input 
+            type="date" 
+            className="h-12 w-full bg-white border border-black/10 rounded-[1.5rem] px-4 font-black text-[12px] text-[#1e293b] uppercase shadow-sm focus:outline-none"
+            defaultValue={new Date().toISOString().split('T')[0]}
+          />
         </div>
-        
-        <div className="flex items-center gap-3 w-full md:w-auto">
-          <div className="flex-1 md:flex-none">
-            <input 
-              type="date" 
-              className="h-12 w-full md:w-48 bg-[#f8fafc] border border-black/5 rounded-2xl px-4 font-black text-[11px] text-[#1e293b] uppercase shadow-inner focus:outline-none focus:ring-2 focus:ring-primary/20"
-              defaultValue={new Date().toISOString().split('T')[0]}
-            />
-          </div>
-          <Button variant="ghost" size="icon" className="h-12 w-12 rounded-2xl bg-[#f8fafc] text-primary/40" onClick={() => router.push('/sales')}>
-             <ChevronDown className="w-6 h-6" />
-          </Button>
+        <div className="flex-1 h-12 bg-white border border-black/10 rounded-[1.5rem] flex items-center justify-center shadow-sm">
+           <span className="text-[15px] font-black text-primary uppercase tracking-tighter">{quoteId}</span>
         </div>
       </div>
 
       {/* Tarjeta de Registro Maestro */}
       <Card className="rounded-[2.5rem] border-none shadow-2xl bg-white overflow-hidden">
-        <div className="bg-[#1e293b] py-4 px-8 flex justify-between items-center">
+        <div className="bg-[#1e293b] py-3.5 px-8 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
-               <Plus className="w-4 h-4 text-primary" />
+            <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center">
+               <Plus className="w-3.5 h-3.5 text-primary" />
             </div>
-            <span className="text-[11px] font-black uppercase text-white tracking-[0.2em]">Registro</span>
+            <span className="text-[10px] font-black uppercase text-white tracking-[0.2em]">Registro</span>
           </div>
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" className="h-8 px-4 bg-primary text-white rounded-full text-[9px] font-black uppercase gap-2 hover:bg-primary/90">
-               <Maximize2 className="w-3.5 h-3.5" /> Tools
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="sm" className="h-7 px-3 bg-primary text-white rounded-full text-[8px] font-black uppercase gap-2 hover:bg-primary/90">
+               <Maximize2 className="w-3 h-3" /> Tools
             </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-white/30 hover:text-white" onClick={() => setCurrentEntry(EMPTY_ENTRY)}>
-               <Eraser className="w-4 h-4" />
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-white/30 hover:text-white" onClick={() => setCurrentEntry(EMPTY_ENTRY)}>
+               <Eraser className="w-3.5 h-3.5" />
             </Button>
           </div>
         </div>
 
-        <CardContent className="p-8 space-y-6">
+        <CardContent className="p-6 space-y-4">
           {/* Nombre de Prenda */}
-          <div className="space-y-2">
+          <div className="space-y-1">
             <Input 
               value={currentEntry.name}
               onChange={e => setCurrentEntry({...currentEntry, name: e.target.value.toUpperCase()})}
@@ -462,9 +411,9 @@ export default function QuotesView() {
           </div>
 
           {/* Cantidad / Precio / Descuento */}
-          <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-1.5">
-              <Label className="text-[9px] font-black text-primary/40 uppercase ml-1 tracking-widest">Cant</Label>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-1">
+              <Label className="text-[8px] font-black text-primary/40 uppercase ml-1 tracking-widest">Cant</Label>
               <Input 
                 type="number" 
                 value={currentEntry.quantity} 
@@ -473,8 +422,8 @@ export default function QuotesView() {
                 placeholder="1"
               />
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-[9px] font-black text-primary/40 uppercase ml-1 tracking-widest">Precio</Label>
+            <div className="space-y-1">
+              <Label className="text-[8px] font-black text-primary/40 uppercase ml-1 tracking-widest">Precio</Label>
               <Input 
                 type="number" 
                 value={currentEntry.price} 
@@ -483,8 +432,8 @@ export default function QuotesView() {
                 placeholder="0.0"
               />
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-[9px] font-black text-primary/40 uppercase ml-1 tracking-widest">Desc</Label>
+            <div className="space-y-1">
+              <Label className="text-[8px] font-black text-primary/40 uppercase ml-1 tracking-widest">Desc</Label>
               <div className="relative group">
                 <Input 
                   type="number" 
@@ -493,26 +442,26 @@ export default function QuotesView() {
                   className="h-14 text-center text-lg font-black text-orange-600 bg-orange-50/50 border-orange-100 rounded-2xl shadow-inner"
                   placeholder="0"
                 />
-                <Button variant="ghost" size="icon" className="absolute -right-2 -top-2 h-10 w-10 rounded-full bg-white border border-green-500/20 text-green-500 shadow-lg group-active:scale-95 transition-all" onClick={() => setIsCalcOpen(true)}>
-                   <Calculator className="w-5 h-5" />
+                <Button variant="ghost" size="icon" className="absolute -right-2 -top-2 h-9 w-9 rounded-full bg-white border border-green-500/20 text-green-500 shadow-lg group-active:scale-95 transition-all" onClick={() => setIsCalcOpen(true)}>
+                   <Calculator className="w-4 h-4" />
                 </Button>
               </div>
             </div>
           </div>
 
           {/* Descripción */}
-          <div className="space-y-2 relative">
+          <div className="space-y-1 relative">
              <Input 
               value={currentEntry.description} 
               onChange={e => setCurrentEntry({...currentEntry, description: e.target.value})} 
               placeholder="DESCRIPCIÓN (MODELO, TALLAS...)" 
               className="h-14 bg-[#f8fafc] border-black/5 rounded-2xl px-6 text-[12px] font-black uppercase shadow-inner" 
             />
-            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-primary/20 font-black text-xs uppercase pointer-events-none">T</div>
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-primary/20 font-black text-[10px] uppercase pointer-events-none">T</div>
           </div>
 
           {/* Buscador en Inventario */}
-          <div className="pt-4 border-t border-dashed border-black/5">
+          <div className="pt-2">
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-primary/20" />
@@ -523,7 +472,7 @@ export default function QuotesView() {
                   onChange={e => setProductQuery(e.target.value)}
                 />
                 {productSuggestions.length > 0 && (
-                  <div className="absolute z-[9999] w-full mt-2 bg-white border border-black/5 rounded-[2rem] shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2">
+                  <div className="absolute z-[9999] w-full mt-1 bg-white border border-black/5 rounded-[2rem] shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2">
                     {productSuggestions.map(p => (
                       <button key={p.code} className="w-full text-left px-8 py-5 hover:bg-primary/5 border-b last:border-0 flex items-center gap-4 transition-colors" onClick={() => selectProductForEntry(p)}>
                         <div className="w-12 h-12 rounded-xl bg-slate-100 overflow-hidden border border-black/5 shrink-0">
@@ -536,6 +485,22 @@ export default function QuotesView() {
                         <Plus className="w-5 h-5 text-primary/40" />
                       </button>
                     ))}
+                    <button 
+                      className="w-full text-left px-8 py-6 bg-primary/5 hover:bg-primary/10 flex items-center gap-4 border-t"
+                      onClick={() => {
+                        setCurrentEntry({
+                          ...EMPTY_ENTRY,
+                          id: Math.random().toString(),
+                          name: productQuery.toUpperCase(),
+                          productId: "MANUAL",
+                          isRegistered: false
+                        });
+                        setProductQuery("");
+                      }}
+                    >
+                      <Plus className="w-5 h-5 text-primary" />
+                      <span className="text-[11px] font-black uppercase text-[#1e293b]">ENTRADA MANUAL: "{productQuery}"</span>
+                    </button>
                   </div>
                 )}
               </div>
@@ -546,8 +511,8 @@ export default function QuotesView() {
           </div>
 
           {/* Cuadro de Variantes (Dashed) */}
-          <div className="p-8 border-2 border-dashed border-black/5 rounded-[2.5rem] bg-slate-50/50 flex items-center justify-center">
-             <span className="text-[10px] font-black text-primary/20 uppercase tracking-[0.3em]">Cuadro de Variantes Libre...</span>
+          <div className="p-6 border-2 border-dashed border-black/5 rounded-[2.5rem] bg-slate-50/50 flex items-center justify-center">
+             <span className="text-[9px] font-black text-primary/20 uppercase tracking-[0.3em]">Cuadro de Variantes Libre...</span>
           </div>
 
           {/* Seleccion de Cliente */}
@@ -560,10 +525,8 @@ export default function QuotesView() {
                 value={selectedCustomer ? `${selectedCustomer.name} [${selectedCustomer.id}]` : customerQuery}
                 onChange={e => { if (selectedCustomer) setSelectedCustomer(null); setCustomerQuery(e.target.value); }}
               />
-              <ChevronDown className="absolute right-6 top-1/2 -translate-y-1/2 w-5 h-5 text-primary/30" />
-              
               {customerSuggestions.length > 0 && (
-                <div className="absolute z-[9999] w-full mt-2 bg-white border border-black/5 rounded-[2rem] shadow-2xl overflow-hidden max-h-60 overflow-y-auto">
+                <div className="absolute z-[9999] w-full mt-1 bg-white border border-black/5 rounded-[2rem] shadow-2xl overflow-hidden max-h-60 overflow-y-auto">
                   {customerSuggestions.map(c => (
                     <button key={c.id} className="w-full text-left px-8 py-5 hover:bg-primary/5 border-b last:border-0 font-black text-[11px] uppercase transition-colors" onClick={() => { setSelectedCustomer({ id: c.id, name: c.name }); setCustomerQuery(""); }}>
                       {c.name} <span className="text-primary/40 ml-2">[{c.id}]</span>
@@ -576,9 +539,12 @@ export default function QuotesView() {
 
           {/* Botón de Acción Principal */}
           <Button 
-            className="w-full h-20 bg-[#10b981] hover:bg-[#059669] text-white rounded-[2rem] font-black text-lg uppercase shadow-xl shadow-green-200 active:scale-95 transition-all mt-4 tracking-widest"
+            className="w-full h-20 bg-[#10b981] hover:bg-[#059669] text-white rounded-[2rem] font-black text-lg uppercase shadow-xl shadow-green-200 active:scale-95 transition-all mt-2 tracking-widest"
             onClick={() => {
-              if (!currentEntry.name || !currentEntry.price || !currentEntry.quantity) return;
+              if (!currentEntry.name || !currentEntry.price || !currentEntry.quantity) {
+                toast({ variant: "destructive", title: "DATOS INCOMPLETOS" });
+                return;
+              }
               setItems([...items, { ...currentEntry, id: Math.random().toString() }]);
               setCurrentEntry(EMPTY_ENTRY);
             }}
@@ -591,13 +557,13 @@ export default function QuotesView() {
       {/* Resumen de Lista */}
       {items.length > 0 && (
         <Card className="rounded-[2.5rem] border-none shadow-xl bg-white overflow-hidden">
-          <div className="bg-slate-100/50 p-6 px-10 border-b border-black/5 flex justify-between items-center">
-            <span className="text-[11px] font-black uppercase text-[#1e293b] tracking-[0.2em]">Resumen de Lista</span>
-            <span className="text-[10px] font-black text-primary/40 uppercase">{items.length} Prendas</span>
+          <div className="bg-slate-100/50 p-5 px-10 border-b border-black/5 flex justify-between items-center">
+            <span className="text-[10px] font-black uppercase text-[#1e293b] tracking-[0.2em]">Resumen de Lista</span>
+            <span className="text-[9px] font-black text-primary/40 uppercase">{items.length} Prendas</span>
           </div>
           <div className="divide-y divide-black/5">
             {items.map((item, index) => (
-              <div key={item.id} className="p-6 md:px-10 flex justify-between items-center group hover:bg-slate-50 transition-colors">
+              <div key={item.id} className="p-5 md:px-10 flex justify-between items-center group hover:bg-slate-50 transition-colors">
                 <div className="flex-1 min-w-0">
                   <div className="font-black text-[13px] text-[#1e293b] uppercase truncate">{index + 1}. {item.name}</div>
                   <div className="flex items-center gap-3 mt-1.5">
@@ -606,12 +572,12 @@ export default function QuotesView() {
                     <span className="text-[10px] font-black text-slate-600 uppercase">S/ {Number(item.price).toFixed(1)}</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-6">
+                <div className="flex items-center gap-4">
                   <div className="text-right">
-                    <div className="font-black text-lg text-[#1e293b] leading-none">S/ {((Number(item.price) * Number(item.quantity)) - Number(item.discount)).toFixed(1)}</div>
+                    <div className="font-black text-base text-[#1e293b] leading-none">S/ {((Number(item.price) * Number(item.quantity)) - Number(item.discount)).toFixed(1)}</div>
                   </div>
                   <DropdownMenu>
-                    <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-10 w-10 text-slate-300 hover:text-primary transition-colors"><MoreVertical className="w-5 h-5" /></Button></DropdownMenuTrigger>
+                    <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-9 w-9 text-slate-300 hover:text-primary transition-colors"><MoreVertical className="w-4 h-4" /></Button></DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="rounded-2xl p-2 w-40 shadow-2xl border-black/5">
                       <DropdownMenuItem className="text-[10px] font-black uppercase gap-3 p-3 rounded-xl" onClick={() => handleEditItem(item)}><Edit2 className="w-4 h-4 text-primary" /> Editar</DropdownMenuItem>
                       <DropdownMenuItem className="text-[10px] font-black uppercase gap-3 p-3 rounded-xl text-red-500" onClick={() => handleDeleteItem(item.id)}><Trash2 className="w-4 h-4" /> Eliminar</DropdownMenuItem>
@@ -625,29 +591,29 @@ export default function QuotesView() {
       )}
 
       {/* Totales Finales */}
-      <div className="bg-white rounded-[2.5rem] border border-black/5 shadow-2xl p-10 space-y-8">
-        <div className="grid grid-cols-2 gap-10">
-          <div className="space-y-1">
-            <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Total Prendas</span>
-            <div className="text-4xl font-black text-[#1e293b]">{items.reduce((acc, i) => acc + Number(i.quantity), 0)} <span className="text-sm opacity-20">UND</span></div>
+      <div className="bg-white rounded-[2.5rem] border border-black/5 shadow-2xl p-8 space-y-6">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-0.5">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Prendas</span>
+            <div className="text-3xl font-black text-[#1e293b]">{items.reduce((acc, i) => acc + Number(i.quantity), 0)} <span className="text-xs opacity-20">UND</span></div>
           </div>
-          <div className="space-y-1 text-right">
-            <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Monto Total</span>
-            <div className="text-5xl font-black text-[#10b981] tracking-tighter">S/ {items.reduce((acc, i) => acc + (Number(i.quantity) * Number(i.price) - Number(i.discount)), 0).toFixed(1)}</div>
+          <div className="space-y-0.5 text-right">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Monto Total</span>
+            <div className="text-4xl font-black text-[#10b981] tracking-tighter">S/ {items.reduce((acc, i) => acc + (Number(i.quantity) * Number(i.price) - Number(i.discount)), 0).toFixed(1)}</div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
            <Button 
-            className="h-20 bg-[#1e293b] hover:bg-black text-white rounded-[2rem] font-black text-lg uppercase shadow-xl active:scale-95 transition-all tracking-widest" 
+            className="h-16 bg-[#1e293b] hover:bg-black text-white rounded-[2rem] font-black text-lg uppercase shadow-xl active:scale-95 transition-all tracking-widest" 
             onClick={handleSaveQuote} 
             disabled={saving || items.length === 0}
           >
-            {saving ? <Loader2 className="animate-spin" /> : <Save className="w-6 h-6 mr-4" />} Guardar Venta
+            {saving ? <Loader2 className="animate-spin" /> : <Save className="w-5 h-5 mr-3" />} Guardar Venta
           </Button>
           <Button 
             variant="outline"
-            className="h-20 rounded-[2rem] font-black text-[12px] uppercase border-black/5 text-slate-400 hover:bg-red-50 hover:text-red-500 hover:border-red-100 transition-all active:scale-95"
+            className="h-16 rounded-[2rem] font-black text-[11px] uppercase border-black/5 text-slate-400 hover:bg-red-50 hover:text-red-500 hover:border-red-100 transition-all active:scale-95"
             onClick={handleDiscard}
           >
             Descartar Cotización
@@ -657,7 +623,7 @@ export default function QuotesView() {
 
       {/* Diálogos (Calculadora / Zoom) */}
       <Dialog open={isCalcOpen} onOpenChange={setIsCalcOpen}>
-        <DialogContent className="rounded-[3rem] border-none shadow-[0_35px_60px_-15px_rgba(0,0,0,0.3)] max-w-[340px] p-10 bg-white">
+        <DialogContent className="rounded-[3rem] border-none shadow-2xl max-w-[340px] p-10 bg-white">
           <DialogHeader><DialogTitle className="text-[10px] font-black uppercase text-center tracking-[0.3em] text-primary mb-4">Cálculo de Series</DialogTitle></DialogHeader>
           <div className="space-y-5">
             <div className="grid grid-cols-2 gap-4">
