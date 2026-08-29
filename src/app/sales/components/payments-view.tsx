@@ -17,7 +17,11 @@ import {
   Edit2,
   X,
   Check,
-  MoreVertical
+  MoreVertical,
+  Star,
+  Eraser,
+  User,
+  ShieldCheck
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -77,7 +81,6 @@ export default function PaymentsView() {
   const { data: dayLock } = useDoc(dayLockRef)
   const isDayClosed = !!dayLock?.isLocked
 
-  // Protección contra pérdida de datos
   React.useEffect(() => {
     const hasUnsavedChanges = amount !== "" || selectedCustomer !== null;
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -247,14 +250,14 @@ export default function PaymentsView() {
 
   const filteredCustomers = React.useMemo(() => {
     if (customerSearch.length < 1) return []
-    const q = customerSearch.toLowerCase()
-    return dbCustomers.filter(c => c.name.toLowerCase().includes(q) || c.id.toLowerCase().includes(q))
+    const q = customerSearch.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    return dbCustomers.filter(c => c.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(q) || c.id.toLowerCase().includes(q))
   }, [customerSearch, dbCustomers])
 
   const filteredPayments = React.useMemo(() => {
-    const q = listFilter.toLowerCase()
+    const q = listFilter.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     return payments.filter(p => 
-      p.customerName.toLowerCase().includes(q) || 
+      p.customerName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(q) || 
       p.customerId.toLowerCase().includes(q)
     )
   }, [payments, listFilter])
@@ -263,12 +266,12 @@ export default function PaymentsView() {
     const groups: Record<string, { label: string, dateKey: string, total: number, isDayLocked: boolean, payments: any[], bankGroups: any[] }> = {}
     
     filteredPayments.forEach(p => {
-      const label = format(new Date(p.date + "T12:00:00"), "EEEE d 'de' MMMM", { locale: es }).toUpperCase()
+      const label = format(new Date(p.date + "T12:00:00"), "EEEE d MMMM", { locale: es }).toUpperCase()
       const isLocked = allDayLocks.find(l => l.date === p.date)?.isLocked || false
       
-      if (!groups[label]) groups[label] = { label, dateKey: p.date, total: 0, isDayLocked: isLocked, payments: [], bankGroups: [] }
-      groups[label].payments.push(p)
-      groups[label].total += p.amount
+      if (!groups[p.date]) groups[p.date] = { label, dateKey: p.date, total: 0, isDayLocked: isLocked, payments: [], bankGroups: [] }
+      groups[p.date].payments.push(p)
+      groups[p.date].total += p.amount
     })
 
     const finalGroups = Object.values(groups).sort((a, b) => b.dateKey.localeCompare(a.dateKey))
@@ -290,33 +293,35 @@ export default function PaymentsView() {
   }, [filteredPayments, isBankGrouped, allDayLocks])
 
   return (
-    <div className="space-y-6 px-2 md:px-0 pb-24">
-      {/* Registro de Pago */}
+    <div className="space-y-1.5 px-1 md:px-0 pb-24 animate-in fade-in slide-in-from-bottom-2 duration-700">
+      {/* Registro de Pago ERP */}
       <Card className={cn(
-        "rounded-[2.5rem] border-2 bg-white shadow-2xl relative transition-all",
-        isDayClosed && !editingPayment ? "border-red-500 bg-red-50" : "border-primary/20"
+        "rounded-2xl border border-slate-400 bg-white shadow-lg relative transition-all overflow-visible",
+        isDayClosed && !editingPayment && "opacity-80 grayscale"
       )}>
-        <div className={cn(
-          "bg-primary/5 p-4 border-b border-primary/10 flex justify-between items-center rounded-t-[2.4rem]",
-          isDayClosed && !editingPayment && "bg-red-100/50"
-        )}>
+        <div className="bg-[#1e293b] py-2 px-6 flex justify-between items-center rounded-t-2xl">
           <div className="flex items-center gap-2">
-            <CreditCard className="w-5 h-5 text-primary" />
-            <h2 className="text-[12px] font-black uppercase text-primary tracking-widest">
-              {editingPayment ? "EDITAR COBRO" : "REGISTRAR COBRO"}
-            </h2>
+            <div className="w-4 h-4 rounded-full bg-primary/20 flex items-center justify-center">
+               <CreditCard className="w-2.5 h-2.5 text-primary" />
+            </div>
+            <span className="text-[9px] font-black uppercase text-slate-100 tracking-[0.2em]">
+              {editingPayment ? "EDITAR ABONO" : "REGISTRAR ABONO"}
+            </span>
           </div>
-          {isDayClosed && !editingPayment && (
-            <Badge variant="destructive" className="font-black text-[10px] uppercase">Día Bloqueado</Badge>
-          )}
-          <Button variant="ghost" size="icon" className="h-9 w-9 text-primary/40 hover:text-primary transition-all" onClick={handleReset}>
-            <RotateCcw className="w-5 h-5" />
-          </Button>
+          <div className="flex items-center gap-4">
+             <div className="flex items-center gap-2 mr-2">
+                <span className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">AGRUPAR</span>
+                <Switch checked={isBankGrouped} onCheckedChange={setIsBankGrouped} className="h-4 w-8 data-[state=checked]:bg-primary" />
+             </div>
+             <Button variant="ghost" size="icon" className="h-6 w-6 text-white/20 hover:text-white transition-colors" onClick={handleReset}>
+                <Eraser className="w-3 h-3" />
+             </Button>
+          </div>
         </div>
-        <CardContent className="p-6 space-y-6">
-          <div className="grid grid-cols-2 gap-4">
+        <CardContent className="p-4 space-y-3">
+          <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
-              <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1">FECHA</Label>
+              <Label className="text-[9px] font-bold text-slate-400 uppercase ml-2 tracking-widest">FECHA PAGO</Label>
               <input 
                 type="date"
                 value={format(date, "yyyy-MM-dd")}
@@ -324,85 +329,87 @@ export default function PaymentsView() {
                   const val = e.target.value;
                   if (val) setDate(new Date(val + "T12:00:00"));
                 }}
-                className="w-full h-11 px-3 rounded-xl border border-primary/10 font-black text-xs uppercase bg-white focus:outline-none focus:border-primary"
+                className="w-full h-11 px-4 rounded-xl border border-slate-300 font-medium text-[11px] uppercase bg-slate-50 text-slate-800 shadow-inner focus:outline-none focus:ring-1 focus:ring-primary/10"
               />
             </div>
             <div className="space-y-1">
-              <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1">MONTO S/</Label>
+              <Label className="text-[9px] font-bold text-slate-400 uppercase ml-2 tracking-widest">MONTO SOLES</Label>
               <Input 
                 type="number" 
                 value={amount} 
                 onChange={e => setAmount(e.target.value)} 
-                className="h-11 text-sm font-black border-primary/10 rounded-xl bg-green-50 text-green-700"
-                placeholder="0.0"
+                className="h-11 text-center text-base font-black text-slate-900 bg-slate-50 border-slate-300 rounded-xl shadow-inner font-headline"
+                placeholder="0.00"
               />
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1">BANCO RECEPTOR</Label>
+          <div className="space-y-1">
+            <Label className="text-[9px] font-bold text-slate-400 uppercase ml-2 tracking-widest">BANCO / DESTINO (RÁPIDO)</Label>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
               {banks.map((bank: any) => (
                 <Button
                   key={bank.id}
-                  variant={selectedBank?.id === bank.id ? "default" : "outline"}
+                  variant="outline"
                   className={cn(
-                    "h-11 rounded-xl font-black text-[10px] uppercase border-primary/10 transition-all",
-                    selectedBank?.id === bank.id ? "bg-primary text-white" : "bg-white"
+                    "h-11 rounded-xl font-medium text-[10px] uppercase border-slate-300 transition-all",
+                    selectedBank?.id === bank.id ? "bg-[#10b981] text-white border-[#10b981] shadow-md" : "bg-white text-slate-600 hover:bg-slate-50"
                   )}
                   onClick={() => setSelectedBank(bank)}
                 >
-                  {bank.name}
+                  {bank.name} {selectedBank?.id === bank.id && <Star className="w-2.5 h-2.5 ml-1.5 fill-current" />}
                 </Button>
               ))}
+              <Button variant="outline" className="h-11 rounded-xl font-medium text-[10px] uppercase border-slate-300 bg-white text-slate-400">OTROOOO</Button>
             </div>
           </div>
 
-          <div className="flex gap-2 items-end">
-            <div className="flex-1 space-y-1 relative z-[100]">
-              <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1">CLIENTE</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-3.5 h-4 w-4 text-primary/30" />
+          <div className="space-y-1 relative z-[90]">
+            <Label className="text-[9px] font-bold text-slate-400 uppercase ml-2 tracking-widest">CLIENTE</Label>
+            <div className="flex gap-2 items-center">
+              <div className="relative flex-1">
+                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
                 <Input 
-                  placeholder="NOMBRE O ID..." 
-                  className={cn("h-11 pl-9 text-xs font-black uppercase rounded-xl border-primary/10 bg-white", editingPayment && "bg-secondary/20")}
+                  placeholder="SELECCIONAR CLIENTE..." 
+                  className={cn("h-12 pl-12 pr-4 bg-slate-50 border-slate-300 rounded-xl font-medium text-[11px] uppercase shadow-inner text-slate-800", editingPayment && "bg-slate-100 opacity-60")}
                   value={selectedCustomer ? `${selectedCustomer.name} [${selectedCustomer.id}]` : customerSearch}
                   onChange={e => { if (!editingPayment) { if (selectedCustomer) setSelectedCustomer(null); setCustomerSearch(e.target.value); } }}
                   readOnly={!!editingPayment}
                 />
-                {filteredCustomers.length > 0 && !editingPayment && (
-                  <div className="absolute z-[9999] w-full mt-2 bg-white border-2 border-primary/10 rounded-xl shadow-2xl max-h-48 overflow-y-auto">
+                {customerSearch.length > 0 && !editingPayment && (
+                  <div className="absolute z-[100] w-full mt-1 bg-white border border-slate-300 rounded-xl shadow-2xl overflow-hidden max-h-48 overflow-y-auto">
                     {filteredCustomers.map(c => (
-                      <button key={c.id} className="w-full text-left px-4 py-4 hover:bg-primary/5 border-b last:border-0 font-black text-[10px] uppercase" onClick={() => { setSelectedCustomer(c); setCustomerSearch(""); }}>
-                        {c.name} <span className="text-primary ml-1">[{c.id}]</span>
+                      <button key={c.id} className="w-full text-left px-6 py-3.5 hover:bg-slate-50 border-b border-slate-100 last:border-0 font-medium text-[10px] uppercase transition-colors text-slate-700" onClick={() => { setSelectedCustomer(c); setCustomerSearch(""); }}>
+                        {c.name} <span className="text-slate-400 ml-2 font-normal">[{c.id}]</span>
                       </button>
                     ))}
                   </div>
                 )}
               </div>
+              <Button 
+                className={cn("h-12 w-12 rounded-xl text-white shadow-lg shrink-0 active:scale-95 transition-all", editingPayment ? "bg-orange-500" : "bg-[#0296FF]")}
+                onClick={handleSavePayment}
+                disabled={saving || !amount || !selectedCustomer || !selectedBank || (isDayClosed && !editingPayment)}
+              >
+                {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : editingPayment ? <Check className="w-6 h-6" /> : <Plus className="w-6 h-6" />}
+              </Button>
             </div>
-            <Button 
-              className={cn("h-11 w-11 rounded-xl text-white shadow-lg shrink-0", editingPayment ? "bg-orange-500" : "bg-primary")}
-              onClick={handleSavePayment}
-              disabled={saving || !amount || !selectedCustomer || !selectedBank || (isDayClosed && !editingPayment)}
-            >
-              {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : editingPayment ? <Check className="w-6 h-6" /> : <Plus className="w-6 h-6" />}
-            </Button>
           </div>
         </CardContent>
       </Card>
 
       {/* Listado y Filtros */}
-      <div className="space-y-4 pt-4">
-        <div className="flex items-center gap-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-4 top-3 h-4 w-4 text-primary/30" />
-            <Input placeholder="FILTRAR COBROS..." className="h-10 pl-10 rounded-xl border-primary/10 font-black text-[10px] uppercase bg-white" value={listFilter} onChange={e => setListFilter(e.target.value)} />
+      <div className="space-y-2 pt-2">
+        <div className="relative">
+          <div className="absolute left-4 top-1/2 -translate-y-1/2 bg-primary/10 p-1.5 rounded-lg">
+             <Filter className="w-3.5 h-3.5 text-primary" />
           </div>
-          <div className="flex items-center gap-2 bg-white px-3 h-10 rounded-xl border border-primary/10">
-            <Filter className={cn("w-3.5 h-3.5", isBankGrouped ? "text-orange-500" : "text-muted-foreground")} />
-            <Switch checked={isBankGrouped} onCheckedChange={setIsBankGrouped} />
-          </div>
+          <Input 
+            placeholder="FILTRAR HISTORIAL POR CLIENTE..." 
+            className="h-11 pl-12 bg-white border-slate-300 rounded-xl font-medium text-[10px] uppercase text-slate-700 shadow-sm" 
+            value={listFilter} 
+            onChange={e => setListFilter(e.target.value)} 
+          />
         </div>
 
         {loading && (
@@ -410,26 +417,28 @@ export default function PaymentsView() {
         )}
 
         {groupedPayments.map(group => (
-          <div key={group.dateKey} className={cn("space-y-2 rounded-2xl p-1 transition-colors", group.isDayLocked && "bg-red-50/50")}>
-            <div className={cn("flex justify-between items-center px-4 py-2 rounded-xl border", group.isDayLocked ? "bg-red-100 border-red-200" : "bg-primary/5 border-primary/10")}>
+          <div key={group.dateKey} className="space-y-1">
+            <div className="bg-[#1e293b] px-5 py-2 rounded-xl flex justify-between items-center shadow-md border border-slate-800">
               <div className="flex items-center gap-3">
+                 <span className="text-[9px] font-black uppercase text-slate-100 tracking-widest">{group.label}</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="font-headline font-black text-[13px] text-[#10b981]">S/{group.total.toFixed(1)}</span>
                 <button 
                   onClick={() => toggleDayLock(group.dateKey, group.payments, group.isDayLocked)}
-                  className={cn("transition-all", group.isDayLocked ? "text-red-600" : "text-muted-foreground/30 hover:text-primary")}
+                  className={cn("transition-all p-1.5 rounded-lg", group.isDayLocked ? "bg-red-500/20 text-red-500" : "bg-emerald-500/20 text-[#10b981]")}
                 >
-                  {group.isDayLocked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
+                  {group.isDayLocked ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
                 </button>
-                <span className={cn("text-[10px] font-black uppercase tracking-widest", group.isDayLocked ? "text-red-700" : "text-primary")}>{group.label}</span>
               </div>
-              <span className={cn("font-headline font-black text-sm", group.isDayLocked && "text-red-700")}>S/ {group.total.toFixed(1)}</span>
             </div>
 
-            <div className="space-y-1.5 px-1">
+            <div className="space-y-1 px-1">
               {isBankGrouped ? group.bankGroups.map((bg, idx) => (
-                <div key={idx} className="space-y-1.5">
-                  <div className="flex items-center justify-between px-6 py-0.5 bg-orange-50/50 rounded-lg border-l-4 border-orange-400">
-                    <span className="text-[9px] font-black text-orange-600 uppercase">{bg.bankName}</span>
-                    <span className="text-[10px] font-black text-orange-700">S/ {bg.total.toFixed(1)}</span>
+                <div key={idx} className="space-y-1">
+                  <div className="flex items-center justify-between px-6 py-0.5 bg-slate-50 rounded-lg border-l-2 border-primary/20">
+                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{bg.bankName}</span>
+                    <span className="text-[10px] font-black text-slate-500">S/ {bg.total.toFixed(1)}</span>
                   </div>
                   {bg.records.map(p => <PaymentRecord key={p.id} p={p} onEdit={startEditing} onDelete={handleDelete} onLock={togglePaymentLock} deleteConfirmId={deleteConfirmId} setDeleteConfirmId={setDeleteConfirmId} />)}
                 </div>
@@ -444,49 +453,61 @@ export default function PaymentsView() {
 
 function PaymentRecord({ p, onEdit, onDelete, onLock, deleteConfirmId, setDeleteConfirmId }: any) {
   return (
-    <Card className={cn("rounded-xl border border-primary/5 bg-white shadow-sm transition-all", p.isLocked && "bg-slate-50/50")}>
-      <CardContent className="p-2 flex items-center justify-between">
-        <div className="flex items-center gap-4 flex-1 min-w-0">
+    <Card className={cn(
+      "rounded-xl border border-slate-300 bg-white shadow-sm transition-all active:scale-[0.98]",
+      p.isLocked && "bg-slate-50/50"
+    )}>
+      <CardContent className="p-2.5 flex items-center justify-between">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
           <button 
             onClick={() => onLock(p)}
-            className={cn("p-2 rounded-lg transition-all", p.isLocked ? "text-primary bg-primary/10" : "text-muted-foreground/20 hover:text-primary")}
+            className={cn(
+              "w-8 h-8 rounded-full flex items-center justify-center transition-all", 
+              p.isLocked ? "bg-[#0296FF] text-white shadow-md shadow-primary/20" : "bg-slate-100 text-slate-300"
+            )}
           >
-            {p.isLocked ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
+            {p.isLocked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
           </button>
           
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <span className="font-black text-[11px] text-foreground uppercase truncate">{p.customerName}</span>
-              <span className="text-[8px] font-black text-primary/40 uppercase">[{p.customerId}]</span>
+              <span className="font-medium text-[12px] text-slate-900 uppercase truncate leading-tight">{p.customerName}</span>
+              <ShieldCheck className="w-3 h-3 text-primary/50" />
             </div>
-            <div className="text-[9px] font-medium text-muted-foreground uppercase">{p.bankName}</div>
+            <div className="flex items-center gap-1.5 mt-0.5">
+               <Badge className="bg-slate-100 text-slate-500 text-[7px] font-bold h-3.5 px-1.5 border-none uppercase">{p.bankName}</Badge>
+               <Badge className="bg-primary/5 text-primary text-[7px] font-bold h-3.5 px-1.5 border-none uppercase">PROCESADO</Badge>
+               <Badge className="bg-[#eff6ff] text-[#0296FF] text-[7px] font-bold h-3.5 px-1.5 border-none uppercase">VERIFICADO</Badge>
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
-          <div className="font-headline font-black text-[15px] text-foreground">S/ {Number(p.amount).toFixed(1)}</div>
+        <div className="flex items-center gap-3">
+          <div className="font-headline font-black text-[14px] text-slate-900 leading-none">S/ {Number(p.amount).toFixed(1)}</div>
           
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button disabled={p.isLocked} className="p-2 text-primary/30 hover:text-primary disabled:opacity-10"><MoreVertical className="w-4 h-4" /></button>
+              <button disabled={p.isLocked} className="p-1.5 text-slate-300 hover:text-primary transition-colors disabled:opacity-5">
+                <MoreVertical className="w-4 h-4" />
+              </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="rounded-xl p-1.5 w-32 shadow-xl border-primary/10">
-              <DropdownMenuItem className="text-[10px] font-black uppercase gap-2.5 p-2.5" onClick={() => onEdit(p)}>
-                <Edit2 className="w-3.5 h-3.5 text-primary" /> Editar
+            <DropdownMenuContent align="end" className="rounded-2xl p-2 w-44 shadow-2xl border-slate-300">
+              <DropdownMenuItem className="text-[10px] font-bold uppercase gap-3 p-3 rounded-xl" onClick={() => onEdit(p)}>
+                <Edit2 className="w-3.5 h-3.5 text-primary" /> Editar Registro
               </DropdownMenuItem>
               
               <Popover open={deleteConfirmId === p.id} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
                 <PopoverTrigger asChild>
-                  <button className="w-full text-left flex items-center gap-2.5 px-2.5 py-2.5 text-[10px] font-black uppercase text-destructive hover:bg-destructive/5 rounded-md" onClick={() => setDeleteConfirmId(p.id)}>
-                    <Trash2 className="w-3.5 h-3.5" /> Eliminar
+                  <button className="w-full text-left flex items-center gap-3 px-3 py-3 text-[10px] font-bold uppercase text-red-500 hover:bg-red-50 rounded-xl transition-colors" onClick={() => setDeleteConfirmId(p.id)}>
+                    <Trash2 className="w-3.5 h-3.5" /> Eliminar Pago
                   </button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-2 rounded-xl border-none shadow-xl bg-black text-white" side="top">
-                  <div className="flex flex-col items-center gap-2">
-                    <span className="text-[8px] font-black uppercase">¿ELIMINAR PAGO?</span>
+                <PopoverContent className="w-auto p-4 rounded-2xl border-none shadow-2xl bg-[#1e293b] text-white" side="top">
+                  <div className="flex flex-col items-center gap-3">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">¿ELIMINAR ESTE PAGO?</span>
                     <div className="flex gap-2">
-                      <Button size="sm" className="h-7 px-3 text-[9px] font-black bg-white text-black hover:bg-white/90" onClick={() => onDelete(p.id)}>SÍ</Button>
-                      <Button size="sm" variant="ghost" className="h-7 px-3 text-[9px] font-black text-white hover:bg-white/10" onClick={() => setDeleteConfirmId(null)}>NO</Button>
+                      <Button size="sm" className="h-8 px-4 text-[9px] font-black bg-red-500 text-white hover:bg-red-600 rounded-lg" onClick={() => onDelete(p.id)}>SÍ, BORRAR</Button>
+                      <Button size="sm" variant="ghost" className="h-8 px-4 text-[9px] font-black text-slate-300 hover:bg-white/10 rounded-lg" onClick={() => setDeleteConfirmId(null)}>CANCELAR</Button>
                     </div>
                   </div>
                 </PopoverContent>
