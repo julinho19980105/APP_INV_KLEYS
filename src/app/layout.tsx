@@ -27,7 +27,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: 'KLEYS KIDS | Gestión Industrial',
+  title: 'KLEYS KIDS',
   description: 'Sistema de Gestión Industrial KLEYS KIDS',
   manifest: '/manifest.json',
   appleWebApp: {
@@ -35,6 +35,9 @@ export const metadata: Metadata = {
     statusBarStyle: 'black-translucent',
     title: 'KLEYS KIDS',
   },
+  icons: {
+    apple: 'https://drive.google.com/thumbnail?id=15o8oqYnmbOjXUIBgPFzl-SDi78SdTo2O&sz=w180',
+  }
 };
 
 export default function RootLayout({
