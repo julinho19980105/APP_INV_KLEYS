@@ -120,10 +120,6 @@ export default function InventoryList() {
     return Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0]))
   }, [filteredProducts])
 
-  React.useEffect(() => {
-    if (selectedProduct) setSelectedImgIdx(0)
-  }, [selectedProduct])
-
   const handleInMovement = () => {
     if (!db || !addStockProduct || !addStockQty) return
     const qty = Number(addStockQty)
@@ -162,25 +158,15 @@ export default function InventoryList() {
     setExpandedCollections(prev => ({ ...prev, [col]: !prev[col] }))
   }
 
-  const nextImg = () => {
-    if (!selectedProduct?.images) return
-    setSelectedImgIdx(prev => (prev + 1) % selectedProduct.images.length)
-  }
-
-  const prevImg = () => {
-    if (!selectedProduct?.images) return
-    setSelectedImgIdx(prev => (prev - 1 + selectedProduct.images.length) % selectedProduct.images.length)
-  }
-
   return (
-    <div className="space-y-6 pb-20">
-      <div className="flex flex-col gap-4 sticky top-0 z-40 bg-background/95 backdrop-blur-md pb-4 pt-2 border-b-2 border-primary/10">
-        <div className="flex items-center justify-between gap-4 px-2">
+    <div className="space-y-8 pb-24">
+      <div className="flex flex-col gap-5 sticky top-0 z-40 bg-white/95 backdrop-blur-md pb-5 pt-2 border-b border-slate-100">
+        <div className="flex items-center justify-between gap-4 px-2.5">
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="h-11 w-full md:w-64 rounded-xl border-primary/20 font-black text-[12px] uppercase bg-white shadow-sm">
+            <SelectTrigger className="h-11 w-full md:w-64 rounded-2xl border-slate-200/60 font-black text-[10px] uppercase bg-white shadow-sm tracking-widest text-slate-800">
               <SelectValue placeholder="CATEGORÍA" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="rounded-2xl border-slate-100 shadow-2xl">
               <SelectItem value="all" className="font-black uppercase text-[10px]">TODAS</SelectItem>
               <SelectItem value="SIN STOCK" className="font-black uppercase text-[10px] text-red-600">SIN STOCK</SelectItem>
               {masterCategories.map(cat => (
@@ -190,111 +176,101 @@ export default function InventoryList() {
               ))}
             </SelectContent>
           </Select>
-          <Button variant="outline" onClick={() => syncCatalogToDrive(products)} disabled={isExporting} className="h-11 px-4 rounded-xl border-primary/20 text-primary font-black text-[10px] uppercase gap-2 bg-white">
-            {isExporting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3.5 h-3.5" />} EXPORT
+          <Button variant="outline" onClick={() => syncCatalogToDrive(products)} disabled={isExporting} className="h-11 px-5 rounded-2xl border-slate-200/60 text-slate-600 font-black text-[9px] uppercase gap-2.5 bg-white shadow-sm hover:bg-slate-50">
+            {isExporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />} EXPORTAR
           </Button>
         </div>
-        <div className="relative px-2">
+        <div className="relative px-2.5">
+          <Search className="absolute left-7 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
           <Input 
-            placeholder="BUSCAR MODELO O CÓDIGO..." 
-            className="pl-4 h-12 rounded-xl border-primary/10 font-black text-[11px] uppercase shadow-inner bg-primary/5"
+            placeholder="BUSCAR CÓDIGO O MODELO..." 
+            className="pl-12 h-12 rounded-2xl border-slate-100 font-bold text-[11px] uppercase shadow-inner bg-slate-50/50 text-slate-700"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
           />
         </div>
       </div>
 
-      {addStockProduct && (
-        <div className="fixed inset-x-4 top-24 z-[100] bg-white border-2 border-green-500 rounded-2xl p-4 shadow-2xl flex items-center justify-between gap-4 animate-in slide-in-from-top-4">
-          <div className="flex-1">
-            <p className="text-[9px] font-black text-green-600 uppercase">{addStockProduct.code}</p>
-            <p className="text-[11px] font-black uppercase truncate">{addStockProduct.name}</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Input type="number" value={addStockQty} onChange={e => setAddStockQty(e.target.value)} className="w-16 h-10 text-center font-black rounded-lg border-green-200" placeholder="0" />
-            <Button className="h-10 bg-green-600 text-white font-black text-[10px] uppercase rounded-lg px-4" onClick={handleInMovement}>+ OK</Button>
-            <Button variant="ghost" className="h-10 w-10 p-0 text-muted-foreground" onClick={() => setAddStockProduct(null)}><X className="w-5 h-5" /></Button>
-          </div>
-        </div>
-      )}
-
-      <div className="space-y-8">
+      <div className="space-y-10">
         {productsLoading ? (
-          <div className="py-20 text-center opacity-30"><Loader2 className="w-8 h-8 animate-spin mx-auto" /></div>
+          <div className="py-20 text-center opacity-20"><Loader2 className="w-10 h-10 animate-spin mx-auto" /></div>
         ) : groupedByCollection.length === 0 ? (
-          <div className="py-20 text-center flex flex-col items-center gap-3 opacity-20">
-            <AlertCircle className="w-12 h-12" />
-            <p className="text-xs font-black uppercase tracking-widest">Sin productos que coincidan</p>
+          <div className="py-24 text-center flex flex-col items-center gap-4 opacity-20">
+            <AlertCircle className="w-14 h-14" />
+            <p className="text-[10px] font-black uppercase tracking-[0.3em]">Sin resultados encontrados</p>
           </div>
         ) : groupedByCollection.map(([colName, colProducts]) => {
           const isExpanded = expandedCollections[colName]
           const visibleProducts = isExpanded ? colProducts : colProducts.slice(0, 4)
           
           return (
-            <div key={colName} className="space-y-4">
-              <div className="flex items-center justify-between px-2">
-                <div className="flex items-center gap-2">
-                  <span className="font-headline font-black text-lg uppercase tracking-tight text-foreground">{colName}</span>
-                  <Badge variant="outline" className="text-[9px] font-black border-primary/20 text-primary">{colProducts.length} PRODUCTOS</Badge>
+            <div key={colName} className="space-y-5">
+              <div className="flex items-center justify-between px-3 border-l-4 border-primary/20">
+                <div className="flex items-center gap-3">
+                  <span className="font-headline font-black text-[19px] uppercase tracking-tighter text-slate-900">{colName}</span>
+                  <Badge variant="outline" className="text-[8px] font-black border-slate-100 text-slate-400 bg-slate-50/50">{colProducts.length} PRENDAS</Badge>
                 </div>
                 {colProducts.length > 4 && (
                   <Button 
                     variant="ghost" 
-                    className="h-8 font-black text-[10px] uppercase text-primary hover:bg-primary/5"
+                    className="h-8 font-black text-[9px] uppercase text-primary hover:bg-primary/5 tracking-widest"
                     onClick={() => toggleCollection(colName)}
                   >
-                    {isExpanded ? "CONTRAER" : "VER TODO"} <ChevronRight className={cn("w-3 h-3 ml-1 transition-transform", isExpanded && "rotate-90")} />
+                    {isExpanded ? "REDUCIR" : "VER TODO"} <ChevronRight className={cn("w-3.5 h-3.5 ml-1.5 transition-transform", isExpanded && "rotate-90")} />
                   </Button>
                 )}
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-y-6 gap-x-3 px-2">
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-y-8 gap-x-4 px-3">
                 {visibleProducts.map(p => (
-                  <div key={p.id} className="group flex flex-col gap-2">
-                    <div className="relative aspect-[3/4] rounded-2xl overflow-hidden border-2 border-primary/5 bg-secondary shadow-sm hover:shadow-xl transition-all">
+                  <div key={p.id} className="group flex flex-col gap-3">
+                    <div className="relative aspect-[3/4] rounded-[1.8rem] overflow-hidden border border-slate-100 bg-slate-50 shadow-[0_4px_10px_rgb(0,0,0,0.02)] hover:shadow-2xl transition-all duration-500">
                       <img 
                         src={getDriveThumb(p.images?.[0], 600)} 
-                        className="w-full h-full object-cover cursor-pointer"
+                        className="w-full h-full object-cover cursor-pointer transition-transform duration-700 group-hover:scale-105"
                         onClick={() => setSelectedProduct(p)}
                         alt={p.name}
                       />
                       
-                      <div className="absolute top-2 left-2 px-2 py-0.5 bg-black text-white text-[9px] font-black rounded-md shadow-lg">
+                      <div className="absolute top-3 left-3 px-2.5 py-1 bg-white/90 backdrop-blur-sm text-slate-900 text-[9px] font-black rounded-lg shadow-sm border border-slate-100">
                         {p.code}
                       </div>
 
                       <div className={cn(
-                        "absolute bottom-2 right-2 px-2 py-1 text-[10px] font-black rounded-md shadow-lg",
-                        p.stock <= 0 ? "bg-red-600 text-white" : "bg-primary text-white"
+                        "absolute bottom-3 right-3 px-3 py-1 text-[10px] font-black rounded-lg shadow-lg border",
+                        p.stock <= 0 ? "bg-red-600 text-white border-red-500" : "bg-white/95 text-slate-900 border-slate-100"
                       )}>
-                        {p.stock} UND
+                        {p.stock} <span className="text-[8px] opacity-60">UND</span>
                       </div>
 
-                      <div className="absolute bottom-2 left-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="absolute bottom-3 left-3 opacity-100 md:opacity-0 group-hover:opacity-100 transition-all duration-300 transform md:translate-y-2 group-hover:translate-y-0">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button size="icon" className="h-7 w-7 bg-white/90 text-primary hover:bg-white rounded-lg shadow-md">
-                              <MoreVertical className="w-4 h-4" />
+                            <Button size="icon" className="h-9 w-9 bg-white text-slate-900 hover:bg-white rounded-xl shadow-xl border border-slate-100 active:scale-90">
+                              <MoreVertical className="w-4.5 h-4.5" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="start" className="rounded-xl p-1.5 w-32 shadow-xl border-primary/10">
-                            <DropdownMenuItem className="text-[10px] font-black uppercase gap-2.5 p-2.5" onClick={() => setAddStockProduct(p)}>
-                              <PackagePlus className="w-3.5 h-3.5 text-primary" /> Agregar
+                          <DropdownMenuContent align="start" className="rounded-2xl p-2 w-36 shadow-2xl border-slate-100 animate-in zoom-in-95">
+                            <DropdownMenuItem className="text-[10px] font-black uppercase gap-3 p-3 rounded-xl" onClick={() => setAddStockProduct(p)}>
+                              <PackagePlus className="w-4 h-4 text-primary" /> Agregar
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="text-[10px] font-black uppercase gap-2.5 p-2.5" onClick={() => handleEdit(p)}>
-                              <Edit2 className="w-3.5 h-3.5 text-primary" /> Editar
+                            <DropdownMenuItem className="text-[10px] font-black uppercase gap-3 p-3 rounded-xl" onClick={() => handleEdit(p)}>
+                              <Edit2 className="w-4 h-4 text-primary" /> Editar
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="text-[10px] font-black uppercase gap-2.5 p-2.5 text-destructive" onClick={() => onDelete(p.id)}>
-                              <Trash2 className="w-3.5 h-3.5" /> Eliminar
+                            <DropdownMenuItem className="text-[10px] font-black uppercase gap-3 p-3 rounded-xl text-red-500" onClick={() => onDelete(p.id)}>
+                              <Trash2 className="w-4 h-4" /> Eliminar
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
                     </div>
 
-                    <div className="px-1">
-                      <p className="text-[10px] font-black text-foreground uppercase truncate leading-tight">
+                    <div className="px-1.5 space-y-0.5">
+                      <p className="text-[11px] font-black text-slate-800 uppercase truncate leading-none tracking-tight">
                         {p.name}
+                      </p>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                        {p.category}
                       </p>
                     </div>
                   </div>
@@ -304,80 +280,6 @@ export default function InventoryList() {
           )
         })}
       </div>
-
-      <Dialog open={!!selectedProduct} onOpenChange={() => setSelectedProduct(null)}>
-        <DialogContent className="max-w-[95vw] md:max-w-md p-0 border-none rounded-[2rem] bg-white overflow-y-auto max-h-[90vh] shadow-2xl scrollbar-hide">
-          <DialogHeader className="sr-only">
-            <DialogTitle>Detalles del Producto</DialogTitle>
-          </DialogHeader>
-          {selectedProduct && (
-            <div className="flex flex-col pb-10">
-              <div className="w-full aspect-[4/5] bg-secondary relative group">
-                <img src={getDriveThumb(selectedProduct.images?.[selectedImgIdx], 1000)} className="w-full h-full object-cover transition-all" />
-                
-                {selectedProduct.images?.length > 1 && (
-                  <>
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); prevImg(); }}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 p-2 bg-black/30 hover:bg-black/50 text-white rounded-full transition-all"
-                    >
-                      <ChevronLeft className="w-6 h-6" />
-                    </button>
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); nextImg(); }}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-black/30 hover:bg-black/50 text-white rounded-full transition-all"
-                    >
-                      <ChevronRight className="w-6 h-6" />
-                    </button>
-                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5">
-                      {selectedProduct.images.map((_: any, i: number) => (
-                        <div key={i} className={cn("w-1.5 h-1.5 rounded-full transition-all", i === selectedImgIdx ? "bg-white w-4" : "bg-white/40")} />
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-
-              <div className="p-6 space-y-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-2">
-                      <Badge className="bg-primary text-white text-[10px] font-black w-fit">{selectedProduct.code}</Badge>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="h-7 text-[9px] font-black uppercase text-primary hover:bg-primary/5 rounded-lg border border-primary/10"
-                        onClick={() => setSelectedProduct(null)}
-                      >
-                        CERRAR
-                      </Button>
-                    </div>
-                    <h2 className="text-2xl font-headline font-black text-black uppercase">{selectedProduct.name}</h2>
-                  </div>
-                </div>
-
-                <p className="text-[10px] font-black text-primary/40 uppercase tracking-widest">{selectedProduct.category} | {selectedProduct.collection}</p>
-
-                <div className="grid grid-cols-3 gap-2 bg-primary/5 p-4 rounded-2xl border border-primary/10">
-                  <div className="text-center"><p className="text-[8px] font-black text-primary/50 uppercase">STOCK</p><p className="text-lg font-black">{selectedProduct.stock}</p></div>
-                  <div className="text-center border-x border-primary/10"><p className="text-[8px] font-black text-primary/50 uppercase">MAYOR</p><p className="text-lg font-black">S/ {selectedProduct.priceMayor.toFixed(1)}</p></div>
-                  <div className="text-center"><p className="text-[8px] font-black text-primary/50 uppercase">UNID</p><p className="text-lg font-black">S/ {selectedProduct.priceUnidad.toFixed(1)}</p></div>
-                </div>
-
-                <div className="p-5 bg-secondary/50 rounded-2xl border border-black/5 text-[12px] font-medium text-muted-foreground italic leading-relaxed">
-                  "{selectedProduct.description || 'Sin descripción disponible.'}"
-                </div>
-
-                <div className="grid grid-cols-1 gap-3 pt-2">
-                  <Button className="h-14 bg-primary text-white font-black uppercase text-[12px] rounded-xl shadow-xl shadow-primary/20" onClick={() => setAddStockProduct(selectedProduct)}>
-                    REPOSICIÓN DE STOCK
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

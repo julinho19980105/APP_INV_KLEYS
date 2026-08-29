@@ -50,18 +50,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarProvider defaultOpen>
-      <div className="flex min-h-screen w-full bg-background overflow-hidden">
+      <div className="flex min-h-screen w-full bg-white overflow-hidden selection:bg-primary/10">
         <AppSidebar pathname={pathname} />
-        <SidebarInset className="flex-1 overflow-auto bg-background">
-          <header className="flex items-center justify-between p-4 bg-white border-b border-primary/20 sticky top-0 z-50 shadow-sm">
-            <div className="flex items-center gap-3">
-              <SidebarTrigger className="h-10 w-10 border border-primary/20 rounded-xl flex items-center justify-center bg-white text-primary active:scale-95" />
-              <span className="font-headline font-black text-xl tracking-tighter uppercase text-primary">
+        <SidebarInset className="flex-1 overflow-auto bg-white">
+          <header className="flex items-center justify-between p-4 bg-white/80 backdrop-blur-md border-b border-slate-100 sticky top-0 z-50 shadow-[0_1px_2px_rgb(0,0,0,0.02)]">
+            <div className="flex items-center gap-4">
+              <SidebarTrigger className="h-10 w-10 border border-slate-200/60 rounded-xl flex items-center justify-center bg-white text-slate-800 active:scale-95 shadow-sm" />
+              <span className="font-headline font-black text-[22px] tracking-[-0.03em] uppercase text-slate-900">
                 {getPageTitle()}
               </span>
             </div>
           </header>
-          <main className="p-2 md:p-4 max-w-[1600px] mx-auto w-full pt-2">
+          <main className="p-2.5 md:p-6 max-w-[1600px] mx-auto w-full pt-2">
             {children}
           </main>
         </SidebarInset>
@@ -89,14 +89,14 @@ function AppSidebar({ pathname }: { pathname: string }) {
   }
 
   return (
-    <Sidebar collapsible="icon" className="border-r border-primary/10 shadow-xl bg-white">
-      <SidebarHeader className="h-24 flex items-center px-4 bg-white">
+    <Sidebar collapsible="icon" className="border-r border-slate-100 shadow-xl bg-white">
+      <SidebarHeader className="h-24 flex items-center px-5 bg-white">
         <div 
-          className="flex items-center gap-3 overflow-hidden cursor-pointer w-full group" 
+          className="flex items-center gap-4 overflow-hidden cursor-pointer w-full group" 
           onClick={toggleSidebar}
         >
           <div 
-            className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-lg overflow-hidden border-2 border-white transition-transform group-hover:scale-110"
+            className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-md overflow-hidden border border-slate-100 transition-transform group-hover:scale-105"
             style={{ backgroundColor: settings.brandColor }}
           >
             {settings.companyLogo ? (
@@ -107,12 +107,12 @@ function AppSidebar({ pathname }: { pathname: string }) {
               </div>
             )}
           </div>
-          <span className="font-headline font-black text-2xl tracking-tighter text-foreground group-data-[collapsible=icon]:hidden uppercase truncate">
+          <span className="font-headline font-black text-2xl tracking-tighter text-slate-900 group-data-[collapsible=icon]:hidden uppercase truncate leading-none">
             {settings.companyName}
           </span>
         </div>
       </SidebarHeader>
-      <SidebarContent className="py-6 px-3 bg-white">
+      <SidebarContent className="py-8 px-3.5 bg-white">
         <SidebarMenu>
           {navItems.map((item) => (
             <SidebarMenuItem key={item.name}>
@@ -123,8 +123,8 @@ function AppSidebar({ pathname }: { pathname: string }) {
                 className={cn(
                   "h-12 px-4 rounded-2xl transition-all duration-300 mb-2 border border-transparent",
                   pathname.startsWith(item.href) 
-                    ? "bg-primary text-white shadow-lg shadow-primary/30 scale-105 border-primary/10" 
-                    : "hover:bg-primary/5 hover:text-primary"
+                    ? "bg-[#1e293b] text-white shadow-lg shadow-slate-200 scale-105" 
+                    : "hover:bg-slate-50 hover:text-slate-900"
                 )}
               >
                 <Link href={item.href} onClick={handleLinkClick}>
@@ -132,7 +132,7 @@ function AppSidebar({ pathname }: { pathname: string }) {
                     className={cn("w-5 h-5")} 
                     style={{ color: pathname.startsWith(item.href) ? '#FFFFFF' : settings.brandColor }} 
                   />
-                  <span className="font-black uppercase flex items-center gap-2 text-[11px] tracking-wide">
+                  <span className="font-black uppercase flex items-center gap-2 text-[10px] tracking-[0.1em]">
                     {item.name}
                   </span>
                 </Link>
@@ -141,17 +141,17 @@ function AppSidebar({ pathname }: { pathname: string }) {
           ))}
         </SidebarMenu>
       </SidebarContent>
-      <SidebarFooter className="p-4 bg-secondary/50 border-t border-primary/5">
-        <div className="flex items-center gap-3 p-3 rounded-2xl bg-white shadow-sm border border-primary/10 group-data-[collapsible=icon]:justify-center">
+      <SidebarFooter className="p-5 bg-slate-50/50 border-t border-slate-100">
+        <div className="flex items-center gap-3.5 p-3 rounded-2xl bg-white shadow-sm border border-slate-100 group-data-[collapsible=icon]:justify-center">
           <div 
             className="w-8 h-8 rounded-full border-2 border-white shrink-0 flex items-center justify-center shadow-sm"
             style={{ backgroundColor: settings.brandColor }}
           >
-             <span className="text-[8px] font-black text-white">AD</span>
+             <span className="text-[9px] font-black text-white">SS</span>
           </div>
           <div className="flex flex-col group-data-[collapsible=icon]:hidden overflow-hidden">
-            <span className="text-[10px] font-black text-foreground uppercase tracking-tight">Panel de Control</span>
-            <span className="text-[8px] text-muted-foreground uppercase">Sistema Industrial</span>
+            <span className="text-[10px] font-black text-slate-900 uppercase tracking-tight leading-none">Industrial v1</span>
+            <span className="text-[8px] font-bold text-slate-400 uppercase mt-0.5 tracking-widest">Enterprise UI</span>
           </div>
         </div>
       </SidebarFooter>
