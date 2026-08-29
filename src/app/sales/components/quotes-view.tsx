@@ -19,7 +19,6 @@ import {
   ImageIcon,
   MoreVertical,
   Edit2,
-  ShoppingCart,
   ScanLine,
   User,
   Eraser,
@@ -38,7 +37,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
-import { useFirestore, useCollection, useDoc } from "@/firebase"
+import { useFirestore, useCollection } from "@/firebase"
 import { 
   collection, 
   query, 
@@ -365,8 +364,7 @@ export default function QuotesView() {
   }
 
   return (
-    <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-500">
-      {/* Cabecera ID y FECHA en misma fila */}
+    <div className="space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-500">
       <div className="flex gap-2 w-full">
         <div className="flex-1">
           <input 
@@ -380,7 +378,6 @@ export default function QuotesView() {
         </div>
       </div>
 
-      {/* Tarjeta de Registro Maestro */}
       <Card className="rounded-[2.5rem] border-none shadow-2xl bg-white overflow-hidden">
         <div className="bg-[#1e293b] py-3.5 px-8 flex justify-between items-center">
           <div className="flex items-center gap-3">
@@ -400,7 +397,6 @@ export default function QuotesView() {
         </div>
 
         <CardContent className="p-6 space-y-4">
-          {/* Nombre de Prenda */}
           <div className="space-y-1">
             <Input 
               value={currentEntry.name}
@@ -410,7 +406,6 @@ export default function QuotesView() {
             />
           </div>
 
-          {/* Cantidad / Precio / Descuento */}
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1">
               <Label className="text-[8px] font-black text-primary/40 uppercase ml-1 tracking-widest">Cant</Label>
@@ -449,7 +444,6 @@ export default function QuotesView() {
             </div>
           </div>
 
-          {/* Descripción */}
           <div className="space-y-1 relative">
              <Input 
               value={currentEntry.description} 
@@ -460,7 +454,6 @@ export default function QuotesView() {
             <div className="absolute right-4 top-1/2 -translate-y-1/2 text-primary/20 font-black text-[10px] uppercase pointer-events-none">T</div>
           </div>
 
-          {/* Buscador en Inventario */}
           <div className="pt-2">
             <div className="flex gap-2">
               <div className="relative flex-1">
@@ -510,12 +503,10 @@ export default function QuotesView() {
             </div>
           </div>
 
-          {/* Cuadro de Variantes (Dashed) */}
           <div className="p-6 border-2 border-dashed border-black/5 rounded-[2.5rem] bg-slate-50/50 flex items-center justify-center">
              <span className="text-[9px] font-black text-primary/20 uppercase tracking-[0.3em]">Cuadro de Variantes Libre...</span>
           </div>
 
-          {/* Seleccion de Cliente */}
           <div className="space-y-1.5 relative">
             <div className="relative">
               <User className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-primary" />
@@ -537,7 +528,6 @@ export default function QuotesView() {
             </div>
           </div>
 
-          {/* Botón de Acción Principal */}
           <Button 
             className="w-full h-20 bg-[#10b981] hover:bg-[#059669] text-white rounded-[2rem] font-black text-lg uppercase shadow-xl shadow-green-200 active:scale-95 transition-all mt-2 tracking-widest"
             onClick={() => {
@@ -554,7 +544,6 @@ export default function QuotesView() {
         </CardContent>
       </Card>
 
-      {/* Resumen de Lista */}
       {items.length > 0 && (
         <Card className="rounded-[2.5rem] border-none shadow-xl bg-white overflow-hidden">
           <div className="bg-slate-100/50 p-5 px-10 border-b border-black/5 flex justify-between items-center">
@@ -590,7 +579,6 @@ export default function QuotesView() {
         </Card>
       )}
 
-      {/* Totales Finales */}
       <div className="bg-white rounded-[2.5rem] border border-black/5 shadow-2xl p-8 space-y-6">
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-0.5">
@@ -621,7 +609,6 @@ export default function QuotesView() {
         </div>
       </div>
 
-      {/* Diálogos (Calculadora / Zoom) */}
       <Dialog open={isCalcOpen} onOpenChange={setIsCalcOpen}>
         <DialogContent className="rounded-[3rem] border-none shadow-2xl max-w-[340px] p-10 bg-white">
           <DialogHeader><DialogTitle className="text-[10px] font-black uppercase text-center tracking-[0.3em] text-primary mb-4">Cálculo de Series</DialogTitle></DialogHeader>

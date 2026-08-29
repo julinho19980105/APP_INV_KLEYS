@@ -5,7 +5,6 @@ import * as React from "react"
 import { 
   Package, 
   ShoppingBag,
-  Users,
   Settings,
   BookOpen,
   Truck
@@ -54,7 +53,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="flex min-h-screen w-full bg-background overflow-hidden">
         <AppSidebar pathname={pathname} />
         <SidebarInset className="flex-1 overflow-auto bg-background">
-          <header className="md:hidden flex items-center justify-between p-4 bg-white border-b border-primary/20 sticky top-0 z-50 shadow-sm">
+          <header className="flex items-center justify-between p-4 bg-white border-b border-primary/20 sticky top-0 z-50 shadow-sm">
             <div className="flex items-center gap-3">
               <SidebarTrigger className="h-10 w-10 border border-primary/20 rounded-xl flex items-center justify-center bg-white text-primary active:scale-95" />
               <span className="font-headline font-black text-xl tracking-tighter uppercase text-primary">
@@ -62,7 +61,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </span>
             </div>
           </header>
-          <main className="p-4 max-w-[1600px] mx-auto w-full pt-2">
+          <main className="p-2 md:p-4 max-w-[1600px] mx-auto w-full pt-2">
             {children}
           </main>
         </SidebarInset>

@@ -19,7 +19,7 @@ export default function CommercialHubPage() {
   return (
     <div className="w-full max-w-6xl mx-auto pt-0 pb-24 px-1 md:px-0">
       <Tabs defaultValue="quotes" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 h-14 bg-[#f1f5f9] border border-black/5 rounded-2xl mb-4 p-1 shadow-inner">
+        <TabsList className="grid w-full grid-cols-3 h-14 bg-[#f1f5f9] border border-black/5 rounded-2xl mb-2 p-1 shadow-inner">
           <TabsTrigger 
             value="quotes" 
             className="rounded-xl data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-md font-black text-[9px] uppercase transition-all flex items-center gap-1.5"
