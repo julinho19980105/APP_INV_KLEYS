@@ -19,8 +19,7 @@ import {
   MoreVertical,
   Star,
   Eraser,
-  User,
-  ShieldCheck
+  User
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -221,7 +220,7 @@ export default function PaymentsView() {
   }
 
   const startEditing = (p: any) => {
-    if (p.isLocked || shippedCustomerIds.has(p.customerId)) return
+    if (p.isLocked) return
     setEditingPayment(p)
     setDate(new Date(p.date + "T12:00:00"))
     setAmount(p.amount.toString())
@@ -472,8 +471,6 @@ export default function PaymentsView() {
 }
 
 function PaymentRecord({ p, isProcessed, onEdit, onDelete, onLock, deleteConfirmId, setDeleteConfirmId }: any) {
-  const isProtected = p.isLocked || isProcessed
-
   return (
     <Card className={cn(
       "rounded-[2rem] border border-[#3b82f6]/30 bg-white shadow-sm transition-all active:scale-[0.98] relative overflow-hidden",
@@ -485,7 +482,6 @@ function PaymentRecord({ p, isProcessed, onEdit, onDelete, onLock, deleteConfirm
         <div className="flex flex-col flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="font-bold text-[13px] text-slate-800 uppercase truncate leading-tight">{p.customerName}</span>
-            {isProcessed && <ShieldCheck className="w-3.5 h-3.5 text-blue-500/60" />}
           </div>
           <div className="flex items-center gap-2 mt-1">
              <span className="text-[8px] font-bold text-blue-400/80 uppercase tracking-widest">{p.bankName}</span>
@@ -501,17 +497,15 @@ function PaymentRecord({ p, isProcessed, onEdit, onDelete, onLock, deleteConfirm
           <div className="flex items-center gap-2">
             <button 
               onClick={() => onLock(p)}
-              disabled={isProcessed}
               className={cn(
                 "w-9 h-9 rounded-full flex items-center justify-center transition-all shadow-md", 
-                p.isLocked ? "bg-blue-500 text-white shadow-blue-200" : "bg-slate-100 text-slate-300",
-                isProcessed && "opacity-50 cursor-not-allowed"
+                p.isLocked ? "bg-blue-500 text-white shadow-blue-200" : "bg-slate-100 text-slate-300"
               )}
             >
               {p.isLocked ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
             </button>
 
-            {!isProtected && (
+            {!p.isLocked && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className="p-1.5 text-slate-300 hover:text-primary transition-colors">
@@ -541,12 +535,6 @@ function PaymentRecord({ p, isProcessed, onEdit, onDelete, onLock, deleteConfirm
                   </Popover>
                 </DropdownMenuContent>
               </DropdownMenu>
-            )}
-            
-            {isProcessed && (
-              <div className="w-7 h-7 flex items-center justify-center">
-                 <ShieldCheck className="w-5 h-5 text-blue-500 opacity-40" />
-              </div>
             )}
           </div>
         </div>
