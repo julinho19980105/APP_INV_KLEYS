@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -39,7 +38,6 @@ import {
   getDocs, 
   limit, 
   addDoc,
-  deleteDoc,
   updateDoc,
   increment
 } from "firebase/firestore"
@@ -289,14 +287,6 @@ export default function RegistryPage() {
     } catch (e) {}
   }
 
-  const handleRemoveTag = async (tagId: string) => {
-    if (!db || !confirm("¿Eliminar?")) return
-    const collName = tagManagerConfig.type === 'category' ? 'categories' : 'collections'
-    try {
-      await deleteDoc(doc(db, collName, tagId))
-    } catch (e) {}
-  }
-
   const currentTagsList = tagManagerConfig.type === 'category' ? dbCategories : dbCollections
 
   return (
@@ -441,7 +431,6 @@ export default function RegistryPage() {
                   <span className="font-medium text-[10px] uppercase text-slate-700">{tag.name}</span>
                   <div className="flex gap-2">
                     <Edit2 className="w-3.5 h-3.5 text-slate-300 cursor-pointer hover:text-primary transition-colors" onClick={() => setEditingTagName({ id: tag.id, name: tag.name })} />
-                    <Trash2 className="w-3.5 h-3.5 text-slate-300 cursor-pointer hover:text-red-500 transition-colors" onClick={() => handleRemoveTag(tag.id)} />
                   </div>
                 </div>
               ))}
