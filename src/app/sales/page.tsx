@@ -2,8 +2,9 @@
 "use client"
 
 import * as React from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ShoppingBag, Calculator, CreditCard, Plus } from "lucide-react"
+import { ShoppingBag, CreditCard, Plus } from "lucide-react"
 import SalesHistory from "./components/sales-history"
 import QuotesView from "./components/quotes-view"
 import PaymentsView from "./components/payments-view"
@@ -11,13 +12,22 @@ import { useFirestore, useDoc } from "@/firebase"
 import { doc } from "firebase/firestore"
 
 export default function CommercialHubPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const tabParam = searchParams.get('tab') || 'quotes'
+  
   const db = useFirestore()
-  const configDocRef = React.useMemo(() => db ? doc(db, "config", "global") : null, [db])
-  const { data: config } = useDoc(configDocRef)
+
+  const onTabChange = (value: string) => {
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('tab', value)
+    if (value !== 'quotes') params.delete('edit')
+    router.push(`/sales?${params.toString()}`)
+  }
 
   return (
     <div className="w-full max-w-6xl mx-auto pt-0 pb-24">
-      <Tabs defaultValue="quotes" className="w-full">
+      <Tabs value={tabParam} onValueChange={onTabChange} className="w-full">
         <TabsList className="chrome-tab-list sticky top-[57px] z-[45]">
           <TabsTrigger 
             value="quotes" 

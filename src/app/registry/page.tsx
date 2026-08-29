@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -284,6 +285,7 @@ export default function RegistryPage() {
     try {
       await updateDoc(doc(db, collName, editingTagName.id), { name: newName })
       setEditingTagName(null)
+      toast({ title: "LISTA ACTUALIZADA" })
     } catch (e) {}
   }
 
@@ -417,25 +419,43 @@ export default function RegistryPage() {
         </div>
       </div>
 
-      <Dialog open={isTagManagerOpen} onOpenChange={setIsTagManagerOpen}>
+      <Dialog open={isTagManagerOpen} onOpenChange={(open) => { setIsTagManagerOpen(open); if(!open) setEditingTagName(null); }}>
         <DialogContent className="rounded-3xl max-w-xs p-6 border-none shadow-2xl">
           <DialogHeader><DialogTitle className="text-[10px] font-bold uppercase text-primary tracking-widest">{tagManagerConfig.title}</DialogTitle></DialogHeader>
-          <div className="space-y-4 pt-4">
-            <div className="flex gap-2">
-              <Input value={newTagName} onChange={e => setNewTagName(e.target.value)} className="h-10 text-[10px] font-medium uppercase rounded-xl border-slate-200" placeholder="Nueva..." />
-              <Button className="h-10 w-10 bg-primary rounded-xl shrink-0" onClick={handleAddNewTag}><Plus className="w-4 h-4" /></Button>
-            </div>
-            <div className="max-h-48 overflow-y-auto space-y-2 pr-1 scrollbar-hide">
-              {currentTagsList.map(tag => (
-                <div key={tag.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
-                  <span className="font-medium text-[10px] uppercase text-slate-700">{tag.name}</span>
-                  <div className="flex gap-2">
-                    <Edit2 className="w-3.5 h-3.5 text-slate-300 cursor-pointer hover:text-primary transition-colors" onClick={() => setEditingTagName({ id: tag.id, name: tag.name })} />
-                  </div>
+          
+          {editingTagName ? (
+            <div className="space-y-4 pt-4 animate-in fade-in slide-in-from-top-1">
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-[9px] font-black uppercase text-slate-400 ml-1">Nuevo Nombre</Label>
+                <div className="flex gap-2">
+                  <Input 
+                    value={editingTagName.name} 
+                    onChange={e => setEditingTagName({...editingTagName, name: e.target.value})} 
+                    className="h-10 text-[10px] font-medium uppercase rounded-xl border-primary/30"
+                  />
+                  <Button className="h-10 bg-primary rounded-xl" onClick={handleRenameTag}><Save className="w-4 h-4" /></Button>
+                  <Button variant="ghost" className="h-10 w-10 rounded-xl" onClick={() => setEditingTagName(null)}><X className="w-4 h-4" /></Button>
                 </div>
-              ))}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="space-y-4 pt-4">
+              <div className="flex gap-2">
+                <Input value={newTagName} onChange={e => setNewTagName(e.target.value)} className="h-10 text-[10px] font-medium uppercase rounded-xl border-slate-200" placeholder="Nueva..." />
+                <Button className="h-10 w-10 bg-primary rounded-xl shrink-0" onClick={handleAddNewTag}><Plus className="w-4 h-4" /></Button>
+              </div>
+              <div className="max-h-48 overflow-y-auto space-y-2 pr-1 scrollbar-hide">
+                {currentTagsList.map(tag => (
+                  <div key={tag.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                    <span className="font-medium text-[10px] uppercase text-slate-700">{tag.name}</span>
+                    <div className="flex gap-2">
+                      <Edit2 className="w-3.5 h-3.5 text-slate-300 cursor-pointer hover:text-primary transition-colors" onClick={() => setEditingTagName({ id: tag.id, name: tag.name })} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
