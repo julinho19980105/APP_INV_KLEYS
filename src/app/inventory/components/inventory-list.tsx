@@ -18,7 +18,8 @@ import {
   Edit2,
   MoreVertical,
   AlertCircle,
-  Search
+  Search,
+  CheckCircle2
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useCollection, useFirestore, useDoc } from "@/firebase"
@@ -68,8 +69,6 @@ export default function InventoryList() {
   const [categoryFilter, setCategoryFilter] = React.useState("all")
   const [expandedCollections, setExpandedCollections] = React.useState<Record<string, boolean>>({})
   const [selectedProduct, setSelectedProduct] = React.useState<any>(null)
-  const [addStockProduct, setAddStockProduct] = React.useState<any>(null)
-  const [addStockQty, setAddStockQty] = React.useState("")
   const [isExporting, setIsExporting] = React.useState(false)
 
   const productsRef = React.useMemo(() => 
@@ -92,12 +91,17 @@ export default function InventoryList() {
 
   const filteredProducts = React.useMemo(() => {
     const q = searchQuery.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-    return products.filter(p => {
+    
+    let baseList = products;
+    if (categoryFilter === "RECIENTES") {
+      baseList = products.slice(0, 20);
+    }
+
+    return baseList.filter(p => {
       const matchesSearch = p.name?.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(q) || p.code?.toLowerCase().includes(q)
       
-      if (categoryFilter === "SIN STOCK") {
-        return matchesSearch && (Number(p.stock) <= 0);
-      }
+      if (categoryFilter === "RECIENTES") return matchesSearch;
+      if (categoryFilter === "SIN STOCK") return matchesSearch && (Number(p.stock) <= 0);
       
       const matchesCat = categoryFilter === "all" || (p.category || "").toUpperCase() === categoryFilter.toUpperCase()
       return matchesSearch && matchesCat
@@ -105,6 +109,10 @@ export default function InventoryList() {
   }, [products, searchQuery, categoryFilter])
 
   const groupedByCollection = React.useMemo(() => {
+    if (categoryFilter === "RECIENTES") {
+      return filteredProducts.length > 0 ? [["ÚLTIMOS 20 REGISTROS", filteredProducts]] : [];
+    }
+
     const groups: Record<string, any[]> = {}
     filteredProducts.forEach(p => {
       const col = (p.collection || "SIN COLECCIÓN").toUpperCase()
@@ -112,7 +120,20 @@ export default function InventoryList() {
       groups[col].push(p)
     })
     return Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0]))
-  }, [filteredProducts])
+  }, [filteredProducts, categoryFilter])
+
+  const handleExport = async () => {
+    if (isExporting || products.length === 0) return;
+    setIsExporting(true);
+    try {
+      await syncCatalogToDrive(products);
+      toast({ title: "CATÁLOGO EXPORTADO", description: "Sincronización con Google Sheets completa." });
+    } catch (error) {
+      toast({ variant: "destructive", title: "ERROR DE EXPORTACIÓN", description: "No se pudo conectar con el script de Google." });
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const onDelete = (id: string) => {
     if (!db) return
@@ -142,6 +163,7 @@ export default function InventoryList() {
             </SelectTrigger>
             <SelectContent className="rounded-xl border-slate-200 shadow-2xl">
               <SelectItem value="all" className="font-bold uppercase text-[10px]">TODAS</SelectItem>
+              <SelectItem value="RECIENTES" className="font-bold uppercase text-[10px] text-blue-600">RECIENTES (20)</SelectItem>
               <SelectItem value="SIN STOCK" className="font-bold uppercase text-[10px] text-red-600">SIN STOCK</SelectItem>
               {masterCategories.map(cat => (
                 <SelectItem key={cat} value={cat} className="font-bold uppercase text-[10px]">
@@ -150,7 +172,12 @@ export default function InventoryList() {
               ))}
             </SelectContent>
           </Select>
-          <Button variant="outline" onClick={() => syncCatalogToDrive(products)} disabled={isExporting} className="h-10 px-4 rounded-xl border-slate-300 text-slate-500 font-bold text-[9px] uppercase gap-2 bg-white shadow-sm hover:bg-slate-50">
+          <Button 
+            variant="outline" 
+            onClick={handleExport} 
+            disabled={isExporting || products.length === 0} 
+            className="h-10 px-4 rounded-xl border-slate-300 text-slate-500 font-bold text-[9px] uppercase gap-2 bg-white shadow-sm hover:bg-slate-50 disabled:opacity-50"
+          >
             {isExporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />} EXPORTAR
           </Button>
         </div>
@@ -174,7 +201,7 @@ export default function InventoryList() {
             <p className="text-[10px] font-bold uppercase tracking-[0.3em]">Sin resultados</p>
           </div>
         ) : groupedByCollection.map(([colName, colProducts]) => {
-          const isExpanded = expandedCollections[colName]
+          const isExpanded = expandedCollections[colName] || categoryFilter === "RECIENTES"
           const visibleProducts = isExpanded ? colProducts : colProducts.slice(0, 4)
           
           return (
@@ -184,7 +211,7 @@ export default function InventoryList() {
                   <span className="font-headline font-black text-[16px] uppercase tracking-tighter text-slate-900">{colName}</span>
                   <Badge variant="outline" className="text-[8px] font-medium border-slate-200 text-slate-400 bg-white">{colProducts.length} PRENDAS</Badge>
                 </div>
-                {colProducts.length > 4 && (
+                {colProducts.length > 4 && categoryFilter !== "RECIENTES" && (
                   <Button 
                     variant="ghost" 
                     className="h-7 font-bold text-[9px] uppercase text-primary hover:bg-primary/5 tracking-widest px-2"
@@ -212,7 +239,7 @@ export default function InventoryList() {
 
                       <div className={cn(
                         "absolute bottom-2 right-2 px-2 py-0.5 text-[9px] font-black rounded-md shadow-md border",
-                        p.stock <= 0 ? "bg-red-600 text-white border-red-500" : "bg-white/95 text-slate-900 border-slate-200"
+                        Number(p.stock) <= 0 ? "bg-red-600 text-white border-red-500" : "bg-white/95 text-slate-900 border-slate-200"
                       )}>
                         {p.stock} <span className="text-[7px] font-normal opacity-60">UND</span>
                       </div>
