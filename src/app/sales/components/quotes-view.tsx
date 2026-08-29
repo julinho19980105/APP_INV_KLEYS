@@ -371,6 +371,14 @@ export default function QuotesView() {
       }
 
       if (typeof window !== "undefined") localStorage.removeItem(STORAGE_KEY);
+      
+      // LIMPIEZA ABSOLUTA DE CAMPOS
+      setSelectedCustomer(null);
+      setItems([]);
+      setCurrentEntry(EMPTY_ENTRY);
+      setCustomerQuery("");
+      setProductQuery("");
+
       toast({ title: editId ? "VENTA ACTUALIZADA" : "VENTA REGISTRADA" })
       router.push('/sales')
     } catch (e) {
