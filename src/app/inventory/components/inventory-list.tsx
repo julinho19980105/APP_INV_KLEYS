@@ -64,6 +64,9 @@ function getDriveThumb(url: string, size: number = 400) {
   return fileId ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w${size}` : url;
 }
 
+// VARIABLE DE MEMORIA GLOBAL PARA PERSISTIR LA SELECCIÓN DURANTE LA SESIÓN
+let sessionCategoryFilter: string | null = null;
+
 export default function InventoryList() {
   const db = useFirestore()
   const router = useRouter()
@@ -73,7 +76,7 @@ export default function InventoryList() {
   const { data: config } = useDoc(configDocRef)
   
   const [searchQuery, setSearchQuery] = React.useState("")
-  const [categoryFilter, setCategoryFilter] = React.useState("all")
+  const [categoryFilter, setCategoryFilter] = React.useState(sessionCategoryFilter || "all")
   const [expandedCollections, setExpandedCollections] = React.useState<Record<string, boolean>>({})
   const [selectedProduct, setSelectedProduct] = React.useState<any>(null)
   const [isExporting, setIsExporting] = React.useState(false)
@@ -87,12 +90,20 @@ export default function InventoryList() {
   const { data: dbCategories = [] } = useCollection(categoriesRef)
   
   const masterCategories = React.useMemo(() => {
-    return Array.from(new Set(dbCategories.map(c => c.name.toUpperCase()))).sort();
+    return Array.from(new Set(dbCategories.map(c => (c.name || "").toUpperCase()))).sort();
   }, [dbCategories])
 
+  // Sincronización de persistencia
   React.useEffect(() => {
-    if (config?.defaultCategory && categoryFilter === "all") {
-      setCategoryFilter(config.defaultCategory.toUpperCase())
+    sessionCategoryFilter = categoryFilter;
+  }, [categoryFilter])
+
+  React.useEffect(() => {
+    // Solo aplicamos el default de la config si NO hay una selección guardada en esta sesión
+    if (config?.defaultCategory && !sessionCategoryFilter && categoryFilter === "all") {
+      const defCat = config.defaultCategory.toUpperCase();
+      setCategoryFilter(defCat);
+      sessionCategoryFilter = defCat;
     }
   }, [config])
 
