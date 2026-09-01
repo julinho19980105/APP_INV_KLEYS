@@ -41,7 +41,7 @@ import { collection, query, orderBy, doc, updateDoc, increment, addDoc, serverTi
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { toJpeg } from 'html-to-image'
-import { format, startOfMonth } from "date-fns"
+import { format, startOfMonth, subMonths, startOfYear } from "date-fns"
 import { es } from "date-fns/locale"
 
 export default function SalesHistory() {
@@ -51,6 +51,7 @@ export default function SalesHistory() {
   
   const [searchQuery, setSearchQuery] = React.useState("")
   const [statusFilter, setStatusFilter] = React.useState<string>("active")
+  const [timeFilter, setTimeFilter] = React.useState<string>("1m")
   const [daysLimit, setDaysLimit] = React.useState(30)
   const [activeReceipt, setActiveReceipt] = React.useState<any>(null)
   const [printerChar, setPrinterChar] = React.useState<any>(null)
@@ -61,25 +62,39 @@ export default function SalesHistory() {
   const { data: companySettings } = useDoc(configDocRef)
   const brandColor = companySettings?.brandColor || "#0296FF"
 
-  const monthStart = React.useMemo(() => startOfMonth(new Date()), [])
+  const dateLimit = React.useMemo(() => {
+    const now = new Date()
+    if (timeFilter === "1m") return startOfMonth(now)
+    if (timeFilter === "2m") return startOfMonth(subMonths(now, 1))
+    if (timeFilter === "3m") return startOfMonth(subMonths(now, 2))
+    if (timeFilter === "year") return startOfYear(now)
+    return null // Historial Completo
+  }, [timeFilter])
 
   const quotesRef = React.useMemo(() => {
     if (!db) return null
+    if (dateLimit) {
+      return query(
+        collection(db, "quotes"), 
+        where("createdAt", ">=", dateLimit),
+        orderBy("createdAt", "desc")
+      )
+    }
     return query(
       collection(db, "quotes"), 
-      where("createdAt", ">=", monthStart),
-      orderBy("createdAt", "desc")
+      orderBy("createdAt", "desc"),
+      limit(200)
     )
-  }, [db, monthStart])
+  }, [db, dateLimit])
 
-  const { data: quotes = [], loading } = useCollection(monthStart ? quotesRef : null)
+  const { data: quotes = [], loading } = useCollection(quotesRef)
 
   const stats = React.useMemo(() => {
-    const monthQuotes = quotes.filter(q => q.status !== 'annulled')
-    const total = monthQuotes.reduce((acc, q) => acc + (q.total || 0), 0)
+    const periodQuotes = quotes.filter(q => q.status !== 'annulled')
+    const total = periodQuotes.reduce((acc, q) => acc + (q.total || 0), 0)
     const abonos = total * 0.89 
     const deuda = total - abonos
-    return { total, abonos, deuda, count: monthQuotes.length }
+    return { total, abonos, deuda, count: periodQuotes.length }
   }, [quotes])
 
   const filteredQuotes = React.useMemo(() => {
@@ -184,15 +199,13 @@ export default function SalesHistory() {
       const left = '\x1B\x61\x00'
       const boldOn = '\x1B\x45\x01'
       const boldOff = '\x1B\x45\x00'
-      const sizeLarge = '\x1D\x21\x11' // GS ! 17 (Double width, double height) - ~250% feel
+      const sizeLarge = '\x1D\x21\x11' 
       const sizeNormal = '\x1D\x21\x00'
-      const line = '------------------------------------------------\n' // 48 characters for 80mm
+      const line = '------------------------------------------------\n' 
 
       let data = init + center
-      // Title 250% (Double size standard) and Bold
       data += boldOn + sizeLarge + (companySettings?.companyName || 'STILOSTACK').toUpperCase() + '\n' + sizeNormal + boldOff
       data += line
-      // BOLETA INTERNA + ID 250% and Bold
       data += center + boldOn + sizeLarge + 'BOLETA INTERNA\n' + sale.id + '\n' + sizeNormal + boldOff
       data += center + format(sale.createdAt?.toDate ? sale.createdAt.toDate() : new Date(), "dd/MM/yy HH:mm") + '\n'
       data += line
@@ -202,23 +215,19 @@ export default function SalesHistory() {
       data += line
       
       sale.items.forEach((item: any, idx: number) => {
-        // Enumerate: 1-, 2-, etc.
         data += `${idx + 1}- ${item.name.toUpperCase()}\n`
         const qtyStr = `${item.quantity} x ${Number(item.price).toFixed(1)}`
         const totalStr = `S/ ${((Number(item.price) * Number(item.quantity)) - Number(item.discount)).toFixed(1)}`
-        // 48 columns for 80mm
         const spaces = Math.max(1, 48 - qtyStr.length - totalStr.length)
         data += qtyStr + ' '.repeat(spaces) + totalStr + '\n'
       })
       
       data += line
       
-      // Totals: Qty Left, Amount Right, 250% Bold
       const totalQtyNum = (sale.items || []).reduce((acc: number, i: any) => acc + Number(i.quantity), 0)
       const totalAmtStr = `S/ ${Number(sale.total).toFixed(1)}`
       const qtyLabelStr = `${totalQtyNum} UND`
       
-      // Since it's double width, effective characters per line is 24 for 80mm
       const effWidth = 24
       const totalSpaces = Math.max(1, effWidth - qtyLabelStr.length - totalAmtStr.length)
       
@@ -228,7 +237,6 @@ export default function SalesHistory() {
       data += '\n\n\n\n'
 
       const buffer = encoder.encode(data)
-      // Send in 20-byte chunks due to BLE MTU limits
       for (let i = 0; i < buffer.length; i += 20) {
         await printerChar.writeValue(buffer.slice(i, i + 20))
       }
@@ -244,15 +252,15 @@ export default function SalesHistory() {
       <div className="grid grid-cols-3 gap-2">
         <div className="bg-[#0f172a] py-3 px-4 rounded-2xl flex flex-col shadow-lg relative overflow-hidden">
           <TrendingUp className="absolute right-[-4px] top-1 opacity-10 w-12 h-12 text-white" />
-          <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest leading-none">TOTAL (MES)</span>
+          <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest leading-none">TOTAL (PERIODO)</span>
           <div className="text-[16px] font-headline font-black text-white mt-1 leading-none">S/ {stats.total.toFixed(1)}</div>
         </div>
         <div className="bg-white border border-slate-300 py-3 px-4 rounded-2xl flex flex-col shadow-sm">
-          <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest leading-none">ABONOS (MES)</span>
+          <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest leading-none">ABONOS (EST.)</span>
           <div className="text-[16px] font-headline font-black text-[#10b981] mt-1 leading-none">S/ {stats.abonos.toFixed(1)}</div>
         </div>
         <div className="bg-white border border-slate-300 py-3 px-4 rounded-2xl flex flex-col shadow-sm">
-          <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest leading-none">DEUDA (MES)</span>
+          <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest leading-none">DEUDA (EST.)</span>
           <div className="text-[16px] font-headline font-black text-red-500 mt-1 leading-none">S/ {stats.deuda.toFixed(1)}</div>
         </div>
       </div>
@@ -268,9 +276,22 @@ export default function SalesHistory() {
           />
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <Button variant="outline" className="h-11 rounded-xl border-slate-300 font-bold text-[9px] uppercase gap-2 text-slate-600 bg-white">
-            <CalendarDays className="w-3.5 h-3.5 text-primary" /> MES ACTUAL
-          </Button>
+          <Select value={timeFilter} onValueChange={setTimeFilter}>
+            <SelectTrigger className="h-11 rounded-xl border-slate-300 font-bold text-[9px] uppercase gap-2 text-slate-600 bg-white">
+               <div className="flex items-center gap-2">
+                <CalendarDays className="w-3.5 h-3.5 text-primary" />
+                <SelectValue placeholder="Periodo" />
+              </div>
+            </SelectTrigger>
+            <SelectContent className="rounded-xl border-slate-300 shadow-2xl">
+              <SelectItem value="1m" className="text-[9px] font-bold uppercase">Mes Actual</SelectItem>
+              <SelectItem value="2m" className="text-[9px] font-bold uppercase">2 Meses (Este y Anterior)</SelectItem>
+              <SelectItem value="3m" className="text-[9px] font-bold uppercase">3 Meses</SelectItem>
+              <SelectItem value="year" className="text-[9px] font-bold uppercase">Año Entero</SelectItem>
+              <SelectItem value="all" className="text-[9px] font-bold uppercase">Historial Completo</SelectItem>
+            </SelectContent>
+          </Select>
+
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="h-11 rounded-xl border-slate-300 font-bold text-[9px] uppercase gap-2 text-slate-600 bg-white">
               <div className="flex items-center gap-2">
@@ -362,7 +383,7 @@ export default function SalesHistory() {
               className="h-10 rounded-xl font-bold text-[9px] uppercase tracking-widest text-slate-400"
               onClick={() => setDaysLimit(prev => prev + 15)}
             >
-              <ChevronDown className="w-4 h-4 mr-2" /> CARGAR 15 DÍAS ANTERIORES
+              <ChevronDown className="w-4 h-4 mr-2" /> CARGAR MÁS REGISTROS
             </Button>
           </div>
         )}
