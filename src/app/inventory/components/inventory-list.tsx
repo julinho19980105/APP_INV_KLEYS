@@ -18,7 +18,9 @@ import {
   MoreVertical,
   AlertCircle,
   Search,
-  CheckCircle2
+  CheckCircle2,
+  Tag,
+  Info
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useCollection, useFirestore, useDoc } from "@/firebase"
@@ -43,6 +45,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 function getDriveThumb(url: string, size: number = 400) {
   if (!url || !url.includes('drive.google.com')) return url;
@@ -277,6 +285,105 @@ export default function InventoryList() {
           )
         })}
       </div>
+
+      <Dialog open={!!selectedProduct} onOpenChange={() => setSelectedProduct(null)}>
+        <DialogContent className="max-w-[95vw] md:max-w-4xl p-0 border-none bg-white rounded-[2.5rem] overflow-hidden shadow-2xl max-h-[90vh]">
+          <div className="relative h-full flex flex-col">
+            <div className="absolute top-4 left-0 right-0 z-50 flex justify-center pointer-events-none">
+              <button 
+                onClick={() => setSelectedProduct(null)} 
+                className="pointer-events-auto h-12 w-12 rounded-full bg-black/80 text-white flex items-center justify-center hover:bg-black transition-all shadow-xl active:scale-90"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto scrollbar-hide pt-16 pb-8">
+              <div className="space-y-8 px-6 md:px-12">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      {selectedProduct?.images?.map((img: string, idx: number) => (
+                        <div key={idx} className="aspect-[3/4] rounded-3xl overflow-hidden border border-slate-200 bg-slate-50 shadow-sm">
+                          <img src={getDriveThumb(img, 800)} className="w-full h-full object-cover" alt={`Vista ${idx + 1}`} />
+                        </div>
+                      ))}
+                      {(!selectedProduct?.images || selectedProduct.images.length === 0) && (
+                        <div className="col-span-2 aspect-[3/4] rounded-3xl bg-slate-50 flex flex-col items-center justify-center gap-4 border border-dashed border-slate-200 opacity-30">
+                          <ImageIcon className="w-12 h-12" />
+                          <span className="text-[10px] font-black uppercase tracking-widest">Sin imágenes</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-8 py-2">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-3">
+                        <Badge className="bg-primary text-white text-[10px] font-black px-3 h-6 border-none">{selectedProduct?.code}</Badge>
+                        <Badge variant="outline" className="text-[10px] font-bold text-slate-400 border-slate-200">{selectedProduct?.category}</Badge>
+                      </div>
+                      <h2 className="text-4xl font-headline font-black text-slate-900 uppercase tracking-tight leading-none">
+                        {selectedProduct?.name}
+                      </h2>
+                      <p className="text-[11px] font-black text-primary/40 uppercase tracking-[0.3em]">{selectedProduct?.collection || "COLECCIÓN GENERAL"}</p>
+                    </div>
+
+                    <div className="bg-slate-50 rounded-[2rem] p-6 space-y-4 border border-slate-100 shadow-inner">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Tag className="w-3.5 h-3.5 text-primary" />
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Catálogo de Precios</span>
+                      </div>
+                      <div className="grid grid-cols-1 gap-3">
+                        <div className="flex justify-between items-center bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                          <span className="text-[11px] font-bold text-slate-500 uppercase">P. POR FARDO</span>
+                          <span className="text-2xl font-headline font-black text-slate-900">S/ {selectedProduct?.priceFardo?.toFixed(1) || '0.0'}</span>
+                        </div>
+                        <div className="flex justify-between items-center bg-primary/5 p-4 rounded-2xl border border-primary/10 shadow-sm">
+                          <span className="text-[11px] font-bold text-primary uppercase">P. AL POR MAYOR</span>
+                          <span className="text-2xl font-headline font-black text-primary">S/ {selectedProduct?.priceMayor?.toFixed(1) || '0.0'}</span>
+                        </div>
+                        <div className="flex justify-between items-center bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                          <span className="text-[11px] font-bold text-slate-500 uppercase">P. POR UNIDAD</span>
+                          <span className="text-2xl font-headline font-black text-slate-900">S/ {selectedProduct?.priceUnidad?.toFixed(1) || '0.0'}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Info className="w-3.5 h-3.5 text-slate-400" />
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Descripción Estética</span>
+                      </div>
+                      <div className="bg-white border-l-4 border-primary/20 p-5 rounded-r-2xl text-[13px] text-slate-600 leading-relaxed font-medium">
+                        {selectedProduct?.description || "Sin descripción detallada registrada para este modelo."}
+                      </div>
+                    </div>
+
+                    <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+                       <div>
+                         <span className="text-[9px] font-black text-slate-400 uppercase block tracking-widest mb-1">STOCK DISPONIBLE</span>
+                         <div className={cn(
+                           "text-3xl font-headline font-black",
+                           Number(selectedProduct?.stock) <= 0 ? "text-red-500" : "text-[#10b981]"
+                         )}>
+                           {selectedProduct?.stock} <span className="text-sm font-bold opacity-40">UND</span>
+                         </div>
+                       </div>
+                       <Button 
+                        className="h-14 px-8 rounded-2xl bg-[#0f172a] text-white font-bold text-[12px] uppercase shadow-lg shadow-slate-200"
+                        onClick={() => handleEdit(selectedProduct)}
+                       >
+                         <Edit2 className="w-4 h-4 mr-2" /> Editar Prenda
+                       </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
