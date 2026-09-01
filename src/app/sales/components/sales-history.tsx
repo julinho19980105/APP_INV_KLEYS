@@ -184,32 +184,51 @@ export default function SalesHistory() {
       const left = '\x1B\x61\x00'
       const boldOn = '\x1B\x45\x01'
       const boldOff = '\x1B\x45\x00'
-      const line = '--------------------------------\n'
+      const sizeLarge = '\x1D\x21\x11' // GS ! 17 (Double width, double height) - ~250% feel
+      const sizeNormal = '\x1D\x21\x00'
+      const line = '------------------------------------------------\n' // 48 characters for 80mm
 
-      let data = init + center + boldOn + (companySettings?.companyName || 'STILOSTACK') + '\n' + boldOff
+      let data = init + center
+      // Title 250% (Double size standard) and Bold
+      data += boldOn + sizeLarge + (companySettings?.companyName || 'STILOSTACK').toUpperCase() + '\n' + sizeNormal + boldOff
       data += line
-      data += `BOLETA: ${sale.id}\n`
-      data += `${format(sale.createdAt?.toDate ? sale.createdAt.toDate() : new Date(), "dd/MM/yy HH:mm")}\n`
+      // BOLETA INTERNA + ID 250% and Bold
+      data += center + boldOn + sizeLarge + 'BOLETA INTERNA\n' + sale.id + '\n' + sizeNormal + boldOff
+      data += center + format(sale.createdAt?.toDate ? sale.createdAt.toDate() : new Date(), "dd/MM/yy HH:mm") + '\n'
       data += line
       data += left
       data += `CLIENTE: ${sale.customerName}\n`
       data += `ID: ${sale.customerId}\n`
       data += line
       
-      sale.items.forEach((item: any) => {
-        data += `${item.name.substring(0, 32)}\n`
+      sale.items.forEach((item: any, idx: number) => {
+        // Enumerate: 1-, 2-, etc.
+        data += `${idx + 1}- ${item.name.toUpperCase()}\n`
         const qtyStr = `${item.quantity} x ${Number(item.price).toFixed(1)}`
         const totalStr = `S/ ${((Number(item.price) * Number(item.quantity)) - Number(item.discount)).toFixed(1)}`
-        const spaces = Math.max(1, 32 - qtyStr.length - totalStr.length)
+        // 48 columns for 80mm
+        const spaces = Math.max(1, 48 - qtyStr.length - totalStr.length)
         data += qtyStr + ' '.repeat(spaces) + totalStr + '\n'
       })
       
       data += line
-      data += center + boldOn + `TOTAL: S/ ${Number(sale.total).toFixed(1)}\n` + boldOff
+      
+      // Totals: Qty Left, Amount Right, 250% Bold
+      const totalQtyNum = (sale.items || []).reduce((acc: number, i: any) => acc + Number(i.quantity), 0)
+      const totalAmtStr = `S/ ${Number(sale.total).toFixed(1)}`
+      const qtyLabelStr = `${totalQtyNum} UND`
+      
+      // Since it's double width, effective characters per line is 24 for 80mm
+      const effWidth = 24
+      const totalSpaces = Math.max(1, effWidth - qtyLabelStr.length - totalAmtStr.length)
+      
+      data += left + boldOn + sizeLarge + qtyLabelStr + ' '.repeat(totalSpaces) + totalAmtStr + '\n' + sizeNormal + boldOff
+      data += '\n'
+      data += center + "GRACIAS POR SU COMPRA\n"
       data += '\n\n\n\n'
 
       const buffer = encoder.encode(data)
-      // Enviar en trozos de 20 bytes (límite BLE MTU)
+      // Send in 20-byte chunks due to BLE MTU limits
       for (let i = 0; i < buffer.length; i += 20) {
         await printerChar.writeValue(buffer.slice(i, i + 20))
       }
