@@ -79,6 +79,7 @@ export default function InventoryList() {
   const [categoryFilter, setCategoryFilter] = React.useState(sessionCategoryFilter || "all")
   const [expandedCollections, setExpandedCollections] = React.useState<Record<string, boolean>>({})
   const [selectedProduct, setSelectedProduct] = React.useState<any>(null)
+  const [activeImageIdx, setActiveImageIdx] = React.useState(0)
   const [isExporting, setIsExporting] = React.useState(false)
 
   const productsRef = React.useMemo(() => 
@@ -171,6 +172,16 @@ export default function InventoryList() {
     setExpandedCollections(prev => ({ ...prev, [col]: !prev[col] }))
   }
 
+  const nextImage = () => {
+    if (!selectedProduct?.images?.length) return
+    setActiveImageIdx(prev => (prev + 1) % selectedProduct.images.length)
+  }
+
+  const prevImage = () => {
+    if (!selectedProduct?.images?.length) return
+    setActiveImageIdx(prev => (prev - 1 + selectedProduct.images.length) % selectedProduct.images.length)
+  }
+
   return (
     <div className="space-y-4 pb-24">
       <div className="flex flex-col gap-2 sticky top-0 z-40 bg-white/95 backdrop-blur-md pb-4 pt-1 border-b border-slate-200">
@@ -247,7 +258,7 @@ export default function InventoryList() {
                       <img 
                         src={getDriveThumb(p.images?.[0], 600)} 
                         className="w-full h-full object-cover cursor-pointer transition-transform duration-500 group-hover:scale-105"
-                        onClick={() => setSelectedProduct(p)}
+                        onClick={() => { setSelectedProduct(p); setActiveImageIdx(0); }}
                         alt={p.name}
                       />
                       
@@ -297,99 +308,139 @@ export default function InventoryList() {
         })}
       </div>
 
-      <Dialog open={!!selectedProduct} onOpenChange={() => setSelectedProduct(null)}>
-        <DialogContent className="max-w-[95vw] md:max-w-4xl p-0 border-none bg-white rounded-[2.5rem] overflow-hidden shadow-2xl max-h-[90vh]">
-          <div className="relative h-full flex flex-col">
-            <div className="absolute top-4 left-0 right-0 z-50 flex justify-center pointer-events-none">
-              <button 
-                onClick={() => setSelectedProduct(null)} 
-                className="pointer-events-auto h-12 w-12 rounded-full bg-black/80 text-white flex items-center justify-center hover:bg-black transition-all shadow-xl active:scale-90"
-              >
-                <X className="w-6 h-6" />
-              </button>
+      <Dialog open={!!selectedProduct} onOpenChange={() => { setSelectedProduct(null); setActiveImageIdx(0); }}>
+        <DialogContent className="max-w-[95vw] md:max-w-xl p-0 border-none bg-white rounded-[2.5rem] overflow-hidden shadow-2xl max-h-[95vh] flex flex-col">
+          <div className="flex-1 overflow-y-auto scrollbar-hide">
+            {/* Sección Galería de Imagen Grande */}
+            <div className="relative aspect-[3/4] w-full bg-slate-100 group/gal">
+              {selectedProduct?.images?.[activeImageIdx] ? (
+                <img 
+                  src={getDriveThumb(selectedProduct.images[activeImageIdx], 1000)} 
+                  className="w-full h-full object-cover animate-in fade-in duration-500" 
+                  alt="Vista Detalle" 
+                />
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center gap-4 opacity-10">
+                   <ImageIcon className="w-20 h-20" />
+                   <span className="text-xs font-black uppercase tracking-widest">Sin Imágenes</span>
+                </div>
+              )}
+
+              {/* Flechas de Navegación */}
+              {selectedProduct?.images?.length > 1 && (
+                <>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); prevImage(); }}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 h-14 w-14 rounded-full bg-black/30 backdrop-blur-md text-white flex items-center justify-center hover:bg-black/50 active:scale-90 transition-all z-20 shadow-xl"
+                  >
+                    <ChevronLeft className="w-9 h-9" />
+                  </button>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); nextImage(); }}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 h-14 w-14 rounded-full bg-black/30 backdrop-blur-md text-white flex items-center justify-center hover:bg-black/50 active:scale-90 transition-all z-20 shadow-xl"
+                  >
+                    <ChevronRight className="w-9 h-9" />
+                  </button>
+                </>
+              )}
             </div>
 
-            <div className="flex-1 overflow-y-auto scrollbar-hide pt-16 pb-8">
-              <div className="space-y-8 px-6 md:px-12">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-3">
-                      {selectedProduct?.images?.map((img: string, idx: number) => (
-                        <div key={idx} className="aspect-[3/4] rounded-3xl overflow-hidden border border-slate-200 bg-slate-50 shadow-sm">
-                          <img src={getDriveThumb(img, 800)} className="w-full h-full object-cover" alt={`Vista ${idx + 1}`} />
-                        </div>
-                      ))}
-                      {(!selectedProduct?.images || selectedProduct.images.length === 0) && (
-                        <div className="col-span-2 aspect-[3/4] rounded-3xl bg-slate-50 flex flex-col items-center justify-center gap-4 border border-dashed border-slate-200 opacity-30">
-                          <ImageIcon className="w-12 h-12" />
-                          <span className="text-[10px] font-black uppercase tracking-widest">Sin imágenes</span>
-                        </div>
+            {/* Fila de Iconos (Miniaturas) y Botón Cerrar */}
+            <div className="sticky top-0 bg-white/90 backdrop-blur-xl border-b border-slate-100 px-6 py-4 flex items-center justify-between z-30 shadow-sm">
+               <div className="flex gap-2.5 overflow-x-auto scrollbar-hide">
+                  {selectedProduct?.images?.map((img: string, idx: number) => (
+                    <button 
+                      key={idx}
+                      onClick={() => setActiveImageIdx(idx)}
+                      className={cn(
+                        "w-12 h-12 rounded-xl overflow-hidden border-2 transition-all shrink-0 shadow-sm",
+                        activeImageIdx === idx ? "border-primary scale-110 shadow-primary/20" : "border-transparent opacity-40 grayscale"
                       )}
+                    >
+                      <img src={getDriveThumb(img, 200)} className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+                  {(!selectedProduct?.images || selectedProduct.images.length === 0) && (
+                    <div className="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center opacity-20">
+                      <ImageIcon className="w-5 h-5" />
                     </div>
+                  )}
+               </div>
+
+               <button 
+                onClick={() => setSelectedProduct(null)} 
+                className="h-12 px-8 rounded-2xl bg-red-600 text-white font-black text-[11px] uppercase tracking-widest shadow-xl shadow-red-200 active:scale-90 transition-all ml-4 shrink-0"
+               >
+                 CERRAR
+               </button>
+            </div>
+
+            {/* Contenido de Datos Deslizable */}
+            <div className="p-8 space-y-8">
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                   <Badge className="bg-primary text-white text-[10px] font-black px-3 h-6 border-none shadow-sm">{selectedProduct?.code}</Badge>
+                   <Badge variant="outline" className="text-[10px] font-bold text-slate-400 border-slate-200 uppercase tracking-widest">{selectedProduct?.category}</Badge>
+                </div>
+                <h2 className="text-4xl font-headline font-black text-slate-900 uppercase tracking-tight leading-none">
+                  {selectedProduct?.name}
+                </h2>
+                <div className="flex items-center gap-2">
+                   <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                   <span className="text-[11px] font-black text-primary/50 uppercase tracking-[0.3em]">{selectedProduct?.collection || "COLECCIÓN GENERAL"}</span>
+                </div>
+              </div>
+
+              {/* Catálogo de Precios */}
+              <div className="bg-slate-50 rounded-[2.5rem] p-6 space-y-4 border border-slate-100 shadow-inner">
+                <div className="flex items-center gap-2 mb-2 px-2">
+                  <Tag className="w-3.5 h-3.5 text-primary" />
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Lista de Precios</span>
+                </div>
+                <div className="grid grid-cols-1 gap-3">
+                  <div className="flex justify-between items-center bg-white p-4 rounded-2xl border border-slate-200 shadow-sm transition-all hover:scale-[1.02]">
+                    <span className="text-[11px] font-bold text-slate-500 uppercase">P. POR FARDO</span>
+                    <span className="text-2xl font-headline font-black text-slate-900">S/ {selectedProduct?.priceFardo?.toFixed(1) || '0.0'}</span>
                   </div>
-
-                  <div className="space-y-8 py-2">
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-3">
-                        <Badge className="bg-primary text-white text-[10px] font-black px-3 h-6 border-none">{selectedProduct?.code}</Badge>
-                        <Badge variant="outline" className="text-[10px] font-bold text-slate-400 border-slate-200">{selectedProduct?.category}</Badge>
-                      </div>
-                      <h2 className="text-4xl font-headline font-black text-slate-900 uppercase tracking-tight leading-none">
-                        {selectedProduct?.name}
-                      </h2>
-                      <p className="text-[11px] font-black text-primary/40 uppercase tracking-[0.3em]">{selectedProduct?.collection || "COLECCIÓN GENERAL"}</p>
-                    </div>
-
-                    <div className="bg-slate-50 rounded-[2rem] p-6 space-y-4 border border-slate-100 shadow-inner">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Tag className="w-3.5 h-3.5 text-primary" />
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Catálogo de Precios</span>
-                      </div>
-                      <div className="grid grid-cols-1 gap-3">
-                        <div className="flex justify-between items-center bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-                          <span className="text-[11px] font-bold text-slate-500 uppercase">P. POR FARDO</span>
-                          <span className="text-2xl font-headline font-black text-slate-900">S/ {selectedProduct?.priceFardo?.toFixed(1) || '0.0'}</span>
-                        </div>
-                        <div className="flex justify-between items-center bg-primary/5 p-4 rounded-2xl border border-primary/10 shadow-sm">
-                          <span className="text-[11px] font-bold text-primary uppercase">P. AL POR MAYOR</span>
-                          <span className="text-2xl font-headline font-black text-primary">S/ {selectedProduct?.priceMayor?.toFixed(1) || '0.0'}</span>
-                        </div>
-                        <div className="flex justify-between items-center bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-                          <span className="text-[11px] font-bold text-slate-500 uppercase">P. POR UNIDAD</span>
-                          <span className="text-2xl font-headline font-black text-slate-900">S/ {selectedProduct?.priceUnidad?.toFixed(1) || '0.0'}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <Info className="w-3.5 h-3.5 text-slate-400" />
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Descripción Estética</span>
-                      </div>
-                      <div className="bg-white border-l-4 border-primary/20 p-5 rounded-r-2xl text-[13px] text-slate-600 leading-relaxed font-medium">
-                        {selectedProduct?.description || "Sin descripción detallada registrada para este modelo."}
-                      </div>
-                    </div>
-
-                    <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
-                       <div>
-                         <span className="text-[9px] font-black text-slate-400 uppercase block tracking-widest mb-1">STOCK DISPONIBLE</span>
-                         <div className={cn(
-                           "text-3xl font-headline font-black",
-                           Number(selectedProduct?.stock) <= 0 ? "text-red-500" : "text-[#10b981]"
-                         )}>
-                           {selectedProduct?.stock} <span className="text-sm font-bold opacity-40">UND</span>
-                         </div>
-                       </div>
-                       <Button 
-                        className="h-14 px-8 rounded-2xl bg-[#0f172a] text-white font-bold text-[12px] uppercase shadow-lg shadow-slate-200"
-                        onClick={() => handleEdit(selectedProduct)}
-                       >
-                         <Edit2 className="w-4 h-4 mr-2" /> Editar Prenda
-                       </Button>
-                    </div>
+                  <div className="flex justify-between items-center bg-primary/5 p-4 rounded-2xl border border-primary/10 shadow-sm transition-all hover:scale-[1.02]">
+                    <span className="text-[11px] font-bold text-primary uppercase">P. AL POR MAYOR</span>
+                    <span className="text-2xl font-headline font-black text-primary">S/ {selectedProduct?.priceMayor?.toFixed(1) || '0.0'}</span>
+                  </div>
+                  <div className="flex justify-between items-center bg-white p-4 rounded-2xl border border-slate-200 shadow-sm transition-all hover:scale-[1.02]">
+                    <span className="text-[11px] font-bold text-slate-500 uppercase">P. POR UNIDAD</span>
+                    <span className="text-2xl font-headline font-black text-slate-900">S/ {selectedProduct?.priceUnidad?.toFixed(1) || '0.0'}</span>
                   </div>
                 </div>
+              </div>
+
+              {/* Descripción */}
+              <div className="space-y-4 px-2">
+                <div className="flex items-center gap-2">
+                  <Info className="w-3.5 h-3.5 text-slate-400" />
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ficha Técnica</span>
+                </div>
+                <div className="bg-white border-l-4 border-primary/20 p-6 rounded-r-3xl text-[14px] text-slate-600 leading-relaxed font-medium shadow-sm">
+                  {selectedProduct?.description || "Sin descripción adicional registrada para este modelo industrial."}
+                </div>
+              </div>
+
+              {/* Footer de Estado y Acción */}
+              <div className="pt-6 border-t border-slate-100 flex items-center justify-between pb-10">
+                 <div className="space-y-1">
+                   <span className="text-[10px] font-black text-slate-400 uppercase block tracking-widest">STOCK REAL</span>
+                   <div className={cn(
+                     "text-3xl font-headline font-black",
+                     Number(selectedProduct?.stock) <= 0 ? "text-red-500" : "text-[#10b981]"
+                   )}>
+                     {selectedProduct?.stock} <span className="text-sm font-bold opacity-30">UNIDADES</span>
+                   </div>
+                 </div>
+                 <Button 
+                  className="h-16 px-10 rounded-2xl bg-[#0f172a] text-white font-black text-[13px] uppercase shadow-2xl active:scale-95 transition-all tracking-widest"
+                  onClick={() => handleEdit(selectedProduct)}
+                 >
+                   <Edit2 className="w-4 h-4 mr-3" /> Editar
+                 </Button>
               </div>
             </div>
           </div>
