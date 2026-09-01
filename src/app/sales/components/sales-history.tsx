@@ -68,7 +68,7 @@ export default function SalesHistory() {
     if (timeFilter === "2m") return startOfMonth(subMonths(now, 1))
     if (timeFilter === "3m") return startOfMonth(subMonths(now, 2))
     if (timeFilter === "year") return startOfYear(now)
-    return null // Historial Completo
+    return null 
   }, [timeFilter])
 
   const quotesRef = React.useMemo(() => {
@@ -163,10 +163,21 @@ export default function SalesHistory() {
         toast({ variant: "destructive", title: "BLUETOOTH NO SOPORTADO", description: "Use un navegador compatible (Chrome/Edge)." })
         return
       }
+      
+      // Filtrar solo dispositivos compatibles (Impresoras Térmicas)
       const device = await navigator.bluetooth.requestDevice({
-        acceptAllDevices: true,
+        filters: [
+          { namePrefix: 'Printer' },
+          { namePrefix: 'Thermal' },
+          { namePrefix: 'MPT' },
+          { namePrefix: 'RP' },
+          { namePrefix: 'Blue' },
+          { namePrefix: 'POS' },
+          { services: ['000018f0-0000-1000-8000-00805f9b34fb'] }
+        ],
         optionalServices: ['0000ff00-0000-1000-8000-00805f9b34fb', '000018f0-0000-1000-8000-00805f9b34fb']
       })
+      
       const server = await device.gatt?.connect()
       const services = await server?.getPrimaryServices()
       if (!services) return
@@ -182,7 +193,7 @@ export default function SalesHistory() {
         }
       }
     } catch (error) {
-      toast({ variant: "destructive", title: "ERROR DE CONEXIÓN", description: "No se seleccionó dispositivo." })
+      toast({ variant: "destructive", title: "ERROR DE CONEXIÓN", description: "No se seleccionó dispositivo compatible." })
     }
   }
 
@@ -199,13 +210,15 @@ export default function SalesHistory() {
       const left = '\x1B\x61\x00'
       const boldOn = '\x1B\x45\x01'
       const boldOff = '\x1B\x45\x00'
-      const sizeLarge = '\x1D\x21\x11' 
+      const sizeLarge = '\x1D\x21\x11' // Tamaño gigante 2x2
       const sizeNormal = '\x1D\x21\x00'
-      const line = '------------------------------------------------\n' 
+      const line = '------------------------------------------------\n' // 48 chars para 80mm
 
       let data = init + center
+      // Nombre de Empresa Gigante
       data += boldOn + sizeLarge + (companySettings?.companyName || 'STILOSTACK').toUpperCase() + '\n' + sizeNormal + boldOff
       data += line
+      // Boleta Interna Gigante
       data += center + boldOn + sizeLarge + 'BOLETA INTERNA\n' + sale.id + '\n' + sizeNormal + boldOff
       data += center + format(sale.createdAt?.toDate ? sale.createdAt.toDate() : new Date(), "dd/MM/yy HH:mm") + '\n'
       data += line
@@ -214,20 +227,33 @@ export default function SalesHistory() {
       data += `ID: ${sale.customerId}\n`
       data += line
       
+      // Productos alineados y enumerados
       sale.items.forEach((item: any, idx: number) => {
-        data += `${idx + 1}- ${item.name.toUpperCase()}\n`
-        const qtyStr = `${item.quantity} x ${Number(item.price).toFixed(1)}`
-        const totalStr = `S/ ${((Number(item.price) * Number(item.quantity)) - Number(item.discount)).toFixed(1)}`
-        const spaces = Math.max(1, 48 - qtyStr.length - totalStr.length)
-        data += qtyStr + ' '.repeat(spaces) + totalStr + '\n'
+        const indexStr = `${idx + 1}- `
+        data += indexStr + item.name.toUpperCase() + '\n'
+        
+        // Sangría para alinear con el inicio del nombre
+        const padding = ' '.repeat(indexStr.length)
+        const qtyPrice = `${padding}${item.quantity} x S/ ${Number(item.price).toFixed(1)}`
+        const itemTotalStr = `S/ ${((Number(item.price) * Number(item.quantity)) - Number(item.discount)).toFixed(1)}`
+        
+        // Alineación de canto a canto (48 columnas)
+        const spaces = Math.max(1, 48 - qtyPrice.length - itemTotalStr.length)
+        data += qtyPrice + ' '.repeat(spaces) + itemTotalStr + '\n'
+        
+        if (item.description) {
+          data += `${padding}(${item.description})\n`
+        }
       })
       
       data += line
       
+      // Totales Gigantes (Cantidad izquierda, Soles derecha)
       const totalQtyNum = (sale.items || []).reduce((acc: number, i: any) => acc + Number(i.quantity), 0)
       const totalAmtStr = `S/ ${Number(sale.total).toFixed(1)}`
       const qtyLabelStr = `${totalQtyNum} UND`
       
+      // Ancho efectivo para fuente 2x2 es 24 chars (48/2)
       const effWidth = 24
       const totalSpaces = Math.max(1, effWidth - qtyLabelStr.length - totalAmtStr.length)
       
