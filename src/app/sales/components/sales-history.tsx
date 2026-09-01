@@ -53,14 +53,13 @@ export default function SalesHistory() {
   const [statusFilter, setStatusFilter] = React.useState<string>("active")
   const [daysLimit, setDaysLimit] = React.useState(30)
   const [activeReceipt, setActiveReceipt] = React.useState<any>(null)
+  const [printerChar, setPrinterChar] = React.useState<any>(null)
 
   const receiptRef = React.useRef<HTMLDivElement>(null)
-  const ticketRef = React.useRef<HTMLDivElement>(null)
   
   const configDocRef = React.useMemo(() => db ? doc(db, "config", "global") : null, [db])
   const { data: companySettings } = useDoc(configDocRef)
   const brandColor = companySettings?.brandColor || "#0296FF"
-  const printerWidth = companySettings?.printerWidth || "80"
 
   const monthStart = React.useMemo(() => startOfMonth(new Date()), [])
 
@@ -143,22 +142,86 @@ export default function SalesHistory() {
     }, 500)
   }
 
-  const printTicket = (sale: any) => {
-    setActiveReceipt(sale)
-    setTimeout(() => {
-      const printWindow = window.open('', '_blank');
-      if (printWindow && ticketRef.current) {
-        printWindow.document.write('<html><head><title>TICKET</title><style>body{margin:0;padding:5px;font-family:monospace;font-weight:bold;}</style></head><body>');
-        printWindow.document.write(ticketRef.current.innerHTML);
-        printWindow.document.close(); printWindow.focus(); printWindow.print(); printWindow.close();
+  const connectPrinter = async () => {
+    try {
+      if (!navigator.bluetooth) {
+        toast({ variant: "destructive", title: "BLUETOOTH NO SOPORTADO", description: "Use un navegador compatible (Chrome/Edge)." })
+        return
       }
-      setActiveReceipt(null);
-    }, 300);
+      const device = await navigator.bluetooth.requestDevice({
+        acceptAllDevices: true,
+        optionalServices: ['0000ff00-0000-1000-8000-00805f9b34fb', '000018f0-0000-1000-8000-00805f9b34fb']
+      })
+      const server = await device.gatt?.connect()
+      const services = await server?.getPrimaryServices()
+      if (!services) return
+      
+      for (const service of services) {
+        const characteristics = await service.getCharacteristics()
+        for (const char of characteristics) {
+          if (char.properties.write || char.properties.writeWithoutResponse) {
+            setPrinterChar(char)
+            toast({ title: "IMPRESORA CONECTADA", description: "Presione el botón de nuevo para imprimir." })
+            return
+          }
+        }
+      }
+    } catch (error) {
+      toast({ variant: "destructive", title: "ERROR DE CONEXIÓN", description: "No se seleccionó dispositivo." })
+    }
+  }
+
+  const printTicket = async (sale: any) => {
+    if (!printerChar) {
+      await connectPrinter()
+      return
+    }
+
+    try {
+      const encoder = new TextEncoder()
+      const init = '\x1B\x40'
+      const center = '\x1B\x61\x01'
+      const left = '\x1B\x61\x00'
+      const boldOn = '\x1B\x45\x01'
+      const boldOff = '\x1B\x45\x00'
+      const line = '--------------------------------\n'
+
+      let data = init + center + boldOn + (companySettings?.companyName || 'STILOSTACK') + '\n' + boldOff
+      data += line
+      data += `BOLETA: ${sale.id}\n`
+      data += `${format(sale.createdAt?.toDate ? sale.createdAt.toDate() : new Date(), "dd/MM/yy HH:mm")}\n`
+      data += line
+      data += left
+      data += `CLIENTE: ${sale.customerName}\n`
+      data += `ID: ${sale.customerId}\n`
+      data += line
+      
+      sale.items.forEach((item: any) => {
+        data += `${item.name.substring(0, 32)}\n`
+        const qtyStr = `${item.quantity} x ${Number(item.price).toFixed(1)}`
+        const totalStr = `S/ ${((Number(item.price) * Number(item.quantity)) - Number(item.discount)).toFixed(1)}`
+        const spaces = Math.max(1, 32 - qtyStr.length - totalStr.length)
+        data += qtyStr + ' '.repeat(spaces) + totalStr + '\n'
+      })
+      
+      data += line
+      data += center + boldOn + `TOTAL: S/ ${Number(sale.total).toFixed(1)}\n` + boldOff
+      data += '\n\n\n\n'
+
+      const buffer = encoder.encode(data)
+      // Enviar en trozos de 20 bytes (límite BLE MTU)
+      for (let i = 0; i < buffer.length; i += 20) {
+        await printerChar.writeValue(buffer.slice(i, i + 20))
+      }
+      toast({ title: "TICKET IMPRESO" })
+    } catch (error) {
+      setPrinterChar(null)
+      toast({ variant: "destructive", title: "ERROR DE IMPRESIÓN", description: "Reconecte la impresora Bluetooth." })
+    }
   }
 
   return (
     <div className="space-y-3 pt-1 animate-in fade-in duration-500 px-1 md:px-0">
-      {/* Indicadores Clave Compactos */}
       <div className="grid grid-cols-3 gap-2">
         <div className="bg-[#0f172a] py-3 px-4 rounded-2xl flex flex-col shadow-lg relative overflow-hidden">
           <TrendingUp className="absolute right-[-4px] top-1 opacity-10 w-12 h-12 text-white" />
@@ -175,7 +238,6 @@ export default function SalesHistory() {
         </div>
       </div>
 
-      {/* Buscador y Filtros */}
       <div className="space-y-2">
         <div className="relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
@@ -207,7 +269,6 @@ export default function SalesHistory() {
         </div>
       </div>
 
-      {/* Listado Principal */}
       <div className="space-y-3 pt-1">
         {loading && (
           <div className="text-center p-20 opacity-30">
@@ -251,7 +312,7 @@ export default function SalesHistory() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="rounded-2xl p-2 w-48 shadow-2xl border-slate-300">
                         <DropdownMenuItem className="text-[10px] font-bold uppercase gap-3 p-3 rounded-xl" onClick={() => printTicket(s)}>
-                          <Printer className="w-4 h-4 text-[#10b981]" /> Imprimir Ticket
+                          <Printer className="w-4 h-4 text-[#10b981]" /> {printerChar ? "Imprimir Ticket" : "Conectar Impresora"}
                         </DropdownMenuItem>
                         <DropdownMenuItem className="text-[10px] font-bold uppercase gap-3 p-3 rounded-xl" onClick={() => shareReceipt(s)}>
                           <Share2 className="w-4 h-4 text-blue-500" /> Compartir Imagen
@@ -288,7 +349,6 @@ export default function SalesHistory() {
         )}
       </div>
 
-      {/* Templates Compartir (Ocultos) */}
       {activeReceipt && (
         <div className="fixed -left-[9999px] top-0">
           <div ref={receiptRef} className="w-[800px] bg-white p-16 flex flex-col gap-10 text-black">
@@ -338,37 +398,6 @@ export default function SalesHistory() {
                    <div className="text-[90px] font-black leading-none" style={{ color: '#0296FF' }}>S/ {Number(activeReceipt.total).toFixed(1)}</div>
                 </div>
              </div>
-          </div>
-        </div>
-      )}
-
-      {/* Ticket Térmico Oculto */}
-      {activeReceipt && (
-        <div className="fixed -left-[9999px] top-0">
-          <div ref={ticketRef} style={{ width: printerWidth === '58' ? '188px' : '260px', fontSize: '12px' }}>
-            <div style={{ textAlign: 'center', marginBottom: '10px' }}>
-              <div style={{ fontSize: '16px', fontWeight: 'bold' }}>{companySettings?.companyName || 'STILOSTACK'}</div>
-              <div>-------------------------</div>
-              <div>BOLETA: {activeReceipt.id}</div>
-              <div>{format(activeReceipt.createdAt?.toDate ? activeReceipt.createdAt.toDate() : new Date(), "dd/MM/yy HH:mm")}</div>
-            </div>
-            <div>CLIENTE: {activeReceipt.customerName}</div>
-            <div>ID: {activeReceipt.customerId}</div>
-            <div>-------------------------</div>
-            {activeReceipt.items.map((item: any, idx: number) => (
-              <div key={idx} style={{ marginBottom: '5px' }}>
-                <div>{item.name}</div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span>{item.quantity} x {Number(item.price).toFixed(1)}</span>
-                  <span>S/ {((Number(item.price) * Number(item.quantity)) - Number(item.discount)).toFixed(1)}</span>
-                </div>
-              </div>
-            ))}
-            <div>-------------------------</div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '14px' }}>
-              <span>TOTAL:</span>
-              <span>S/ {Number(activeReceipt.total).toFixed(1)}</span>
-            </div>
           </div>
         </div>
       )}
