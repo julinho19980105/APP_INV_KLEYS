@@ -4,6 +4,7 @@ import { API_CONFIG } from '@/lib/api-config';
 
 /**
  * @fileOverview Servicio unificado para Google Drive y Sheets utilizando el script proporcionado.
+ * Mapeo industrial: STOCK se envía para ser ubicado en la Columna M (13).
  */
 
 export async function uploadImageToDrive(base64Data: string, fileName: string): Promise<string> {
@@ -55,7 +56,7 @@ export async function syncCatalogToDrive(products: any[]): Promise<void> {
         name: p.name,
         category: p.category,
         collection: p.collection,
-        stock: Number(p.stock || 0), // ENVÍO DE STOCK BLINDADO
+        stock: Number(p.stock || 0), // Dato maestro de inventario
         priceFardo: p.priceFardo,
         priceMayor: p.priceMayor,
         priceUnidad: p.priceUnidad,
