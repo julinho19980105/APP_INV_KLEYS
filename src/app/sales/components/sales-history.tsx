@@ -229,6 +229,12 @@ export default function SalesHistory() {
     }
 
     try {
+      // Función de limpieza industrial para eliminar tildes y convertir ñ a n
+      const clean = (str: string) => {
+        if (!str) return "";
+        return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      };
+
       const encoder = new TextEncoder()
       const init = '\x1B\x40'
       const center = '\x1B\x61\x01'
@@ -242,30 +248,26 @@ export default function SalesHistory() {
       const line = '------------------------------------------------\n' 
 
       let data = init + center
-      data += boldOn + size100 + (companySettings?.companyName || 'STILOSTACK').toUpperCase() + '\n' + boldOff
+      data += boldOn + size100 + clean(companySettings?.companyName || 'STILOSTACK').toUpperCase() + '\n' + boldOff
       data += line
       
-      // Header: BOLETA INTERNA (Izquierda 100%) + ID (Derecha 200%)
       const labelBI = "BOLETA INTERNA"
       const idStr = sale.id
-      // Normal size (48 columns)
       const spacesHeader = Math.max(1, 48 - labelBI.length - idStr.length)
       data += left + size100 + boldOn + labelBI + ' '.repeat(spacesHeader) + idStr + '\n'
       
-      // Fecha resumida debajo del ID (Derecha)
       const displayDate = sale.date ? format(new Date(sale.date + "T12:00:00"), "dd/MM/yy") : format(sale.createdAt?.toDate ? sale.createdAt.toDate() : new Date(), "dd/MM/yy");
       data += right + size100 + displayDate + '\n' + boldOff
       
       data += line
       
-      // Cliente Gigante (300%)
-      data += left + size300 + boldOn + (sale.customerName || 'CLIENTE').toUpperCase() + '\n' + boldOff
+      data += left + size300 + boldOn + clean(sale.customerName || 'CLIENTE').toUpperCase() + '\n' + boldOff
       data += size100 + `ID: ${sale.customerId}\n`
       data += line
       
       sale.items.forEach((item: any, idx: number) => {
         const indexStr = `${idx + 1}- `
-        data += indexStr + item.name.toUpperCase() + '\n'
+        data += indexStr + clean(item.name).toUpperCase() + '\n'
         
         const padding = ' '.repeat(indexStr.length)
         const qtyPrice = `${padding}${item.quantity} x S/ ${Number(item.price).toFixed(1)}`
@@ -275,18 +277,16 @@ export default function SalesHistory() {
         data += qtyPrice + ' '.repeat(spaces) + itemTotalStr + '\n'
         
         if (item.description) {
-          data += `${padding}(${item.description})\n`
+          data += `${padding}(${clean(item.description)})\n`
         }
       })
       
       data += line
       
-      // Totales Gigantes (300%): Cantidad Izquierda | Monto Derecha
       const totalQtyNum = (sale.items || []).reduce((acc: number, i: any) => acc + Number(i.quantity), 0)
       const totalAmtStr = `S/ ${Number(sale.total).toFixed(1)}`
       const totalQtyStr = `${totalQtyNum} UND`
       
-      // En 80mm a 3x (size300) hay aprox 16 columnas (48 / 3)
       const spacesTotal = Math.max(1, 16 - totalQtyStr.length - totalAmtStr.length)
       data += left + size300 + boldOn + totalQtyStr + ' '.repeat(spacesTotal) + totalAmtStr + '\n' + boldOff
       
@@ -412,9 +412,9 @@ export default function SalesHistory() {
                         </div>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:text-primary">
+                            <button className="h-10 w-10 flex items-center justify-center text-slate-300 hover:text-primary transition-all">
                               <MoreVertical className="w-4.5 h-4.5" />
-                            </Button>
+                            </button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="rounded-2xl p-2 w-48 shadow-2xl border-slate-300">
                             <DropdownMenuItem className="text-[10px] font-bold uppercase gap-3 p-3 rounded-xl" onClick={() => printTicket(s)}>
