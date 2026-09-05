@@ -1,4 +1,3 @@
-
 'use client';
 
 import { API_CONFIG } from '@/lib/api-config';
@@ -17,10 +16,8 @@ export async function uploadImageToDrive(base64Data: string, fileName: string): 
       if (match) mimeType = match[1];
     }
 
-    // Limpiar Base64 para Utilities.base64Decode de Google Apps Script
     const cleanBase64 = base64Data.includes(',') ? base64Data.split(',')[1] : base64Data;
 
-    console.log("Enviando imagen a Google Drive...");
     const response = await fetch(API_CONFIG.WEB_APP_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -33,16 +30,13 @@ export async function uploadImageToDrive(base64Data: string, fileName: string): 
     });
 
     const responseText = await response.text();
-    console.log("Respuesta cruda de Google (Imagen):", responseText);
-
     const result = JSON.parse(responseText);
     if (result.success && result.url) {
       return result.url;
     }
     
-    throw new Error(result.error || "Google Apps Script devolvió éxito pero sin URL válida.");
+    throw new Error(result.error || "Error en Drive");
   } catch (error: any) {
-    console.error("Error crítico en uploadImageToDrive:", error);
     throw error;
   }
 }
@@ -51,7 +45,6 @@ export async function syncCatalogToDrive(products: any[]): Promise<void> {
   if (!API_CONFIG.WEB_APP_URL || !Array.isArray(products)) return;
   
   try {
-    // Filtramos para no enviar Base64 al Sheet
     const cleanCatalog = products.map(p => {
       const imgs = (p.images || []).map((img: string) => {
         const s = String(img || "");
@@ -62,7 +55,7 @@ export async function syncCatalogToDrive(products: any[]): Promise<void> {
         name: p.name,
         category: p.category,
         collection: p.collection,
-        stock: p.stock,
+        stock: Number(p.stock || 0), // ENVÍO DE STOCK BLINDADO
         priceFardo: p.priceFardo,
         priceMayor: p.priceMayor,
         priceUnidad: p.priceUnidad,
@@ -71,7 +64,6 @@ export async function syncCatalogToDrive(products: any[]): Promise<void> {
       };
     });
 
-    console.log("Sincronizando catálogo con Google Sheets...");
     const response = await fetch(API_CONFIG.WEB_APP_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -87,7 +79,6 @@ export async function syncCatalogToDrive(products: any[]): Promise<void> {
       throw new Error(result.error || "Error en el script del Sheet");
     }
   } catch (error) {
-    console.error("Error al sincronizar catálogo:", error);
     throw error;
   }
 }
@@ -103,7 +94,6 @@ export async function getCatalogFromDrive(): Promise<any[]> {
     const result = await response.json();
     return Array.isArray(result) ? result : [];
   } catch (error) {
-    console.error("Error al obtener catálogo:", error);
     return [];
   }
 }
