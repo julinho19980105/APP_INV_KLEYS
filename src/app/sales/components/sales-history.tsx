@@ -245,13 +245,12 @@ export default function SalesHistory() {
       data += boldOn + size100 + (companySettings?.companyName || 'STILOSTACK').toUpperCase() + '\n' + boldOff
       data += line
       
-      // Header: BOLETA INTERNA (Izquierda) + ID (Derecha)
-      // Usamos 2x para "BOLETA INTERNA" y el ID
-      // En 80mm a 2x tenemos aprox 24 columnas.
-      const labelBI = "BOLETA"
+      // Header: BOLETA INTERNA (Izquierda 100%) + ID (Derecha 200%)
+      const labelBI = "BOLETA INTERNA"
       const idStr = sale.id
-      const spacesHeader = Math.max(1, 24 - labelBI.length - idStr.length)
-      data += left + size200 + boldOn + labelBI + ' '.repeat(spacesHeader) + idStr + '\n'
+      // Normal size (48 columns)
+      const spacesHeader = Math.max(1, 48 - labelBI.length - idStr.length)
+      data += left + size100 + boldOn + labelBI + ' '.repeat(spacesHeader) + idStr + '\n'
       
       // Fecha resumida debajo del ID (Derecha)
       const displayDate = sale.date ? format(new Date(sale.date + "T12:00:00"), "dd/MM/yy") : format(sale.createdAt?.toDate ? sale.createdAt.toDate() : new Date(), "dd/MM/yy");
@@ -282,12 +281,14 @@ export default function SalesHistory() {
       
       data += line
       
-      // Totales Gigantes (300%)
+      // Totales Gigantes (300%): Cantidad Izquierda | Monto Derecha
       const totalQtyNum = (sale.items || []).reduce((acc: number, i: any) => acc + Number(i.quantity), 0)
       const totalAmtStr = `S/ ${Number(sale.total).toFixed(1)}`
+      const totalQtyStr = `${totalQtyNum} UND`
       
-      data += left + size100 + `${totalQtyNum} UNIDADES TOTALES\n`
-      data += right + size300 + boldOn + totalAmtStr + '\n' + boldOff
+      // En 80mm a 3x (size300) hay aprox 16 columnas (48 / 3)
+      const spacesTotal = Math.max(1, 16 - totalQtyStr.length - totalAmtStr.length)
+      data += left + size300 + boldOn + totalQtyStr + ' '.repeat(spacesTotal) + totalAmtStr + '\n' + boldOff
       
       data += '\n' + center + size100 + "GRACIAS POR SU COMPRA\n"
       data += '\n\n\n\n'
