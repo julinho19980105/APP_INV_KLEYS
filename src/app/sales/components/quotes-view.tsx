@@ -632,7 +632,14 @@ export default function QuotesView() {
             {items.map((item, index) => (
               <div key={item.id} className="p-3 md:px-6 flex justify-between items-center group hover:bg-slate-50 transition-colors">
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium text-[12px] text-slate-800 uppercase truncate leading-tight">{index + 1}. {item.name}</div>
+                  <div className="flex items-center gap-2">
+                    <div className="font-medium text-[12px] text-slate-800 uppercase truncate leading-tight">{index + 1}. {item.name}</div>
+                    {item.productId && item.productId !== 'MANUAL' && (
+                      <Badge variant="outline" className="text-[7px] font-black h-3.5 px-1.5 border-primary/20 text-primary uppercase bg-primary/5 shrink-0">
+                        {item.productId}
+                      </Badge>
+                    )}
+                  </div>
                   <div className="flex items-center gap-2 mt-0.5">
                     <span className="text-[10px] font-black text-primary bg-primary/5 px-2 py-0.5 rounded">{item.quantity} UND</span>
                     <span className="text-[9px] font-normal text-slate-300">×</span>

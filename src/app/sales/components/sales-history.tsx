@@ -398,7 +398,14 @@ export default function SalesHistory() {
                            {s.items.map((item: any, idx: number) => (
                              <div key={idx} className="flex justify-between items-start py-2 border-b border-slate-200 last:border-0">
                                <div className="flex-1 min-w-0 pr-4">
-                                 <div className="text-[10px] font-black text-slate-800 uppercase truncate">{item.name}</div>
+                                 <div className="flex items-center gap-2 mb-0.5">
+                                   <div className="text-[10px] font-black text-slate-800 uppercase truncate">{item.name}</div>
+                                   {item.productId && item.productId !== 'MANUAL' && (
+                                     <Badge variant="outline" className="text-[7px] font-black h-3.5 px-1.5 border-primary/20 text-primary uppercase bg-primary/5 shrink-0">
+                                       {item.productId}
+                                     </Badge>
+                                   )}
+                                 </div>
                                  {item.description && <div className="text-[8px] font-medium text-slate-400 uppercase mt-0.5 line-clamp-1 italic">({item.description})</div>}
                                </div>
                                <div className="text-right shrink-0">
@@ -465,7 +472,20 @@ export default function SalesHistory() {
                     <tr key={idx} style={{ borderBottom: '1.5px solid #eee' }}>
                       <td style={{ padding: '25px 10px', textAlign: 'center', fontSize: '22px', fontWeight: 600 }}>{idx + 1}</td>
                       <td style={{ padding: '25px 10px' }}>
-                        <div style={{ fontSize: '24px', fontWeight: 700, textTransform: 'uppercase' }}>{item.name}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                          <div style={{ fontSize: '24px', fontWeight: 700, textTransform: 'uppercase' }}>{item.name}</div>
+                          {item.productId && item.productId !== 'MANUAL' && (
+                            <div style={{ 
+                              fontSize: '18px', 
+                              fontWeight: 800, 
+                              color: shareColor, 
+                              border: '2px solid ' + shareColor, 
+                              padding: '2px 10px', 
+                              borderRadius: '8px',
+                              backgroundColor: shareColor + '10'
+                            }}>{item.productId}</div>
+                          )}
+                        </div>
                         {item.description && <div style={{ fontSize: '20px', fontStyle: 'italic', marginTop: '8px', color: '#666' }}>({item.description})</div>}
                       </td>
                       <td style={{ padding: '25px 10px', textAlign: 'right', fontSize: '22px' }}>S/ {Number(item.price).toFixed(1)}</td>

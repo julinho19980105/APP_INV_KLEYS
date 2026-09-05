@@ -652,7 +652,11 @@ export default function QuotesPage() {
               <div className="flex justify-between items-start">
                 <div className="flex items-center gap-2">
                   <span className="font-black text-[13px] text-foreground uppercase tracking-tight">{index + 1}- {item.name}</span>
-                  <Badge variant="outline" className="text-[8px] font-black h-4 px-2 uppercase border-primary/10 text-primary">{item.productId}</Badge>
+                  {item.productId && item.productId !== 'MANUAL' && (
+                    <Badge variant="outline" className="text-[8px] font-black h-4 px-2 uppercase border-primary/10 text-primary">
+                      {item.productId}
+                    </Badge>
+                  )}
                 </div>
                 <div className="font-headline font-black text-base text-foreground">
                   S/ {((Number(item.price) * Number(item.quantity)) - Number(item.discount)).toFixed(1)}
