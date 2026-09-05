@@ -24,8 +24,6 @@ import {
   ChevronDown,
   Share2,
   TrendingUp,
-  Wallet,
-  Clock,
   CalendarDays,
   Filter,
   Truck
@@ -62,6 +60,7 @@ export default function SalesHistory() {
   const configDocRef = React.useMemo(() => db ? doc(db, "config", "global") : null, [db])
   const { data: companySettings } = useDoc(configDocRef)
   const brandColor = companySettings?.brandColor || "#0296FF"
+  const shareColor = "#3E35E9"
 
   const dateLimit = React.useMemo(() => {
     const now = new Date()
@@ -172,20 +171,18 @@ export default function SalesHistory() {
   const connectPrinter = async (saleToPrint?: any) => {
     try {
       if (!navigator.bluetooth) {
-        toast({ variant: "destructive", title: "BLUETOOTH NO SOPORTADO", description: "Use un navegador compatible (Chrome/Edge)." })
+        toast({ variant: "destructive", title: "BLUETOOTH NO SOPORTADO" })
         return null
       }
       
       const device = await navigator.bluetooth.requestDevice({
         filters: [
-          { services: ['000018f0-0000-1000-8000-00805f9b34fb'] },
-          { services: ['0000ff00-0000-1000-8000-00805f9b34fb'] }
+          { namePrefix: 'Printer' },
+          { namePrefix: 'Thermal' },
+          { namePrefix: 'MTP' },
+          { namePrefix: 'POS' }
         ],
-        optionalServices: [
-          '000018f0-0000-1000-8000-00805f9b34fb', 
-          '0000ff00-0000-1000-8000-00805f9b34fb',
-          '49535343-fe7d-4ae5-8fa9-9fafd205e455'
-        ]
+        optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb', '0000ff00-0000-1000-8000-00805f9b34fb']
       })
       
       const server = await device.gatt?.connect()
@@ -198,9 +195,7 @@ export default function SalesHistory() {
           if (char.properties.write || char.properties.writeWithoutResponse) {
             setPrinterChar(char)
             toast({ title: "IMPRESORA VINCULADA" })
-            if (saleToPrint) {
-              setTimeout(() => printTicket(saleToPrint, char), 800);
-            }
+            if (saleToPrint) setTimeout(() => printTicket(saleToPrint, char), 500);
             return char
           }
         }
@@ -215,7 +210,7 @@ export default function SalesHistory() {
   const printTicket = async (sale: any, existingChar?: any) => {
     let char = existingChar || printerChar;
     if (!char) {
-      char = await connectPrinter(sale)
+      await connectPrinter(sale)
       return
     }
 
@@ -241,44 +236,36 @@ export default function SalesHistory() {
       data += boldOn + size100 + clean(companySettings?.companyName || 'STILOSTACK').toUpperCase() + '\n' + boldOff
       data += line
       
-      const labelBI = "BOLETA INTERNA"
-      const idStr = sale.id
-      const spacesHeader = Math.max(1, 48 - labelBI.length - idStr.length)
-      data += left + size100 + boldOn + labelBI + ' '.repeat(spacesHeader) + idStr + '\n'
+      const labelB = "BOLETA INTERNA"
+      const idS = sale.id
+      const spacesH = Math.max(1, 48 - labelB.length - idS.length)
+      data += left + size100 + boldOn + labelB + ' '.repeat(spacesH) + idS + '\n'
       
-      const displayDate = sale.date ? format(new Date(sale.date + "T12:00:00"), "dd/MM/yy") : format(sale.createdAt?.toDate ? sale.createdAt.toDate() : new Date(), "dd/MM/yy");
-      data += right + size100 + displayDate + '\n' + boldOff
+      const dispD = sale.date ? format(new Date(sale.date + "T12:00:00"), "dd/MM/yy") : format(sale.createdAt?.toDate ? sale.createdAt.toDate() : new Date(), "dd/MM/yy");
+      data += right + size100 + dispD + '\n' + boldOff
       
       data += line
-      
       data += left + size300 + boldOn + clean(sale.customerName || 'CLIENTE').toUpperCase() + '\n' + boldOff
       data += size100 + `ID: ${sale.customerId}\n`
       data += line
       
       sale.items.forEach((item: any, idx: number) => {
-        const indexStr = `${idx + 1}- `
-        data += indexStr + clean(item.name).toUpperCase() + '\n'
-        
-        const padding = ' '.repeat(indexStr.length)
-        const qtyPrice = `${padding}${item.quantity} x S/ ${Number(item.price).toFixed(1)}`
-        const itemTotalStr = `S/ ${((Number(item.price) * Number(item.quantity)) - (Number(item.discount) || 0)).toFixed(1)}`
-        
-        const spaces = Math.max(1, 48 - qtyPrice.length - itemTotalStr.length)
-        data += qtyPrice + ' '.repeat(spaces) + itemTotalStr + '\n'
-        
-        if (item.description) {
-          data += `${padding}(${clean(item.description)})\n`
-        }
+        const idxS = `${idx + 1}- `
+        data += idxS + clean(item.name).toUpperCase() + '\n'
+        const pad = ' '.repeat(idxS.length)
+        const qP = `${pad}${item.quantity} x S/ ${Number(item.price).toFixed(1)}`
+        const iT = `S/ ${((Number(item.price) * Number(item.quantity)) - (Number(item.discount) || 0)).toFixed(1)}`
+        const sps = Math.max(1, 48 - qP.length - iT.length)
+        data += qP + ' '.repeat(sps) + iT + '\n'
+        if (item.description) data += `${pad}(${clean(item.description)})\n`
       })
       
       data += line
-      
-      const totalQtyNum = (sale.items || []).reduce((acc: number, i: any) => acc + Number(i.quantity), 0)
-      const totalAmtStr = `S/ ${Number(sale.total).toFixed(1)}`
-      const totalQtyStr = `${totalQtyNum} UND`
-      
-      const spacesTotal = Math.max(1, 16 - totalQtyStr.length - totalAmtStr.length)
-      data += left + size300 + boldOn + totalQtyStr + ' '.repeat(spacesTotal) + totalAmtStr + '\n' + boldOff
+      const tQN = (sale.items || []).reduce((acc: number, i: any) => acc + Number(i.quantity), 0)
+      const tAS = `S/ ${Number(sale.total).toFixed(1)}`
+      const tQS = `${tQN} UND`
+      const spsT = Math.max(1, 16 - tQS.length - tAS.length)
+      data += left + size300 + boldOn + tQS + ' '.repeat(spsT) + tAS + '\n' + boldOff
       
       data += '\n' + center + size100 + "GRACIAS POR SU COMPRA\n"
       data += '\n\n\n\n'
@@ -464,185 +451,141 @@ export default function SalesHistory() {
             </div>
           </div>
         ))}
-
-        {!loading && groupedSales.length > 0 && (
-          <div className="flex justify-center pt-4 pb-8">
-            <Button 
-              variant="ghost" 
-              className="h-10 rounded-xl font-bold text-[9px] uppercase tracking-widest text-slate-400"
-              onClick={() => setDaysLimit(prev => prev + 15)}
-            >
-              <ChevronDown className="w-4 h-4 mr-2" /> CARGAR MÁS REGISTROS
-            </Button>
-          </div>
-        )}
       </div>
 
       {activeReceipt && (
         <div className="fixed -left-[9999px] top-0">
           <div ref={receiptRef} style={{
-            width: '794px', // A4 Width at 96 DPI
+            width: '794px', 
             background: '#ffffff',
-            padding: '40px',
+            padding: '0',
             fontFamily: 'Arial, sans-serif',
             color: '#000000',
             boxSizing: 'border-box'
           }}>
-            <div style={{
-              border: '3px solid #000000',
-              borderRadius: '12px',
-              overflow: 'hidden',
-              backgroundColor: '#ffffff'
-            }}>
-              {/* CABECERA INDUSTRIAL (FUENTES +30%) */}
-              <div style={{
-                padding: '40px 50px',
-                borderBottom: '3px solid #000000',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center'
-              }}>
-                <div>
-                  <div style={{ fontSize: '46px', fontWeight: 800, lineHeight: 1, letterSpacing: '-1.5px' }}>
-                    {companySettings?.companyName || 'KLEYS KIDS'}
-                  </div>
-                  <div style={{ marginTop: '12px', fontSize: '18px', fontWeight: 700, letterSpacing: '1.5px', color: '#666' }}>
-                    BOLETA INTERNA
-                  </div>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: '42px', fontWeight: 800, lineHeight: 1 }}>
-                    {activeReceipt.id}
-                  </div>
-                  <div style={{ marginTop: '12px', fontSize: '15px', fontWeight: 700, letterSpacing: '1px' }}>
-                    N.º DE BOLETA
-                  </div>
-                </div>
-              </div>
-
-              {/* INFORMACIÓN CLIENTE / FECHA (FUENTES +30%) */}
-              <div style={{
-                padding: '40px 50px',
-                display: 'grid',
-                gridTemplateColumns: '1fr auto',
-                gap: '40px'
-              }}>
-                <div>
-                  <div style={{ marginBottom: '12px', fontSize: '18px', fontWeight: 700, textTransform: 'uppercase', color: '#444' }}>
-                    Cliente
-                  </div>
-                  <div style={{ fontSize: '38px', fontWeight: 700, lineHeight: 1.1 }}>
-                    {activeReceipt.customerName}
-                  </div>
-                  <div style={{ marginTop: '10px', fontSize: '20px', fontWeight: 400, color: '#666' }}>
-                    {activeReceipt.customerId}
-                  </div>
-                </div>
-                
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ marginBottom: '12px', fontSize: '18px', fontWeight: 700, textTransform: 'uppercase', color: '#444' }}>
-                    Fecha
-                  </div>
-                  <div style={{ fontSize: '28px', fontWeight: 700 }}>
-                    {activeReceipt.date ? 
-                      format(new Date(activeReceipt.date + "T12:00:00"), "dd/MM/yyyy") :
-                      format(activeReceipt.createdAt?.toDate ? activeReceipt.createdAt.toDate() : new Date(), "dd/MM/yyyy")
-                    }
-                  </div>
-                </div>
-              </div>
-
-              {/* TABLA PRODUCTOS (FUENTES +30%) */}
-              <div style={{ padding: '0 50px' }}>
-                <div style={{
-                  padding: '20px 25px',
-                  backgroundColor: '#64ABB9',
-                  color: '#ffffff',
-                  fontSize: '20px',
-                  fontWeight: 800,
+            {/* HEADER INDUSTRIAL CON LINEAS */}
+            <div style={{ padding: '60px 40px 40px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                <div style={{ flex: 1, height: '4px', backgroundColor: shareColor }}></div>
+                <div style={{ 
+                  fontSize: '48px', 
+                  fontWeight: 800, 
+                  color: shareColor, 
                   textTransform: 'uppercase',
-                  borderRadius: '12px 12px 0 0',
-                  letterSpacing: '1px'
+                  letterSpacing: '2px'
                 }}>
-                  Detalle de productos
+                  {companySettings?.companyName || 'KLEYS KIDS'}
                 </div>
-                <table style={{
-                  width: '100%',
-                  borderCollapse: 'collapse',
-                  border: '2.5px solid #000000',
-                  borderTop: 'none'
-                }}>
-                  <thead>
-                    <tr style={{ borderBottom: '2.5px solid #000000' }}>
-                      <th style={{ padding: '18px 12px', fontSize: '18px', fontWeight: 800, textAlign: 'center', width: '60px' }}>N.º</th>
-                      <th style={{ padding: '18px 12px', fontSize: '18px', fontWeight: 800, textAlign: 'left' }}>Producto</th>
-                      <th style={{ padding: '18px 12px', fontSize: '18px', fontWeight: 800, textAlign: 'right', width: '110px' }}>P.U.</th>
-                      <th style={{ padding: '18px 12px', fontSize: '18px', fontWeight: 800, textAlign: 'right', width: '90px' }}>Cant.</th>
-                      <th style={{ padding: '18px 12px', fontSize: '18px', fontWeight: 800, textAlign: 'right', width: '140px' }}>Total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {activeReceipt.items.map((item: any, idx: number) => (
-                      <tr key={idx} style={{ borderBottom: '1.5px solid #000000' }}>
-                        <td style={{ padding: '22px 12px', fontSize: '20px', fontWeight: 700, textAlign: 'center' }}>{idx + 1}</td>
-                        <td style={{ padding: '22px 12px' }}>
-                          <div style={{ fontSize: '20px', fontWeight: 700, textTransform: 'uppercase' }}>{item.name}</div>
-                          {item.description && (
-                            <div style={{ marginTop: '8px', fontSize: '18px', fontWeight: 400, color: '#333' }}>{item.description}</div>
-                          )}
-                        </td>
-                        <td style={{ padding: '22px 12px', fontSize: '20px', fontWeight: 500, textAlign: 'right' }}>
-                           S/ {Number(item.price).toFixed(2)}
-                        </td>
-                        <td style={{ padding: '22px 12px', fontSize: '20px', fontWeight: 700, textAlign: 'right' }}>{item.quantity}</td>
-                        <td style={{ padding: '22px 12px', fontSize: '20px', fontWeight: 800, textAlign: 'right', whiteSpace: 'nowrap' }}>
-                          S/ {((Number(item.price) * Number(item.quantity)) - (Number(item.discount) || 0)).toFixed(2)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div style={{ flex: 1, height: '4px', backgroundColor: shareColor }}></div>
               </div>
+            </div>
 
-              {/* RESUMEN FINAL (FUENTES +30%) */}
+            {/* INFO CLIENTE Y BOLETA */}
+            <div style={{
+              padding: '0 50px 40px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'flex-start'
+            }}>
+              <div>
+                <div style={{ fontSize: '14px', fontWeight: 700, textTransform: 'uppercase', color: '#666', marginBottom: '8px' }}>
+                  CLIENTE:
+                </div>
+                <div style={{ fontSize: '38px', fontWeight: 800, textTransform: 'uppercase', lineHeight: 1.1 }}>
+                  {activeReceipt.customerName}
+                </div>
+                <div style={{ fontSize: '18px', fontWeight: 400, color: '#999', marginTop: '5px' }}>
+                  {activeReceipt.customerId}
+                </div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ 
+                  fontSize: '42px', 
+                  fontWeight: 800, 
+                  color: shareColor, 
+                  lineHeight: 1 
+                }}>
+                  {activeReceipt.id.replace('B-', 'COT-')}
+                </div>
+                <div style={{ fontSize: '20px', fontWeight: 600, color: '#333', marginTop: '8px' }}>
+                  {activeReceipt.date ? 
+                    format(new Date(activeReceipt.date + "T12:00:00"), "dd-MM-yyyy") :
+                    format(activeReceipt.createdAt?.toDate ? activeReceipt.createdAt.toDate() : new Date(), "dd-MM-yyyy")
+                  }
+                </div>
+              </div>
+            </div>
+
+            {/* TABLA DE PRODUCTOS */}
+            <div style={{ padding: '0 50px' }}>
               <div style={{
-                margin: '50px 50px 0',
-                padding: '40px 0',
-                borderTop: '3px solid #000000',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'flex-end'
+                backgroundColor: shareColor,
+                color: '#ffffff',
+                padding: '18px 25px',
+                fontSize: '16px',
+                fontWeight: 800,
+                textTransform: 'uppercase',
+                borderRadius: '15px 15px 0 0',
+                display: 'flex'
               }}>
-                <div>
-                  <div style={{ fontSize: '18px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px' }}>
-                    Cantidad total
-                  </div>
-                  <div style={{ fontSize: '48px', fontWeight: 800, marginTop: '10px' }}>
-                    {activeReceipt.items.reduce((acc: number, i: any) => acc + Number(i.quantity), 0)} <span style={{ fontSize: '24px' }}>UND</span>
-                  </div>
+                <div style={{ width: '60px' }}>N</div>
+                <div style={{ flex: 1 }}>NOMBRE</div>
+                <div style={{ width: '100px', textAlign: 'right' }}>P.U.</div>
+                <div style={{ width: '100px', textAlign: 'right' }}>CANT</div>
+                <div style={{ width: '150px', textAlign: 'right' }}>SUB. TOTAL</div>
+              </div>
+              <table style={{
+                width: '100%',
+                borderCollapse: 'collapse',
+                border: '1.5px solid #000000',
+                borderTop: 'none',
+                borderRadius: '0 0 15px 15px',
+                overflow: 'hidden'
+              }}>
+                <tbody>
+                  {activeReceipt.items.map((item: any, idx: number) => (
+                    <tr key={idx} style={{ borderBottom: '1.5px solid #000000' }}>
+                      <td style={{ padding: '25px 12px', fontSize: '20px', fontWeight: 600, textAlign: 'center', width: '60px', borderRight: '1.5px solid #000' }}>{idx + 1}</td>
+                      <td style={{ padding: '25px 20px', borderRight: '1.5px solid #000' }}>
+                        <div style={{ fontSize: '20px', fontWeight: 700, textTransform: 'uppercase' }}>{item.name}</div>
+                        {item.description && (
+                          <div style={{ marginTop: '8px', fontSize: '18px', fontWeight: 400, color: '#444', fontStyle: 'italic' }}>-- ({item.description})</div>
+                        )}
+                      </td>
+                      <td style={{ padding: '25px 12px', fontSize: '20px', fontWeight: 500, textAlign: 'right', width: '100px', borderRight: '1.5px solid #000' }}>
+                         {Number(item.price).toFixed(1)}
+                      </td>
+                      <td style={{ padding: '25px 12px', fontSize: '20px', fontWeight: 700, textAlign: 'right', width: '100px', borderRight: '1.5px solid #000' }}>{item.quantity}</td>
+                      <td style={{ padding: '25px 20px', fontSize: '20px', fontWeight: 600, textAlign: 'right', width: '150px' }}>
+                        {((Number(item.price) * Number(item.quantity)) - (Number(item.discount) || 0)).toFixed(1)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* SEPARADOR Y TOTALES */}
+            <div style={{ padding: '80px 50px 100px' }}>
+              <div style={{ height: '3px', backgroundColor: '#000000', marginBottom: '60px' }}></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                <div style={{ fontSize: '36px', fontWeight: 800, textTransform: 'uppercase' }}>
+                  {activeReceipt.items.reduce((acc: number, i: any) => acc + Number(i.quantity), 0)} UNIDADES
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: '20px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px' }}>
-                    Saldo total
+                  <div style={{ fontSize: '24px', fontWeight: 800, color: shareColor, textTransform: 'uppercase', marginBottom: '10px' }}>
+                    TOTAL:
                   </div>
-                  <div style={{ fontSize: '74px', fontWeight: 800, color: '#64ABB9', letterSpacing: '-3px', lineHeight: 1, marginTop: '10px' }}>
-                    S/ {Number(activeReceipt.total).toFixed(2)}
+                  <div style={{ 
+                    fontSize: '96px', 
+                    fontWeight: 500, 
+                    color: shareColor, 
+                    lineHeight: 0.8,
+                    letterSpacing: '-2px'
+                  }}>
+                    S/. {Number(activeReceipt.total).toFixed(1)}
                   </div>
                 </div>
-              </div>
-
-              {/* PIE (FUENTES +30%) */}
-              <div style={{
-                margin: '0 50px',
-                padding: '25px 0 40px',
-                borderTop: '1.5px solid #000000',
-                textAlign: 'center',
-                fontSize: '16px',
-                fontWeight: 600,
-                letterSpacing: '1px',
-                textTransform: 'uppercase'
-              }}>
-                {companySettings?.companyName || 'KLEYS KIDS'} · BOLETA INTERNA
               </div>
             </div>
           </div>
