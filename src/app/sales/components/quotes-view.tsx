@@ -162,8 +162,7 @@ export default function QuotesView() {
           setSelectedCustomer(parsed.selectedCustomer);
           setItems(parsed.items);
           setQuoteId(parsed.quoteId);
-          // Solo restauramos la fecha del borrador si es de hoy, de lo contrario forzamos hoy
-          if (parsed.selectedDate && parsed.selectedDate === getTodayStr()) {
+          if (parsed.selectedDate) {
             setSelectedDate(parsed.selectedDate);
           } else {
             setSelectedDate(getTodayStr());
@@ -395,7 +394,6 @@ export default function QuotesView() {
       setCurrentEntry(EMPTY_ENTRY);
       setCustomerQuery("");
       setProductQuery("");
-      setSelectedDate(getTodayStr());
 
       toast({ title: editId ? "VENTA ACTUALIZADA" : "VENTA REGISTRADA" })
       router.push('/sales?tab=history')
@@ -420,7 +418,6 @@ export default function QuotesView() {
 
   return (
     <div className="space-y-1.5 animate-in fade-in slide-in-from-bottom-2 duration-700">
-      {/* Fila Fecha y Código */}
       <div className="flex gap-2 w-full">
         <div className="flex-1">
           <input 
@@ -435,7 +432,6 @@ export default function QuotesView() {
         </div>
       </div>
 
-      {/* Selector Cliente */}
       <div className="relative z-[40]">
         <div className="relative flex gap-2">
           <div className="relative flex-1">
@@ -469,7 +465,6 @@ export default function QuotesView() {
         </div>
       </div>
 
-      {/* Registro Maestro ERP */}
       <Card className="rounded-2xl border border-slate-400 shadow-[0_4px_20px_rgb(0,0,0,0.03)] bg-white overflow-visible">
         <div className="bg-[#1e293b] py-2 px-6 flex justify-between items-center rounded-t-2xl">
           <div className="flex items-center gap-2">
@@ -627,7 +622,6 @@ export default function QuotesView() {
         </CardContent>
       </Card>
 
-      {/* Resumen de Lista */}
       {items.length > 0 && (
         <Card className="rounded-2xl border border-slate-400 shadow-sm bg-white overflow-hidden">
           <div className="bg-slate-50 p-2.5 px-6 border-b border-slate-100 flex justify-between items-center">
@@ -672,7 +666,6 @@ export default function QuotesView() {
         </Card>
       )}
 
-      {/* Totales y Acciones Finales */}
       <div className="bg-white rounded-2xl border border-slate-400 shadow-lg p-5 space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-0.5">
@@ -707,7 +700,6 @@ export default function QuotesView() {
         </div>
       </div>
 
-      {/* Calculadora de Series */}
       <Dialog open={isCalcOpen} onOpenChange={setIsCalcOpen}>
         <DialogContent className="rounded-[2rem] border-none shadow-2xl max-w-[320px] p-8 bg-white z-[60]">
           <DialogHeader><DialogTitle className="text-[10px] font-black uppercase text-center tracking-widest text-primary mb-4">Cálculo Logístico</DialogTitle></DialogHeader>
@@ -725,7 +717,6 @@ export default function QuotesView() {
         </DialogContent>
       </Dialog>
 
-      {/* Zoom Imagen */}
       <Dialog open={!!zoomImage} onOpenChange={() => setZoomImage(null)}>
         <DialogContent className="max-w-[95vw] md:max-w-4xl p-0 border-none bg-transparent shadow-none z-[70]">
           <DialogHeader className="sr-only"><DialogTitle>Vista de Prenda</DialogTitle></DialogHeader>

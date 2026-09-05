@@ -143,18 +143,17 @@ export default function QuotesPage() {
   const { data: dbProducts = [] } = useCollection(productsRef)
   const { data: dbCustomers = [] } = useCollection(customersRef)
 
-  // Protección contra pérdida de datos
   React.useEffect(() => {
     const hasUnsavedChanges = items.length > 0 || selectedCustomer !== null;
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (hasUnsavedChanges) {
+      if (hasUnsavedChanges && !saving) {
         e.preventDefault();
         e.returnValue = '';
       }
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [items, selectedCustomer]);
+  }, [items, selectedCustomer, saving]);
 
   React.useEffect(() => {
     if (typeof window !== "undefined" && !editId) {
@@ -165,7 +164,7 @@ export default function QuotesPage() {
           setSelectedCustomer(parsed.selectedCustomer);
           setItems(parsed.items);
           setQuoteId(parsed.quoteId);
-          if (parsed.selectedDate && parsed.selectedDate === getTodayStr()) {
+          if (parsed.selectedDate) {
             setSelectedDate(parsed.selectedDate);
           } else {
             setSelectedDate(getTodayStr());
@@ -383,7 +382,6 @@ export default function QuotesPage() {
         localStorage.removeItem(STORAGE_KEY);
       }
       toast({ title: editId ? "VENTA ACTUALIZADA" : "VENTA REGISTRADA" })
-      setSelectedDate(getTodayStr());
       router.push('/sales')
     } catch (e) {
       toast({ variant: "destructive", title: "ERROR AL GUARDAR" })
@@ -436,7 +434,6 @@ export default function QuotesPage() {
         </div>
       </div>
 
-      {/* Selector Cliente */}
       <div className="space-y-1">
         <Label className="text-[10px] uppercase text-foreground font-black ml-1 tracking-widest text-primary">CLIENTE</Label>
         <div className="relative flex gap-2">
@@ -469,7 +466,6 @@ export default function QuotesPage() {
         </div>
       </div>
 
-      {/* Buscador Productos */}
       <div className="space-y-1">
         <Label className="text-[10px] uppercase font-black text-foreground ml-1 tracking-widest text-primary">BUSCAR PRENDA</Label>
         <div className="relative">
@@ -517,7 +513,6 @@ export default function QuotesPage() {
         </div>
       </div>
 
-      {/* Formulario Entrada */}
       <Card className="rounded-[2rem] border-2 border-primary/20 bg-white overflow-hidden shadow-2xl">
         <div className="bg-primary/5 border-b border-primary/10 py-4 px-6 flex justify-between items-center">
           <div className="flex flex-col flex-1">
@@ -645,7 +640,6 @@ export default function QuotesPage() {
         </CardContent>
       </Card>
 
-      {/* Resumen */}
       <Card className="rounded-[2.5rem] border border-primary/10 shadow-sm bg-white overflow-hidden">
         <div className="bg-primary/5 border-b border-primary/10 py-4 px-8">
           <span className="text-[11px] font-black uppercase text-primary tracking-widest">RESUMEN DE COTIZACIÓN</span>
@@ -698,7 +692,6 @@ export default function QuotesPage() {
         </div>
       </Card>
 
-      {/* Totales y Guardar */}
       <div className="border-b-4 border-primary pb-8 pt-8">
         <div className="flex flex-row justify-between items-center gap-4">
           <div className="flex-1 space-y-1">
@@ -733,7 +726,6 @@ export default function QuotesPage() {
         </div>
       </div>
 
-      {/* Calculadora */}
       <Dialog open={isCalcOpen} onOpenChange={setIsCalcOpen}>
         <DialogContent className="rounded-[2.5rem] border-none shadow-2xl max-w-[320px] p-8">
           <DialogHeader><DialogTitle className="text-xs font-black text-foreground uppercase tracking-[0.2em] text-center">Cálculo de Series</DialogTitle></DialogHeader>
