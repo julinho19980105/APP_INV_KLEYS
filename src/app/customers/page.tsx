@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -190,7 +189,7 @@ export default function CustomersHubPage() {
                   <div className={cn("flex items-center gap-2 shrink-0 font-bold text-[11px] uppercase tracking-wider", section.color)}>
                      <section.icon className="w-4 h-4" />
                      <span>{sIdx + 1}. {section.title}</span>
-                     {sIdx < 3 && <span className="ml-1 opacity-70">(S/ {sectionTotal.toFixed(1)})</span>}
+                     {sIdx < 3 && <span className="ml-1 opacity-70">({section.data.length} CLIENTAS • S/ {sectionTotal.toFixed(1)})</span>}
                   </div>
                   <div className={cn("flex-1 h-[1px] ml-2", section.lineColor)} />
                 </div>

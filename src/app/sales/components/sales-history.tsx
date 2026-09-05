@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -239,21 +238,27 @@ export default function SalesHistory() {
       const boldOn = '\x1B\x45\x01'
       const boldOff = '\x1B\x45\x00'
       const size100 = '\x1D\x21\x00' 
+      const size200 = '\x1D\x21\x11'
       const size300 = '\x1D\x21\x22' 
       const line = '------------------------------------------------\n' 
+      
       let data = init + center
-      data += boldOn + size100 + clean(companySettings?.companyName || 'STILOSTACK').toUpperCase() + '\n' + boldOff
+      data += boldOn + size100 + clean(companySettings?.companyName || 'KLEYS KIDS').toUpperCase() + '\n' + boldOff
       data += line
+      
       const labelB = "BOLETA INTERNA"
       const idS = sale.id
       const spacesH = Math.max(1, 48 - labelB.length - idS.length)
       data += left + size100 + labelB + ' '.repeat(spacesH) + idS + '\n'
+      
       const dispD = sale.date ? format(new Date(sale.date + "T12:00:00"), "dd/MM/yy") : format(sale.createdAt?.toDate ? sale.createdAt.toDate() : new Date(), "dd/MM/yy");
       data += right + size100 + dispD + '\n' + boldOff
       data += line
+      
       data += left + size300 + boldOn + clean(sale.customerName || 'CLIENTE').toUpperCase() + '\n' + boldOff
       data += size100 + `ID: ${sale.customerId}\n`
       data += line
+      
       sale.items.forEach((item: any, idx: number) => {
         const idxS = `${idx + 1}- `
         data += idxS + clean(item.name).toUpperCase() + '\n'
@@ -265,13 +270,16 @@ export default function SalesHistory() {
         if (item.description) data += `${pad}(${clean(item.description)})\n`
       })
       data += line
+      
       const tQN = (sale.items || []).reduce((acc: number, i: any) => acc + Number(i.quantity), 0)
       const tAS = `S/ ${Number(sale.total).toFixed(1)}`
       const tQS = `${tQN} UND`
       const spsT = Math.max(1, 48 - tQS.length - tAS.length)
       data += left + size300 + boldOn + tQS + ' '.repeat(spsT) + tAS + '\n' + boldOff
+      
       data += '\n' + center + size100 + "GRACIAS POR SU COMPRA\n"
       data += '\n\n\n\n'
+      
       const buffer = encoder.encode(data)
       for (let i = 0; i < buffer.length; i += 20) {
         await char.writeValue(buffer.slice(i, i + 20))
@@ -421,54 +429,48 @@ export default function SalesHistory() {
             boxSizing: 'border-box'
           }}>
             {/* CABECERA INDUSTRIAL */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '3px solid #000', paddingBottom: '30px', marginBottom: '30px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '4px solid ' + shareColor, paddingBottom: '30px', marginBottom: '30px' }}>
               <div>
-                <div style={{ fontSize: '40px', fontWeight: 800, color: '#000', textTransform: 'uppercase', letterSpacing: '-1px' }}>{companySettings?.companyName || 'KLEYS KIDS'}</div>
-                <div style={{ fontSize: '17px', fontWeight: 600, color: '#000', marginTop: '5px', letterSpacing: '1px' }}>BOLETA INTERNA</div>
+                <div style={{ fontSize: '52px', fontWeight: 800, color: '#000', textTransform: 'uppercase', letterSpacing: '-1.5px' }}>{companySettings?.companyName || 'KLEYS KIDS'}</div>
+                <div style={{ fontSize: '22px', fontWeight: 600, color: '#000', marginTop: '8px', letterSpacing: '1px' }}>BOLETA INTERNA</div>
               </div>
               <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: '35px', fontWeight: 800, color: '#000' }}>{activeReceipt.id.replace('B-', 'COT-')}</div>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: '#000', marginTop: '5px' }}>N.º DE BOLETA</div>
+                <div style={{ fontSize: '46px', fontWeight: 800, color: shareColor }}>{activeReceipt.id.replace('B-', 'COT-')}</div>
+                <div style={{ fontSize: '18px', fontWeight: 600, color: '#000', marginTop: '5px' }}>FECHA: {activeReceipt.date ? format(new Date(activeReceipt.date + "T12:00:00"), "dd/MM/yy") : format(activeReceipt.createdAt?.toDate ? activeReceipt.createdAt.toDate() : new Date(), "dd/MM/yy")}</div>
               </div>
             </div>
 
             {/* INFO CLIENTE */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 220px', gap: '35px', marginBottom: '40px' }}>
-              <div>
-                <div style={{ fontSize: '16px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '10px' }}>Cliente</div>
-                <div style={{ fontSize: '32px', fontWeight: 700, textTransform: 'uppercase', lineHeight: 1.15 }}>{activeReceipt.customerName}</div>
-                <div style={{ fontSize: '17px', fontWeight: 400, marginTop: '8px' }}>{activeReceipt.customerId}</div>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: '16px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '10px' }}>Fecha</div>
-                <div style={{ fontSize: '24px', fontWeight: 600 }}>{activeReceipt.date ? format(new Date(activeReceipt.date + "T12:00:00"), "dd/MM/yyyy") : format(activeReceipt.createdAt?.toDate ? activeReceipt.createdAt.toDate() : new Date(), "dd/MM/yyyy")}</div>
-              </div>
+            <div style={{ marginBottom: '45px', padding: '0 10px' }}>
+              <div style={{ fontSize: '18px', fontWeight: 700, textTransform: 'uppercase', color: '#666', marginBottom: '8px' }}>Cliente Registrado</div>
+              <div style={{ fontSize: '42px', fontWeight: 800, textTransform: 'uppercase', lineHeight: 1.1, color: '#000' }}>{activeReceipt.customerName}</div>
+              <div style={{ fontSize: '20px', fontWeight: 500, marginTop: '8px', color: '#888' }}>ID: {activeReceipt.customerId}</div>
             </div>
 
             {/* TABLA DE PRODUCTOS */}
-            <div style={{ marginBottom: '40px' }}>
-              <div style={{ backgroundColor: shareColor, color: '#fff', padding: '16px 20px', fontSize: '17px', fontWeight: 700, textTransform: 'uppercase', borderRadius: '10px 10px 0 0' }}>Detalle de productos</div>
-              <table style={{ width: '100%', borderCollapse: 'collapse', border: '2px solid #000', borderTop: 'none' }}>
+            <div style={{ marginBottom: '45px' }}>
+              <div style={{ backgroundColor: shareColor, color: '#fff', padding: '20px 25px', fontSize: '22px', fontWeight: 700, textTransform: 'uppercase', borderRadius: '15px 15px 0 0' }}>Detalle de Pedido</div>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
-                  <tr style={{ borderBottom: '2px solid #000' }}>
-                    <th style={{ padding: '15px 10px', textAlign: 'center', fontSize: '16px', width: '60px' }}>N.º</th>
-                    <th style={{ padding: '15px 10px', textAlign: 'left', fontSize: '16px' }}>Producto</th>
-                    <th style={{ padding: '15px 10px', textAlign: 'right', fontSize: '16px', width: '120px' }}>P.U.</th>
-                    <th style={{ padding: '15px 10px', textAlign: 'right', fontSize: '16px', width: '90px' }}>Cant.</th>
-                    <th style={{ padding: '15px 10px', textAlign: 'right', fontSize: '16px', width: '130px' }}>Total</th>
+                  <tr style={{ borderBottom: '3px solid #000' }}>
+                    <th style={{ padding: '20px 10px', textAlign: 'center', fontSize: '18px', width: '60px' }}>N.º</th>
+                    <th style={{ padding: '20px 10px', textAlign: 'left', fontSize: '18px' }}>Descripción de Prenda</th>
+                    <th style={{ padding: '20px 10px', textAlign: 'right', fontSize: '18px', width: '140px' }}>P. Unit</th>
+                    <th style={{ padding: '20px 10px', textAlign: 'right', fontSize: '18px', width: '100px' }}>Cant.</th>
+                    <th style={{ padding: '20px 10px', textAlign: 'right', fontSize: '18px', width: '160px' }}>Subtotal</th>
                   </tr>
                 </thead>
                 <tbody>
                   {activeReceipt.items.map((item: any, idx: number) => (
-                    <tr key={idx} style={{ borderBottom: '1.5px solid #000' }}>
-                      <td style={{ padding: '20px 10px', textAlign: 'center', fontSize: '18px', fontWeight: 600 }}>{idx + 1}</td>
-                      <td style={{ padding: '20px 10px' }}>
-                        <div style={{ fontSize: '18px', fontWeight: 700, textTransform: 'uppercase' }}>{item.name}</div>
-                        {item.description && <div style={{ fontSize: '16px', fontStyle: 'italic', marginTop: '5px' }}>({item.description})</div>}
+                    <tr key={idx} style={{ borderBottom: '1.5px solid #eee' }}>
+                      <td style={{ padding: '25px 10px', textAlign: 'center', fontSize: '22px', fontWeight: 600 }}>{idx + 1}</td>
+                      <td style={{ padding: '25px 10px' }}>
+                        <div style={{ fontSize: '24px', fontWeight: 700, textTransform: 'uppercase' }}>{item.name}</div>
+                        {item.description && <div style={{ fontSize: '20px', fontStyle: 'italic', marginTop: '8px', color: '#666' }}>({item.description})</div>}
                       </td>
-                      <td style={{ padding: '20px 10px', textAlign: 'right', fontSize: '18px' }}>S/ {Number(item.price).toFixed(1)}</td>
-                      <td style={{ padding: '20px 10px', textAlign: 'right', fontSize: '18px', fontWeight: 600 }}>{item.quantity}</td>
-                      <td style={{ padding: '20px 10px', textAlign: 'right', fontSize: '18px', fontWeight: 700 }}>S/ {((Number(item.price) * Number(item.quantity)) - (Number(item.discount) || 0)).toFixed(1)}</td>
+                      <td style={{ padding: '25px 10px', textAlign: 'right', fontSize: '22px' }}>S/ {Number(item.price).toFixed(1)}</td>
+                      <td style={{ padding: '25px 10px', textAlign: 'right', fontSize: '22px', fontWeight: 700 }}>{item.quantity}</td>
+                      <td style={{ padding: '25px 10px', textAlign: 'right', fontSize: '22px', fontWeight: 800 }}>S/ {((Number(item.price) * Number(item.quantity)) - (Number(item.discount) || 0)).toFixed(1)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -476,14 +478,14 @@ export default function SalesHistory() {
             </div>
 
             {/* TOTALES */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderTop: '3px solid #000', paddingTop: '40px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderTop: '4px solid #000', paddingTop: '45px' }}>
               <div>
-                <div style={{ fontSize: '16px', fontWeight: 700, textTransform: 'uppercase' }}>Cantidad total</div>
-                <div style={{ fontSize: '38px', fontWeight: 700, marginTop: '10px' }}>{activeReceipt.items.reduce((acc: number, i: any) => acc + Number(i.quantity), 0)} UND</div>
+                <div style={{ fontSize: '20px', fontWeight: 700, textTransform: 'uppercase', color: '#666' }}>Unidades Totales</div>
+                <div style={{ fontSize: '48px', fontWeight: 800, marginTop: '10px' }}>{activeReceipt.items.reduce((acc: number, i: any) => acc + Number(i.quantity), 0)} UND</div>
               </div>
               <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: '18px', fontWeight: 700, textTransform: 'uppercase' }}>Saldo total</div>
-                <div style={{ fontSize: '74px', fontWeight: 500, color: shareColor, lineHeight: 1, letterSpacing: '-2px' }}>S/ {Number(activeReceipt.total).toFixed(1)}</div>
+                <div style={{ fontSize: '22px', fontWeight: 700, textTransform: 'uppercase', color: shareColor }}>Monto Total a Pagar</div>
+                <div style={{ fontSize: '96px', fontWeight: 800, color: shareColor, lineHeight: 1, letterSpacing: '-3px' }}>S/ {Number(activeReceipt.total).toFixed(1)}</div>
               </div>
             </div>
           </div>
