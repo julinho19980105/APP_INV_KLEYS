@@ -39,8 +39,7 @@ import {
   getDocs, 
   limit, 
   addDoc,
-  updateDoc,
-  increment
+  updateDoc
 } from "firebase/firestore"
 import { uploadImageToDrive } from "@/services/sheets-service"
 import { 
@@ -144,7 +143,7 @@ export default function RegistryPage() {
         category: editingProduct.category || "",
         collection: editingProduct.collection || "",
         description: editingProduct.description || "",
-        stock: (editingProduct.baseStock !== undefined ? editingProduct.baseStock : (editingProduct.stock || 0)).toString(),
+        stock: (editingProduct.stock || 0).toString(),
         priceFardo: editingProduct.priceFardo?.toString() || "",
         priceMayor: editingProduct.priceMayor?.toString() || "",
         priceUnidad: editingProduct.priceUnidad?.toString() || "",
@@ -167,7 +166,7 @@ export default function RegistryPage() {
     const productCode = nextId.toUpperCase()
     try {
       const isNew = !editId;
-      const inputBaseStock = Number(form.stock);
+      const inputStockValue = Number(form.stock);
       
       if (isNew) {
         const productData = {
@@ -176,8 +175,7 @@ export default function RegistryPage() {
           category: (form.category || "").toUpperCase(),
           collection: (form.collection || "").toUpperCase(),
           description: form.description,
-          stock: inputBaseStock,
-          baseStock: inputBaseStock,
+          stock: inputStockValue,
           priceFardo: Number(form.priceFardo || 0),
           priceMayor: Number(form.priceMayor || 0),
           priceUnidad: Number(form.priceUnidad || 0),
@@ -186,26 +184,26 @@ export default function RegistryPage() {
         }
         await setDoc(doc(db, "products", productCode), productData)
         
-        if (inputBaseStock > 0) {
+        if (inputStockValue > 0) {
           await addDoc(collection(db, "movements"), {
             productCode: productCode,
             type: "in",
-            quantity: inputBaseStock,
-            reason: "STOCK INICIAL AL REGISTRAR",
+            quantity: inputStockValue,
+            reason: "STOCK INICIAL",
             timestamp: serverTimestamp()
           });
         }
       } else {
-        const oldBaseStock = editingProduct.baseStock !== undefined ? editingProduct.baseStock : editingProduct.stock;
-        const delta = inputBaseStock - oldBaseStock;
+        // LÓGICA DE AJUSTE DE STOCK REAL
+        const currentStockInDB = editingProduct.stock || 0;
+        const delta = inputStockValue - currentStockInDB;
 
         const updateData: any = {
           name: form.name.toUpperCase(),
           category: (form.category || "").toUpperCase(),
           collection: (form.collection || "").toUpperCase(),
           description: form.description,
-          baseStock: inputBaseStock,
-          stock: increment(delta),
+          stock: inputStockValue, // Se registra el stock real ingresado
           priceFardo: Number(form.priceFardo || 0),
           priceMayor: Number(form.priceMayor || 0),
           priceUnidad: Number(form.priceUnidad || 0),
@@ -219,7 +217,7 @@ export default function RegistryPage() {
             productCode: productCode,
             type: delta > 0 ? "in" : "out",
             quantity: Math.abs(delta),
-            reason: "AJUSTE DE STOCK BASE",
+            reason: "AJUSTE DE STOCK REAL",
             timestamp: serverTimestamp()
           });
         }
@@ -355,10 +353,22 @@ export default function RegistryPage() {
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                <Input type="number" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} placeholder="STOCK" className="h-11 rounded-xl font-medium text-center border-slate-300 bg-slate-50 text-slate-800" />
-                <Input type="number" value={form.priceFardo} onChange={e => setForm({...form, priceFardo: e.target.value})} placeholder="P. FARDO" className="h-11 rounded-xl font-medium text-center border-slate-300 bg-slate-50 text-slate-800" />
-                <Input type="number" value={form.priceMayor} onChange={e => setForm({...form, priceMayor: e.target.value})} placeholder="P. MAYOR" className="h-11 rounded-xl font-medium text-center border-slate-300 bg-slate-50 text-slate-800" />
-                <Input type="number" value={form.priceUnidad} onChange={e => setForm({...form, priceUnidad: e.target.value})} placeholder="P. UNIDAD" className="h-11 rounded-xl font-medium text-center border-slate-300 bg-slate-50 text-slate-800" />
+                <div className="space-y-1">
+                  <Label className="text-[8px] font-bold text-slate-400 uppercase text-center block">Stock Actual</Label>
+                  <Input type="number" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} placeholder="STOCK" className="h-11 rounded-xl font-black text-center border-slate-300 bg-slate-50 text-slate-900" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[8px] font-bold text-slate-400 uppercase text-center block">P. Fardo</Label>
+                  <Input type="number" value={form.priceFardo} onChange={e => setForm({...form, priceFardo: e.target.value})} placeholder="0.0" className="h-11 rounded-xl font-medium text-center border-slate-300 bg-slate-50 text-slate-800" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[8px] font-bold text-slate-400 uppercase text-center block">P. Mayor</Label>
+                  <Input type="number" value={form.priceMayor} onChange={e => setForm({...form, priceMayor: e.target.value})} placeholder="0.0" className="h-11 rounded-xl font-medium text-center border-slate-300 bg-slate-50 text-slate-800" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[8px] font-bold text-slate-400 uppercase text-center block">P. Unidad</Label>
+                  <Input type="number" value={form.priceUnidad} onChange={e => setForm({...form, priceUnidad: e.target.value})} placeholder="0.0" className="h-11 rounded-xl font-medium text-center border-slate-300 bg-slate-50 text-slate-800" />
+                </div>
               </div>
 
               <div className="space-y-1">
