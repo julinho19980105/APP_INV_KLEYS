@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -49,7 +48,7 @@ export default function SalesHistory() {
   
   const [searchQuery, setSearchQuery] = React.useState("")
   const [statusFilter, setStatusFilter] = React.useState<string>("active")
-  const [timeFilter, setTimeFilter] = React.useState<string>("1m")
+  const [timeFilter, setTimeFilter] = React.useState<string>("all")
   const [activeReceipt, setActiveReceipt] = React.useState<any>(null)
   const [printerChar, setPrinterChar] = React.useState<any>(null)
   const [expandedSales, setExpandedSales] = React.useState<Record<string, boolean>>({})
@@ -340,11 +339,11 @@ export default function SalesHistory() {
               </div>
             </SelectTrigger>
             <SelectContent className="rounded-xl border-slate-300 shadow-2xl">
+              <SelectItem value="all" className="text-[9px] font-bold uppercase">Historial Completo</SelectItem>
               <SelectItem value="1m" className="text-[9px] font-bold uppercase">Mes Actual</SelectItem>
               <SelectItem value="2m" className="text-[9px] font-bold uppercase">2 Meses (Este y Anterior)</SelectItem>
               <SelectItem value="3m" className="text-[9px] font-bold uppercase">3 Meses</SelectItem>
               <SelectItem value="year" className="text-[9px] font-bold uppercase">Año Entero</SelectItem>
-              <SelectItem value="all" className="text-[9px] font-bold uppercase">Historial Completo</SelectItem>
             </SelectContent>
           </Select>
 
@@ -356,10 +355,10 @@ export default function SalesHistory() {
               </div>
             </SelectTrigger>
             <SelectContent className="rounded-xl border-slate-300 shadow-2xl">
-              <SelectItem value="all" className="text-[9px] font-bold uppercase">Todos</SelectItem>
               <SelectItem value="active" className="text-[9px] font-bold uppercase">Activos</SelectItem>
               <SelectItem value="shipped" className="text-[9px] font-bold uppercase">Enviados</SelectItem>
               <SelectItem value="annulled" className="text-[9px] font-bold uppercase">Anulados</SelectItem>
+              <SelectItem value="all" className="text-[9px] font-bold uppercase">Todos</SelectItem>
             </SelectContent>
           </Select>
         </div>
