@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -91,22 +92,18 @@ export default function SalesHistory() {
     const now = new Date()
     const currentMonthStart = startOfMonth(now)
     
-    // Indicadores blindados: siempre calculan sobre el mes actual, sin importar el filtro de tiempo
     const monthlyQuotes = quotes.filter(q => {
       if (q.status === 'annulled') return false
-      
       let qDate: Date;
       if (q.date) {
         qDate = new Date(q.date + "T12:00:00");
       } else {
         qDate = q.createdAt?.toDate ? q.createdAt.toDate() : new Date();
       }
-      
       return qDate >= currentMonthStart
     })
 
     const total = monthlyQuotes.reduce((acc, q) => acc + (q.total || 0), 0)
-    // Estimación industrial (Abonos ~89%)
     const abonos = total * 0.89 
     const deuda = total - abonos
     return { 
@@ -136,10 +133,8 @@ export default function SalesHistory() {
       } else {
         dateObj = sale.createdAt?.toDate ? sale.createdAt.toDate() : new Date();
       }
-      
       const dayLabel = format(dateObj, "EEEE d MMMM", { locale: es }).toUpperCase()
       const dayKey = format(dateObj, "yyyy-MM-dd")
-      
       if (!groups[dayKey]) groups[dayKey] = { dateLabel: dayLabel, dateKey: dayKey, sales: [], dayTotal: 0 }
       groups[dayKey].sales.push(sale)
       if (sale.status !== 'annulled') groups[dayKey].dayTotal += (sale.total || 0)
@@ -195,7 +190,6 @@ export default function SalesHistory() {
         toast({ variant: "destructive", title: "BLUETOOTH NO SOPORTADO" })
         return null
       }
-      
       const device = await navigator.bluetooth.requestDevice({
         filters: [
           { namePrefix: 'Printer' },
@@ -205,11 +199,9 @@ export default function SalesHistory() {
         ],
         optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb', '0000ff00-0000-1000-8000-00805f9b34fb']
       })
-      
       const server = await device.gatt?.connect()
       const services = await server?.getPrimaryServices()
       if (!services) return null
-      
       for (const service of services) {
         const characteristics = await service.getCharacteristics()
         for (const char of characteristics) {
@@ -234,13 +226,11 @@ export default function SalesHistory() {
       await connectPrinter(sale)
       return
     }
-
     try {
       const clean = (str: string) => {
         if (!str) return "";
         return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/ñ/g, "n").replace(/Ñ/g, "N");
       };
-
       const encoder = new TextEncoder()
       const init = '\x1B\x40'
       const center = '\x1B\x61\x01'
@@ -249,27 +239,21 @@ export default function SalesHistory() {
       const boldOn = '\x1B\x45\x01'
       const boldOff = '\x1B\x45\x00'
       const size100 = '\x1D\x21\x00' 
-      const size200 = '\x1D\x21\x11' 
       const size300 = '\x1D\x21\x22' 
       const line = '------------------------------------------------\n' 
-
       let data = init + center
       data += boldOn + size100 + clean(companySettings?.companyName || 'STILOSTACK').toUpperCase() + '\n' + boldOff
       data += line
-      
       const labelB = "BOLETA INTERNA"
       const idS = sale.id
       const spacesH = Math.max(1, 48 - labelB.length - idS.length)
       data += left + size100 + labelB + ' '.repeat(spacesH) + idS + '\n'
-      
       const dispD = sale.date ? format(new Date(sale.date + "T12:00:00"), "dd/MM/yy") : format(sale.createdAt?.toDate ? sale.createdAt.toDate() : new Date(), "dd/MM/yy");
       data += right + size100 + dispD + '\n' + boldOff
-      
       data += line
       data += left + size300 + boldOn + clean(sale.customerName || 'CLIENTE').toUpperCase() + '\n' + boldOff
       data += size100 + `ID: ${sale.customerId}\n`
       data += line
-      
       sale.items.forEach((item: any, idx: number) => {
         const idxS = `${idx + 1}- `
         data += idxS + clean(item.name).toUpperCase() + '\n'
@@ -280,17 +264,14 @@ export default function SalesHistory() {
         data += qP + ' '.repeat(sps) + iT + '\n'
         if (item.description) data += `${pad}(${clean(item.description)})\n`
       })
-      
       data += line
       const tQN = (sale.items || []).reduce((acc: number, i: any) => acc + Number(i.quantity), 0)
       const tAS = `S/ ${Number(sale.total).toFixed(1)}`
       const tQS = `${tQN} UND`
       const spsT = Math.max(1, 48 - tQS.length - tAS.length)
       data += left + size300 + boldOn + tQS + ' '.repeat(spsT) + tAS + '\n' + boldOff
-      
       data += '\n' + center + size100 + "GRACIAS POR SU COMPRA\n"
       data += '\n\n\n\n'
-
       const buffer = encoder.encode(data)
       for (let i = 0; i < buffer.length; i += 20) {
         await char.writeValue(buffer.slice(i, i + 20))
@@ -346,7 +327,6 @@ export default function SalesHistory() {
               <SelectItem value="year" className="text-[9px] font-bold uppercase">Año Entero</SelectItem>
             </SelectContent>
           </Select>
-
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="h-11 rounded-xl border-slate-300 font-bold text-[9px] uppercase gap-2 text-slate-600 bg-white">
               <div className="flex items-center gap-2">
@@ -365,12 +345,7 @@ export default function SalesHistory() {
       </div>
 
       <div className="space-y-3 pt-1">
-        {loading && (
-          <div className="text-center p-20 opacity-30">
-            <Loader2 className="w-8 h-8 animate-spin mx-auto" />
-          </div>
-        )}
-        
+        {loading && <div className="text-center p-20 opacity-30"><Loader2 className="w-8 h-8 animate-spin mx-auto" /></div>}
         {groupedSales.map(group => (
           <div key={group.dateKey} className="space-y-1">
             <div className="bg-[#1e293b] px-5 py-2 rounded-xl flex justify-between items-center shadow-md border border-slate-800">
@@ -382,24 +357,14 @@ export default function SalesHistory() {
                 const isExpanded = expandedSales[s.id] || false;
                 return (
                   <div key={s.id} className="bg-white border border-slate-300 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all">
-                    <div className={cn(
-                      "p-3 flex justify-between items-center",
-                      s.status === 'annulled' && "opacity-40 grayscale bg-slate-50"
-                    )}>
+                    <div className={cn("p-3 flex justify-between items-center", s.status === 'annulled' && "opacity-40 grayscale bg-slate-50")}>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
-                          <button 
-                            className="flex items-center gap-1 group/id hover:text-primary transition-colors"
-                            onClick={() => toggleExpand(s.id)}
-                          >
+                          <button className="flex items-center gap-1 group/id hover:text-primary transition-colors" onClick={() => toggleExpand(s.id)}>
                             <span className="text-[10px] font-black text-primary/70 uppercase tracking-tighter">{s.id}</span>
                             <ChevronDown className={cn("w-3.5 h-3.5 text-slate-300 transition-transform group-hover/id:text-primary", isExpanded && "rotate-180")} />
                           </button>
-                          {s.status === 'shipped' && (
-                            <Badge className="bg-primary/10 text-primary text-[7px] font-bold h-4 px-1.5 border-none flex items-center gap-1">
-                              <Truck className="w-2 h-2" /> ENVIADO
-                            </Badge>
-                          )}
+                          {s.status === 'shipped' && <Badge className="bg-primary/10 text-primary text-[7px] font-bold h-4 px-1.5 border-none flex items-center gap-1"><Truck className="w-2 h-2" /> ENVIADO</Badge>}
                         </div>
                         <div className="text-[12px] font-normal text-slate-900 uppercase truncate leading-tight">{s.customerName}</div>
                       </div>
@@ -409,40 +374,19 @@ export default function SalesHistory() {
                           <div className="text-[8px] font-bold text-slate-400 uppercase mt-1">{(s.items || []).reduce((acc: number, i: any) => acc + Number(i.quantity), 0)} UND</div>
                         </div>
                         <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button className="h-10 w-10 flex items-center justify-center text-slate-300 hover:text-primary transition-all">
-                              <MoreVertical className="w-4.5 h-4.5" />
-                            </button>
-                          </DropdownMenuTrigger>
+                          <DropdownMenuTrigger asChild><button className="h-10 w-10 flex items-center justify-center text-slate-300 hover:text-primary transition-all"><MoreVertical className="w-4.5 h-4.5" /></button></DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="rounded-2xl p-2 w-48 shadow-2xl border-slate-300">
-                            <DropdownMenuItem className="text-[10px] font-bold uppercase gap-3 p-3 rounded-xl" onClick={() => printTicket(s)}>
-                              <Printer className="w-4 h-4 text-[#10b981]" /> {printerChar ? "Imprimir Ticket" : "Conectar Impresora"}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="text-[10px] font-bold uppercase gap-3 p-3 rounded-xl" onClick={() => shareReceipt(s)}>
-                              <Share2 className="w-4 h-4 text-blue-500" /> Compartir Imagen
-                            </DropdownMenuItem>
-                            {s.status === 'active' && (
-                              <DropdownMenuItem className="text-[10px] font-bold uppercase gap-3 p-3 rounded-xl" onClick={() => router.push(`/sales?edit=${s.id}&tab=quotes`)}>
-                                <Edit2 className="w-4 h-4 text-primary" /> Editar Venta
-                              </DropdownMenuItem>
-                            )}
-                            {s.status !== 'annulled' && (
-                              <DropdownMenuItem className="text-[10px] font-bold uppercase gap-3 p-3 rounded-xl text-red-500" onClick={() => handleAnnul(s)}>
-                                <Ban className="w-4 h-4" /> Anular Venta
-                              </DropdownMenuItem>
-                            )}
+                            <DropdownMenuItem className="text-[10px] font-bold uppercase gap-3 p-3 rounded-xl" onClick={() => printTicket(s)}><Printer className="w-4 h-4 text-[#10b981]" /> {printerChar ? "Imprimir Ticket" : "Conectar Impresora"}</DropdownMenuItem>
+                            <DropdownMenuItem className="text-[10px] font-bold uppercase gap-3 p-3 rounded-xl" onClick={() => shareReceipt(s)}><Share2 className="w-4 h-4 text-blue-500" /> Compartir Imagen</DropdownMenuItem>
+                            {s.status === 'active' && <DropdownMenuItem className="text-[10px] font-bold uppercase gap-3 p-3 rounded-xl" onClick={() => router.push(`/sales?edit=${s.id}&tab=quotes`)}><Edit2 className="w-4 h-4 text-primary" /> Editar Venta</DropdownMenuItem>}
+                            {s.status !== 'annulled' && <DropdownMenuItem className="text-[10px] font-bold uppercase gap-3 p-3 rounded-xl text-red-500" onClick={() => handleAnnul(s)}><Ban className="w-4 h-4" /> Anular Venta</DropdownMenuItem>}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
                     </div>
-
                     {isExpanded && (
                       <div className="px-4 pb-4 pt-1 bg-slate-50/50 border-t border-slate-100 animate-in slide-in-from-top-1 duration-200">
                         <div className="space-y-2">
-                           <div className="flex items-center gap-2 mb-2">
-                             <div className="w-1 h-3 bg-primary rounded-full" />
-                             <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Desglose de Productos</span>
-                           </div>
                            {s.items.map((item: any, idx: number) => (
                              <div key={idx} className="flex justify-between items-start py-2 border-b border-slate-200 last:border-0">
                                <div className="flex-1 min-w-0 pr-4">
@@ -450,19 +394,11 @@ export default function SalesHistory() {
                                  {item.description && <div className="text-[8px] font-medium text-slate-400 uppercase mt-0.5 line-clamp-1 italic">({item.description})</div>}
                                </div>
                                <div className="text-right shrink-0">
-                                 <div className="text-[9px] font-bold text-slate-500">
-                                   <span className="text-primary">{item.quantity}</span> x S/ {Number(item.price).toFixed(1)}
-                                 </div>
-                                 <div className="text-[11px] font-headline font-black text-slate-900 mt-0.5">
-                                   S/ {((Number(item.price) * Number(item.quantity)) - (Number(item.discount) || 0)).toFixed(1)}
-                                 </div>
+                                 <div className="text-[9px] font-bold text-slate-500"><span className="text-primary">{item.quantity}</span> x S/ {Number(item.price).toFixed(1)}</div>
+                                 <div className="text-[11px] font-headline font-black text-slate-900 mt-0.5">S/ {((Number(item.price) * Number(item.quantity)) - (Number(item.discount) || 0)).toFixed(1)}</div>
                                </div>
                              </div>
                            ))}
-                           <div className="pt-2 flex justify-between items-center border-t border-slate-300 mt-2">
-                              <span className="text-[9px] font-black text-slate-400 uppercase">Total de Prendas</span>
-                              <span className="text-[12px] font-headline font-black text-slate-900">{(s.items || []).reduce((acc: number, i: any) => acc + Number(i.quantity), 0)} UND</span>
-                           </div>
                         </div>
                       </div>
                     )}
@@ -479,134 +415,75 @@ export default function SalesHistory() {
           <div ref={receiptRef} style={{
             width: '794px', 
             background: '#ffffff',
-            padding: '0',
+            padding: '40px',
             fontFamily: 'Arial, sans-serif',
             color: '#000000',
             boxSizing: 'border-box'
           }}>
-            {/* HEADER INDUSTRIAL CON LINEAS */}
-            <div style={{ padding: '60px 40px 40px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                <div style={{ flex: 1, height: '4px', backgroundColor: shareColor }}></div>
-                <div style={{ 
-                  fontSize: '48px', 
-                  fontWeight: 800, 
-                  color: shareColor, 
-                  textTransform: 'uppercase',
-                  letterSpacing: '2px'
-                }}>
-                  {companySettings?.companyName || 'KLEYS KIDS'}
-                </div>
-                <div style={{ flex: 1, height: '4px', backgroundColor: shareColor }}></div>
+            {/* CABECERA INDUSTRIAL */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '3px solid #000', paddingBottom: '30px', marginBottom: '30px' }}>
+              <div>
+                <div style={{ fontSize: '40px', fontWeight: 800, color: '#000', textTransform: 'uppercase', letterSpacing: '-1px' }}>{companySettings?.companyName || 'KLEYS KIDS'}</div>
+                <div style={{ fontSize: '17px', fontWeight: 600, color: '#000', marginTop: '5px', letterSpacing: '1px' }}>BOLETA INTERNA</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: '35px', fontWeight: 800, color: '#000' }}>{activeReceipt.id.replace('B-', 'COT-')}</div>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: '#000', marginTop: '5px' }}>N.º DE BOLETA</div>
               </div>
             </div>
 
-            {/* INFO CLIENTE Y BOLETA */}
-            <div style={{
-              padding: '0 50px 40px',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'flex-start'
-            }}>
+            {/* INFO CLIENTE */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 220px', gap: '35px', marginBottom: '40px' }}>
               <div>
-                <div style={{ fontSize: '14px', fontWeight: 700, textTransform: 'uppercase', color: '#666', marginBottom: '8px' }}>
-                  CLIENTE:
-                </div>
-                <div style={{ fontSize: '38px', fontWeight: 800, textTransform: 'uppercase', lineHeight: 1.1 }}>
-                  {activeReceipt.customerName}
-                </div>
-                <div style={{ fontSize: '18px', fontWeight: 400, color: '#999', marginTop: '5px' }}>
-                  {activeReceipt.customerId}
-                </div>
+                <div style={{ fontSize: '16px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '10px' }}>Cliente</div>
+                <div style={{ fontSize: '32px', fontWeight: 700, textTransform: 'uppercase', lineHeight: 1.15 }}>{activeReceipt.customerName}</div>
+                <div style={{ fontSize: '17px', fontWeight: 400, marginTop: '8px' }}>{activeReceipt.customerId}</div>
               </div>
               <div style={{ textAlign: 'right' }}>
-                <div style={{ 
-                  fontSize: '42px', 
-                  fontWeight: 800, 
-                  color: shareColor, 
-                  lineHeight: 1 
-                }}>
-                  {activeReceipt.id.replace('B-', 'COT-')}
-                </div>
-                <div style={{ fontSize: '20px', fontWeight: 600, color: '#333', marginTop: '8px' }}>
-                  {activeReceipt.date ? 
-                    format(new Date(activeReceipt.date + "T12:00:00"), "dd-MM-yyyy") :
-                    format(activeReceipt.createdAt?.toDate ? activeReceipt.createdAt.toDate() : new Date(), "dd-MM-yyyy")
-                  }
-                </div>
+                <div style={{ fontSize: '16px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '10px' }}>Fecha</div>
+                <div style={{ fontSize: '24px', fontWeight: 600 }}>{activeReceipt.date ? format(new Date(activeReceipt.date + "T12:00:00"), "dd/MM/yyyy") : format(activeReceipt.createdAt?.toDate ? activeReceipt.createdAt.toDate() : new Date(), "dd/MM/yyyy")}</div>
               </div>
             </div>
 
             {/* TABLA DE PRODUCTOS */}
-            <div style={{ padding: '0 50px' }}>
-              <div style={{
-                backgroundColor: shareColor,
-                color: '#ffffff',
-                padding: '18px 25px',
-                fontSize: '16px',
-                fontWeight: 800,
-                textTransform: 'uppercase',
-                borderRadius: '15px 15px 0 0',
-                display: 'flex'
-              }}>
-                <div style={{ width: '60px' }}>N</div>
-                <div style={{ flex: 1 }}>NOMBRE</div>
-                <div style={{ width: '100px', textAlign: 'right' }}>P.U.</div>
-                <div style={{ width: '100px', textAlign: 'right' }}>CANT</div>
-                <div style={{ width: '150px', textAlign: 'right' }}>SUB. TOTAL</div>
-              </div>
-              <table style={{
-                width: '100%',
-                borderCollapse: 'collapse',
-                border: '1.5px solid #000000',
-                borderTop: 'none',
-                borderRadius: '0 0 15px 15px',
-                overflow: 'hidden'
-              }}>
+            <div style={{ marginBottom: '40px' }}>
+              <div style={{ backgroundColor: shareColor, color: '#fff', padding: '16px 20px', fontSize: '17px', fontWeight: 700, textTransform: 'uppercase', borderRadius: '10px 10px 0 0' }}>Detalle de productos</div>
+              <table style={{ width: '100%', borderCollapse: 'collapse', border: '2px solid #000', borderTop: 'none' }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid #000' }}>
+                    <th style={{ padding: '15px 10px', textAlign: 'center', fontSize: '16px', width: '60px' }}>N.º</th>
+                    <th style={{ padding: '15px 10px', textAlign: 'left', fontSize: '16px' }}>Producto</th>
+                    <th style={{ padding: '15px 10px', textAlign: 'right', fontSize: '16px', width: '120px' }}>P.U.</th>
+                    <th style={{ padding: '15px 10px', textAlign: 'right', fontSize: '16px', width: '90px' }}>Cant.</th>
+                    <th style={{ padding: '15px 10px', textAlign: 'right', fontSize: '16px', width: '130px' }}>Total</th>
+                  </tr>
+                </thead>
                 <tbody>
                   {activeReceipt.items.map((item: any, idx: number) => (
-                    <tr key={idx} style={{ borderBottom: '1.5px solid #000000' }}>
-                      <td style={{ padding: '25px 12px', fontSize: '20px', fontWeight: 600, textAlign: 'center', width: '60px', borderRight: '1.5px solid #000' }}>{idx + 1}</td>
-                      <td style={{ padding: '25px 20px', borderRight: '1.5px solid #000' }}>
-                        <div style={{ fontSize: '20px', fontWeight: 700, textTransform: 'uppercase' }}>{item.name}</div>
-                        {item.description && (
-                          <div style={{ marginTop: '8px', fontSize: '18px', fontWeight: 400, color: '#444', fontStyle: 'italic' }}>-- ({item.description})</div>
-                        )}
+                    <tr key={idx} style={{ borderBottom: '1.5px solid #000' }}>
+                      <td style={{ padding: '20px 10px', textAlign: 'center', fontSize: '18px', fontWeight: 600 }}>{idx + 1}</td>
+                      <td style={{ padding: '20px 10px' }}>
+                        <div style={{ fontSize: '18px', fontWeight: 700, textTransform: 'uppercase' }}>{item.name}</div>
+                        {item.description && <div style={{ fontSize: '16px', fontStyle: 'italic', marginTop: '5px' }}>({item.description})</div>}
                       </td>
-                      <td style={{ padding: '25px 12px', fontSize: '20px', fontWeight: 500, textAlign: 'right', width: '100px', borderRight: '1.5px solid #000' }}>
-                         {Number(item.price).toFixed(1)}
-                      </td>
-                      <td style={{ padding: '25px 12px', fontSize: '20px', fontWeight: 700, textAlign: 'right', width: '100px', borderRight: '1.5px solid #000' }}>{item.quantity}</td>
-                      <td style={{ padding: '25px 20px', fontSize: '20px', fontWeight: 600, textAlign: 'right', width: '150px' }}>
-                        {((Number(item.price) * Number(item.quantity)) - (Number(item.discount) || 0)).toFixed(1)}
-                      </td>
+                      <td style={{ padding: '20px 10px', textAlign: 'right', fontSize: '18px' }}>S/ {Number(item.price).toFixed(1)}</td>
+                      <td style={{ padding: '20px 10px', textAlign: 'right', fontSize: '18px', fontWeight: 600 }}>{item.quantity}</td>
+                      <td style={{ padding: '20px 10px', textAlign: 'right', fontSize: '18px', fontWeight: 700 }}>S/ {((Number(item.price) * Number(item.quantity)) - (Number(item.discount) || 0)).toFixed(1)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
 
-            {/* SEPARADOR Y TOTALES */}
-            <div style={{ padding: '80px 50px 100px' }}>
-              <div style={{ height: '3px', backgroundColor: '#000000', marginBottom: '60px' }}></div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-                <div style={{ fontSize: '36px', fontWeight: 800, textTransform: 'uppercase' }}>
-                  {activeReceipt.items.reduce((acc: number, i: any) => acc + Number(i.quantity), 0)} UNIDADES
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: '24px', fontWeight: 800, color: shareColor, textTransform: 'uppercase', marginBottom: '10px' }}>
-                    TOTAL:
-                  </div>
-                  <div style={{ 
-                    fontSize: '96px', 
-                    fontWeight: 500, 
-                    color: shareColor, 
-                    lineHeight: 0.8,
-                    letterSpacing: '-2px'
-                  }}>
-                    S/. {Number(activeReceipt.total).toFixed(1)}
-                  </div>
-                </div>
+            {/* TOTALES */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderTop: '3px solid #000', paddingTop: '40px' }}>
+              <div>
+                <div style={{ fontSize: '16px', fontWeight: 700, textTransform: 'uppercase' }}>Cantidad total</div>
+                <div style={{ fontSize: '38px', fontWeight: 700, marginTop: '10px' }}>{activeReceipt.items.reduce((acc: number, i: any) => acc + Number(i.quantity), 0)} UND</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: '18px', fontWeight: 700, textTransform: 'uppercase' }}>Saldo total</div>
+                <div style={{ fontSize: '74px', fontWeight: 500, color: shareColor, lineHeight: 1, letterSpacing: '-2px' }}>S/ {Number(activeReceipt.total).toFixed(1)}</div>
               </div>
             </div>
           </div>

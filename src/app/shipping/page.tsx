@@ -251,7 +251,7 @@ export default function ShippingHubPage() {
 
   return (
     <div className="w-full max-w-4xl mx-auto pt-0 pb-24">
-      <Tabs defaultValue="envios" className="w-full">
+      <Tabs defaultValue="clientes" className="w-full">
         <TabsList className="chrome-tab-list sticky top-[57px] z-[45]">
           <TabsTrigger value="clientes" className="chrome-tab-trigger">
             <Users className="w-3 h-3 mr-2 opacity-50" /> CLIENTES
