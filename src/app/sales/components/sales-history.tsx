@@ -168,13 +168,14 @@ export default function SalesHistory() {
     }, 500)
   }
 
-  const connectPrinter = async () => {
+  const connectPrinter = async (saleToPrint?: any) => {
     try {
       if (!navigator.bluetooth) {
         toast({ variant: "destructive", title: "BLUETOOTH NO SOPORTADO", description: "Use un navegador compatible (Chrome/Edge)." })
         return null
       }
       
+      // Filtros optimizados para buscar solo dispositivos BLE compatibles con impresión de tickets
       const device = await navigator.bluetooth.requestDevice({
         filters: [
           { namePrefix: 'Printer' },
@@ -182,9 +183,17 @@ export default function SalesHistory() {
           { namePrefix: 'MPT' },
           { namePrefix: 'RP' },
           { namePrefix: 'Blue' },
-          { namePrefix: 'POS' }
+          { namePrefix: 'POS' },
+          { namePrefix: 'MTP' },
+          { namePrefix: 'BT Printer' },
+          { namePrefix: 'Inner' },
+          { namePrefix: 'MTP-II' }
         ],
-        optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb', '0000ff00-0000-1000-8000-00805f9b34fb']
+        optionalServices: [
+          '000018f0-0000-1000-8000-00805f9b34fb', 
+          '0000ff00-0000-1000-8000-00805f9b34fb',
+          '49535343-fe7d-4ae5-8fa9-9fafd205e455'
+        ]
       })
       
       const server = await device.gatt?.connect()
@@ -197,6 +206,12 @@ export default function SalesHistory() {
           if (char.properties.write || char.properties.writeWithoutResponse) {
             setPrinterChar(char)
             toast({ title: "IMPRESORA VINCULADA" })
+            
+            // Si hay una venta en espera, imprimir de inmediato tras conectar
+            if (saleToPrint) {
+              setTimeout(() => printTicket(saleToPrint, char), 800);
+            }
+            
             return char
           }
         }
@@ -208,11 +223,12 @@ export default function SalesHistory() {
     }
   }
 
-  const printTicket = async (sale: any) => {
-    let char = printerChar;
+  const printTicket = async (sale: any, existingChar?: any) => {
+    let char = existingChar || printerChar;
     if (!char) {
-      char = await connectPrinter()
-      if (!char) return
+      // Si no hay conexión, conectar y pasar la venta para impresión automática
+      char = await connectPrinter(sale)
+      return
     }
 
     try {
@@ -246,8 +262,9 @@ export default function SalesHistory() {
         
         const padding = ' '.repeat(indexStr.length)
         const qtyPrice = `${padding}${item.quantity} x S/ ${Number(item.price).toFixed(1)}`
-        const itemTotalStr = `S/ ${((Number(item.price) * Number(item.quantity)) - Number(item.discount)).toFixed(1)}`
+        const itemTotalStr = `S/ ${((Number(item.price) * Number(item.quantity)) - (Number(item.discount) || 0)).toFixed(1)}`
         
+        // Alineación industrial para 80mm (aprox 48 columnas)
         const spaces = Math.max(1, 48 - qtyPrice.length - itemTotalStr.length)
         data += qtyPrice + ' '.repeat(spaces) + itemTotalStr + '\n'
         
@@ -262,7 +279,7 @@ export default function SalesHistory() {
       const totalAmtStr = `S/ ${Number(sale.total).toFixed(1)}`
       const qtyLabelStr = `${totalQtyNum} UND`
       
-      const effWidth = 24
+      const effWidth = 48
       const totalSpaces = Math.max(1, effWidth - qtyLabelStr.length - totalAmtStr.length)
       
       data += left + boldOn + sizeLarge + qtyLabelStr + ' '.repeat(totalSpaces) + totalAmtStr + '\n' + sizeNormal + boldOff
