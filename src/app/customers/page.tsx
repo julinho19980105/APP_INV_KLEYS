@@ -65,7 +65,6 @@ export default function CustomersHubPage() {
       const totalShippingCost = shipmentHistory.reduce((acc, h) => acc + Number(h.shippingCost || 0), 0)
       const balance = totalPaid - (totalInvoiced + totalShippingCost)
 
-      // CONSTRUCCIÓN DEL LEDGER CON FECHAS CORRECTAS
       const ledger = [
         ...cQuotes.map(q => {
           const d = q.date ? new Date(q.date + "T12:00:00") : (q.createdAt?.toDate ? q.createdAt.toDate() : new Date());
@@ -246,61 +245,83 @@ export default function CustomersHubPage() {
                           <AccordionContent className="px-1 pb-4 pt-1">
                             {sIdx === 4 ? (
                               <div className="py-8 text-center text-[10px] font-bold uppercase text-slate-300 tracking-widest border border-dashed rounded-2xl mx-1">Cliente sin actividad registrada</div>
+                            ) : sIdx === 3 ? (
+                              <div className="space-y-3 px-1">
+                                {c.shipmentHistory.map((h: any, hIdx: number) => {
+                                  const batchItems = [
+                                    ...(h.quotes || []).map((q: any) => ({ type: 'quote', date: q.date, id: q.quoteId, amount: q.amount })),
+                                    ...(h.payments || []).map((p: any) => ({ type: 'payment', date: p.date, id: 'PAGO', amount: p.amount }))
+                                  ].sort((a, b) => (a.date || "").localeCompare(b.date || ""))
+
+                                  return (
+                                    <div key={hIdx} className="rounded-2xl border border-slate-200 overflow-hidden bg-white shadow-sm">
+                                      <div className="bg-slate-900 px-4 py-2">
+                                        <span className="text-[9px] font-black text-white uppercase tracking-widest">
+                                          LOTE DE FECHA {format(new Date(h.dateKey + "T12:00:00"), "dd/MM/yyyy")}
+                                        </span>
+                                      </div>
+                                      <table className="w-full text-left text-[9px] font-medium uppercase">
+                                        <thead className="bg-slate-50 border-b border-slate-100 text-slate-400">
+                                          <tr>
+                                            <th className="px-4 py-2 font-bold">FECHA</th>
+                                            <th className="px-4 py-2 font-bold">DETALLE</th>
+                                            <th className="px-4 py-2 text-right font-bold">MONTO</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-50">
+                                          {batchItems.map((item, iIdx) => (
+                                            <tr key={iIdx} className="hover:bg-slate-50/50">
+                                              <td className="px-4 py-2.5 text-slate-500">
+                                                {item.date ? format(new Date(item.date + "T12:00:00"), "dd/MM/yy") : "-"}
+                                              </td>
+                                              <td className="px-4 py-2.5">
+                                                <span className="text-slate-700 font-bold">{item.id}</span>
+                                              </td>
+                                              <td className={cn(
+                                                "px-4 py-2.5 text-right font-bold font-headline",
+                                                item.type === 'quote' ? "text-red-500" : "text-blue-500"
+                                              )}>
+                                                S/ {Number(item.amount || 0).toFixed(1)}
+                                              </td>
+                                            </tr>
+                                          ))}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  )
+                                })}
+                              </div>
                             ) : (
                               <div className="rounded-2xl border border-slate-200 overflow-hidden bg-white shadow-sm mx-1">
                                 <table className="w-full text-left text-[9px] font-medium uppercase">
                                   <thead className="bg-slate-900 border-b border-slate-800 text-white">
-                                    {sIdx === 3 ? (
-                                      <tr>
-                                        <th className="px-4 py-2 text-slate-400">FECHA ENVÍO</th>
-                                        <th className="px-4 py-2 text-slate-400">BOLETAS</th>
-                                        <th className="px-4 py-2 text-right text-slate-400">COSTO ENVÍO</th>
-                                      </tr>
-                                    ) : (
-                                      <tr>
-                                        <th className="px-4 py-2 text-slate-400">FECHA</th>
-                                        <th className="px-4 py-2 text-slate-400">REFERENCIA / MONTO</th>
-                                        <th className="px-4 py-2 text-right text-slate-400">SALDO</th>
-                                      </tr>
-                                    )}
+                                    <tr>
+                                      <th className="px-4 py-2 text-slate-400">FECHA</th>
+                                      <th className="px-4 py-2 text-slate-400">REFERENCIA / MONTO</th>
+                                      <th className="px-4 py-2 text-right text-slate-400">SALDO</th>
+                                    </tr>
                                   </thead>
                                   <tbody className="divide-y divide-slate-100">
-                                    {sIdx === 3 ? (
-                                      c.shipmentHistory.map((h: any, hIdx: number) => (
-                                        <tr key={hIdx} className="hover:bg-slate-50/50">
-                                          <td className="px-4 py-3 text-slate-600">{format(new Date(h.dateKey + "T12:00:00"), "dd/MM/yy")}</td>
-                                          <td className="px-4 py-3">
-                                            <div className="flex gap-1 flex-wrap">
-                                              {(h.quotes || []).map((q: any) => (
-                                                <Badge key={q.quoteId} variant="outline" className="text-[7px] font-bold border-blue-100 text-blue-500 h-4">{q.quoteId}</Badge>
-                                              ))}
-                                            </div>
-                                          </td>
-                                          <td className="px-4 py-3 text-right font-headline text-slate-700">S/ {Number(h.shippingCost || 0).toFixed(1)}</td>
-                                        </tr>
-                                      ))
-                                    ) : (
-                                      c.history.map((h, hIdx) => (
-                                        <tr key={hIdx} className="hover:bg-slate-50/50">
-                                          <td className="px-4 py-3 text-slate-500">{format(h.date, "dd/MM/yy")}</td>
-                                          <td className="px-4 py-3">
-                                            <div className="flex flex-col gap-0.5">
-                                               <span className="text-slate-700 font-medium">{h.id}</span>
-                                               <span className={cn("font-bold text-[10px]", 
-                                                 h.type === 'quote' || h.type === 'shipping' ? "text-red-500" : "text-blue-500")}>
-                                                 S/ {h.amount.toFixed(1)}
-                                               </span>
-                                            </div>
-                                          </td>
-                                          <td className={cn(
-                                            "px-4 py-3 text-right font-headline font-bold text-[11px]",
-                                            h.currentBalance < -0.1 ? "text-red-500" : h.currentBalance > 0.1 ? "text-emerald-500" : "text-red-500"
-                                          )}>
-                                            S/ {h.currentBalance.toFixed(1)}
-                                          </td>
-                                        </tr>
-                                      ))
-                                    )}
+                                    {c.history.map((h, hIdx) => (
+                                      <tr key={hIdx} className="hover:bg-slate-50/50">
+                                        <td className="px-4 py-3 text-slate-500">{format(h.date, "dd/MM/yy")}</td>
+                                        <td className="px-4 py-3">
+                                          <div className="flex flex-col gap-0.5">
+                                             <span className="text-slate-700 font-medium">{h.id}</span>
+                                             <span className={cn("font-bold text-[10px]", 
+                                               h.type === 'quote' || h.type === 'shipping' ? "text-red-500" : "text-blue-500")}>
+                                               S/ {h.amount.toFixed(1)}
+                                             </span>
+                                          </div>
+                                        </td>
+                                        <td className={cn(
+                                          "px-4 py-3 text-right font-headline font-bold text-[11px]",
+                                          h.currentBalance < -0.1 ? "text-red-500" : h.currentBalance > 0.1 ? "text-emerald-500" : "text-red-500"
+                                        )}>
+                                          S/ {h.currentBalance.toFixed(1)}
+                                        </td>
+                                      </tr>
+                                    ))}
                                   </tbody>
                                 </table>
                               </div>
