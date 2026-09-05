@@ -124,16 +124,6 @@ export default function CustomersHubPage() {
     return customerData.filter(c => c.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(q) || c.id.toLowerCase().includes(q))
   }, [customerData, searchQuery])
 
-  const totalInStreet = React.useMemo(() => {
-    return customerData
-      .filter(c => c.balance < -1 && !c.isInactive)
-      .reduce((acc, c) => acc + Math.abs(c.balance), 0)
-  }, [customerData])
-
-  const debtorCount = React.useMemo(() => {
-    return customerData.filter(c => c.balance < -1 && !c.isInactive).length
-  }, [customerData])
-
   const sections = React.useMemo(() => {
     const shipped = filtered.filter(c => c.isShipped)
     const activeCycle = filtered.filter(c => !c.isShipped && c.hasActiveBusiness)
@@ -169,7 +159,7 @@ export default function CustomersHubPage() {
         data: shipped
       },
       { 
-        title: "CLIENTES SIN COMPRAS", 
+        title: "CLIENTES SIN ACTIVIDAD", 
         color: "text-slate-300", 
         lineColor: "bg-slate-100",
         icon: UserMinus,
@@ -180,25 +170,6 @@ export default function CustomersHubPage() {
 
   return (
     <div className="space-y-4 pt-1 pb-24 px-2 md:px-0 max-w-4xl mx-auto animate-in fade-in duration-700">
-      <div className="bg-[#0f172a] rounded-[2rem] p-6 shadow-2xl flex items-center justify-between relative overflow-hidden">
-        <div className="flex items-center gap-5 relative z-10">
-          <div className="w-14 h-14 rounded-2xl bg-[#0296FF] flex items-center justify-center shadow-lg shadow-blue-500/20">
-            <CircleDollarSign className="w-8 h-8 text-white" />
-          </div>
-          <div>
-            <span className="text-[10px] font-bold text-blue-400 uppercase tracking-[0.2em] leading-none">TOTAL EN CALLE</span>
-            <div className="text-3xl font-headline font-black text-white mt-1 leading-none">S/ {totalInStreet.toFixed(1)}</div>
-          </div>
-        </div>
-        <div className="text-right relative z-10">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">DEUDORAS</span>
-          <div className="text-3xl font-headline font-black text-white mt-1 leading-none">{debtorCount}</div>
-        </div>
-        <div className="absolute right-0 bottom-0 opacity-5 pointer-events-none">
-           <Users className="w-40 h-40 text-white -mb-10 -mr-10" />
-        </div>
-      </div>
-
       <div className="relative group">
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300 transition-colors group-focus-within:text-primary" />
         <Input 
