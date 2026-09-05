@@ -24,7 +24,7 @@ import {
 import { useCollection, useFirestore, useDoc } from "@/firebase"
 import { collection, query, orderBy, doc, limit } from "firebase/firestore"
 import { cn } from "@/lib/utils"
-import { format } from "date-fns"
+import { format, parseISO, isValid } from "date-fns"
 
 export default function CustomersHubPage() {
   const db = useFirestore()
@@ -44,6 +44,16 @@ export default function CustomersHubPage() {
   const { data: payments = [] } = useCollection(paymentsRef)
   const { data: logistics = [] } = useCollection(logisticsRef)
 
+  const parseItemDate = (dateStr: string, fallback: any) => {
+    if (dateStr) {
+      const d = new Date(dateStr + "T12:00:00");
+      if (isValid(d)) return d;
+    }
+    if (fallback?.toDate) return fallback.toDate();
+    if (fallback && typeof fallback === 'string') return new Date(fallback);
+    return new Date();
+  };
+
   const customerData = React.useMemo(() => {
     return customers.map(c => {
       const cQuotes = quotes.filter(q => q.customerId === c.id && q.status !== 'annulled')
@@ -59,21 +69,23 @@ export default function CustomersHubPage() {
           .map((e: any) => ({ ...e, dateKey: l.date }))
       ).sort((a, b) => b.dateKey.localeCompare(a.dateKey))
 
-      const processedPaymentIds = new Set(shipmentHistory.flatMap(h => (h.payments || []).map((p: any) => p.paymentId)))
-      const unlockedPayments = cPayments.filter(p => !p.isLocked && !processedPaymentIds.has(p.id))
-
       const totalShippingCost = shipmentHistory.reduce((acc, h) => acc + Number(h.shippingCost || 0), 0)
       const balance = totalPaid - (totalInvoiced + totalShippingCost)
 
+      // Ledger: Antiguo arriba, Nuevo abajo
       const ledger = [
-        ...cQuotes.map(q => {
-          const d = q.date ? new Date(q.date + "T12:00:00") : (q.createdAt?.toDate ? q.createdAt.toDate() : new Date());
-          return { type: 'quote', date: d, id: q.id, amount: q.total };
-        }),
-        ...cPayments.map(p => {
-          const d = p.date ? new Date(p.date + "T12:00:00") : (p.createdAt?.toDate ? p.createdAt.toDate() : new Date());
-          return { type: 'payment', date: d, id: 'PAGO', amount: p.amount };
-        }),
+        ...cQuotes.map(q => ({ 
+          type: 'quote', 
+          date: parseItemDate(q.date, q.createdAt), 
+          id: q.id, 
+          amount: q.total 
+        })),
+        ...cPayments.map(p => ({ 
+          type: 'payment', 
+          date: parseItemDate(p.date, p.createdAt), 
+          id: 'PAGO', 
+          amount: p.amount 
+        })),
         ...shipmentHistory.map(h => ({ 
           type: 'shipping', 
           date: new Date(h.dateKey + "T12:00:00"), 
@@ -90,7 +102,7 @@ export default function CustomersHubPage() {
       })
 
       const isShipped = shipmentHistory.length > 0
-      const hasActiveBusiness = activeQuotes.length > 0 || unlockedPayments.length > 0
+      const hasActiveBusiness = activeQuotes.length > 0 || cPayments.some(p => !p.isLocked)
       const isInactive = !isShipped && !hasActiveBusiness
 
       return {
@@ -248,6 +260,7 @@ export default function CustomersHubPage() {
                             ) : sIdx === 3 ? (
                               <div className="space-y-3 px-1">
                                 {c.shipmentHistory.map((h: any, hIdx: number) => {
+                                  // batchItems sorted Old to New
                                   const batchItems = [
                                     ...(h.quotes || []).map((q: any) => ({ type: 'quote', date: q.date, id: q.quoteId, amount: q.amount })),
                                     ...(h.payments || []).map((p: any) => ({ type: 'payment', date: p.date, id: 'PAGO', amount: p.amount }))
@@ -304,7 +317,9 @@ export default function CustomersHubPage() {
                                   <tbody className="divide-y divide-slate-100">
                                     {c.history.map((h, hIdx) => (
                                       <tr key={hIdx} className="hover:bg-slate-50/50">
-                                        <td className="px-4 py-3 text-slate-500">{format(h.date, "dd/MM/yy")}</td>
+                                        <td className="px-4 py-3 text-slate-500">
+                                          {format(h.date, "dd/MM/yy")}
+                                        </td>
                                         <td className="px-4 py-3">
                                           <div className="flex flex-col gap-0.5">
                                              <span className="text-slate-700 font-medium">{h.id}</span>
