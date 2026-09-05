@@ -62,6 +62,7 @@ export async function syncCatalogToDrive(products: any[]): Promise<void> {
         name: p.name,
         category: p.category,
         collection: p.collection,
+        stock: p.stock,
         priceFardo: p.priceFardo,
         priceMayor: p.priceMayor,
         priceUnidad: p.priceUnidad,
