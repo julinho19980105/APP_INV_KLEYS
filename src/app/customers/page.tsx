@@ -260,10 +260,20 @@ export default function CustomersHubPage() {
                             ) : sIdx === 3 ? (
                               <div className="space-y-3 px-1">
                                 {c.shipmentHistory.map((h: any, hIdx: number) => {
-                                  // batchItems sorted Old to New
+                                  // batchItems sorted Old to New (Antiguo arriba)
                                   const batchItems = [
-                                    ...(h.quotes || []).map((q: any) => ({ type: 'quote', date: q.date, id: q.quoteId, amount: q.amount })),
-                                    ...(h.payments || []).map((p: any) => ({ type: 'payment', date: p.date, id: 'PAGO', amount: p.amount }))
+                                    ...(h.quotes || []).map((q: any) => {
+                                      // Recuperar fecha de la boleta maestra si falta
+                                      const masterQ = quotes.find(mq => mq.id === q.quoteId);
+                                      const itemDate = q.date || masterQ?.date || (masterQ?.createdAt?.toDate ? format(masterQ.createdAt.toDate(), "yyyy-MM-dd") : "");
+                                      return { type: 'quote', date: itemDate, id: q.quoteId, amount: q.amount };
+                                    }),
+                                    ...(h.payments || []).map((p: any) => {
+                                      // Recuperar fecha del pago maestro si falta
+                                      const masterP = payments.find(mp => mp.id === p.paymentId);
+                                      const itemDate = p.date || masterP?.date || (masterP?.createdAt?.toDate ? format(masterP.createdAt.toDate(), "yyyy-MM-dd") : "");
+                                      return { type: 'payment', date: itemDate, id: 'PAGO', amount: p.amount };
+                                    })
                                   ].sort((a, b) => (a.date || "").localeCompare(b.date || ""))
 
                                   return (
@@ -284,8 +294,8 @@ export default function CustomersHubPage() {
                                         <tbody className="divide-y divide-slate-50">
                                           {batchItems.map((item, iIdx) => (
                                             <tr key={iIdx} className="hover:bg-slate-50/50">
-                                              <td className="px-4 py-2.5 text-slate-500">
-                                                {item.date ? format(new Date(item.date + "T12:00:00"), "dd/MM/yy") : "-"}
+                                              <td className="px-4 py-2.5 text-slate-500 font-bold">
+                                                {item.date ? format(new Date(item.date + "T12:00:00"), "dd/MM/yy") : "S/F"}
                                               </td>
                                               <td className="px-4 py-2.5">
                                                 <span className="text-slate-700 font-bold">{item.id}</span>
@@ -317,7 +327,7 @@ export default function CustomersHubPage() {
                                   <tbody className="divide-y divide-slate-100">
                                     {c.history.map((h, hIdx) => (
                                       <tr key={hIdx} className="hover:bg-slate-50/50">
-                                        <td className="px-4 py-3 text-slate-500">
+                                        <td className="px-4 py-3 text-slate-500 font-bold">
                                           {format(h.date, "dd/MM/yy")}
                                         </td>
                                         <td className="px-4 py-3">
