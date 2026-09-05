@@ -88,8 +88,8 @@ export default function PaymentsView() {
   const dayLocksRef = React.useMemo(() => db ? collection(db, "dayLocks") : null, [db])
   const { data: allDayLocks = [] } = useCollection(dayLocksRef)
 
-  const quotesRef = React.useMemo(() => db ? collection(db, "quotes") : null, [db])
-  const { data: allQuotes = [] } = useCollection(quotesRef)
+  const logisticsRef = React.useMemo(() => db ? query(collection(db, "logistics"), orderBy("date", "desc"), limit(100)) : null, [db])
+  const { data: logistics = [] } = useCollection(logisticsRef)
 
   const paymentsQuery = React.useMemo(() => {
     if (!db) return null
@@ -97,9 +97,17 @@ export default function PaymentsView() {
   }, [db])
   const { data: payments = [], loading } = useCollection(paymentsQuery)
 
-  const shippedCustomerIds = React.useMemo(() => {
-    return new Set(allQuotes.filter(q => q.status === 'shipped').map(q => q.customerId))
-  }, [allQuotes])
+  const processedPaymentIds = React.useMemo(() => {
+    const ids = new Set<string>()
+    logistics.forEach(batch => {
+      (batch.entries || []).forEach((entry: any) => {
+        (entry.payments || []).forEach((p: any) => {
+          if (p.paymentId) ids.add(p.paymentId)
+        })
+      })
+    })
+    return ids
+  }, [logistics])
 
   React.useEffect(() => {
     if (!editingPayment) {
@@ -222,7 +230,7 @@ export default function PaymentsView() {
   }
 
   const startEditing = (p: any) => {
-    if (p.isLocked || shippedCustomerIds.has(p.customerId)) return
+    if (p.isLocked || processedPaymentIds.has(p.id)) return
     setEditingPayment(p)
     setDate(new Date(p.date + "T12:00:00"))
     setAmount(p.amount.toString())
@@ -443,7 +451,7 @@ export default function PaymentsView() {
                       <PaymentRecord 
                         key={p.id} 
                         p={p} 
-                        isProcessed={shippedCustomerIds.has(p.customerId)}
+                        isProcessed={processedPaymentIds.has(p.id)}
                         onEdit={startEditing} 
                         onDelete={handleDelete} 
                         onLock={togglePaymentLock} 
@@ -455,7 +463,7 @@ export default function PaymentsView() {
                 <PaymentRecord 
                   key={p.id} 
                   p={p} 
-                  isProcessed={shippedCustomerIds.has(p.customerId)}
+                  isProcessed={processedPaymentIds.has(p.id)}
                   onEdit={startEditing} 
                   onDelete={handleDelete} 
                   onLock={togglePaymentLock} 
@@ -504,7 +512,7 @@ function PaymentRecord({ p, isProcessed, onEdit, onDelete, onLock }: any) {
               {p.isLocked ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
             </button>
 
-            {!p.isLocked && !isProcessed && (
+            {!isProcessed && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className="p-1.5 text-slate-300 hover:text-primary transition-colors">
@@ -515,6 +523,7 @@ function PaymentRecord({ p, isProcessed, onEdit, onDelete, onLock }: any) {
                   <DropdownMenuItem 
                     className="text-[10px] font-bold uppercase gap-3 p-3 rounded-xl" 
                     onSelect={(e) => { e.preventDefault(); onEdit(p); }}
+                    disabled={p.isLocked}
                   >
                     <Edit2 className="w-3.5 h-3.5 text-primary" /> Editar Registro
                   </DropdownMenuItem>
@@ -522,6 +531,7 @@ function PaymentRecord({ p, isProcessed, onEdit, onDelete, onLock }: any) {
                   <DropdownMenuItem 
                     className="text-[10px] font-bold uppercase gap-3 p-3 rounded-xl text-red-500 hover:bg-red-50" 
                     onSelect={(e) => { e.preventDefault(); onDelete(p.id); }}
+                    disabled={p.isLocked}
                   >
                     <Trash2 className="w-3.5 h-3.5" /> Eliminar Pago
                   </DropdownMenuItem>
