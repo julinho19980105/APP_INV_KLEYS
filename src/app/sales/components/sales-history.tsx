@@ -167,7 +167,7 @@ export default function SalesHistory() {
     try {
       if (!navigator.bluetooth) {
         toast({ variant: "destructive", title: "BLUETOOTH NO SOPORTADO", description: "Use un navegador compatible (Chrome/Edge)." })
-        return
+        return null
       }
       
       const device = await navigator.bluetooth.requestDevice({
@@ -185,27 +185,32 @@ export default function SalesHistory() {
       
       const server = await device.gatt?.connect()
       const services = await server?.getPrimaryServices()
-      if (!services) return
+      if (!services) return null
       
       for (const service of services) {
         const characteristics = await service.getCharacteristics()
         for (const char of characteristics) {
           if (char.properties.write || char.properties.writeWithoutResponse) {
             setPrinterChar(char)
-            toast({ title: "IMPRESORA CONECTADA", description: "Presione el botón de nuevo para imprimir." })
-            return
+            toast({ title: "IMPRESORA VINCULADA", description: "Conexión establecida para esta sesión." })
+            return char
           }
         }
       }
+      return null
     } catch (error) {
       toast({ variant: "destructive", title: "ERROR DE CONEXIÓN", description: "No se seleccionó dispositivo compatible." })
+      return null
     }
   }
 
   const printTicket = async (sale: any) => {
-    if (!printerChar) {
-      await connectPrinter()
-      return
+    let char = printerChar;
+    
+    // Si no está conectado, conectamos primero y luego procedemos inmediatamente a imprimir
+    if (!char) {
+      char = await connectPrinter()
+      if (!char) return
     }
 
     try {
@@ -265,12 +270,12 @@ export default function SalesHistory() {
 
       const buffer = encoder.encode(data)
       for (let i = 0; i < buffer.length; i += 20) {
-        await printerChar.writeValue(buffer.slice(i, i + 20))
+        await char.writeValue(buffer.slice(i, i + 20))
       }
-      toast({ title: "TICKET IMPRESO" })
+      toast({ title: "TICKET ENVIADO A IMPRESORA" })
     } catch (error) {
       setPrinterChar(null)
-      toast({ variant: "destructive", title: "ERROR DE IMPRESIÓN", description: "Reconecte la impresora Bluetooth." })
+      toast({ variant: "destructive", title: "ERROR DE IMPRESIÓN", description: "La conexión se perdió. Reconecte la impresora." })
     }
   }
 
