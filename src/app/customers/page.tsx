@@ -65,10 +65,23 @@ export default function CustomersHubPage() {
       const totalShippingCost = shipmentHistory.reduce((acc, h) => acc + Number(h.shippingCost || 0), 0)
       const balance = totalPaid - (totalInvoiced + totalShippingCost)
 
-      const ledger = [...cQuotes.map(q => ({ type: 'quote', date: q.createdAt?.toDate ? q.createdAt.toDate() : new Date(), id: q.id, amount: q.total })),
-                      ...cPayments.map(p => ({ type: 'payment', date: p.createdAt?.toDate ? p.createdAt.toDate() : new Date(), id: 'PAGO', amount: p.amount })),
-                      ...shipmentHistory.map(h => ({ type: 'shipping', date: new Date(h.dateKey + "T12:00:00"), id: 'ENVIO', amount: Number(h.shippingCost || 0) }))]
-                      .sort((a, b) => a.date.getTime() - b.date.getTime())
+      // CONSTRUCCIÓN DEL LEDGER CON FECHAS CORRECTAS
+      const ledger = [
+        ...cQuotes.map(q => {
+          const d = q.date ? new Date(q.date + "T12:00:00") : (q.createdAt?.toDate ? q.createdAt.toDate() : new Date());
+          return { type: 'quote', date: d, id: q.id, amount: q.total };
+        }),
+        ...cPayments.map(p => {
+          const d = p.date ? new Date(p.date + "T12:00:00") : (p.createdAt?.toDate ? p.createdAt.toDate() : new Date());
+          return { type: 'payment', date: d, id: 'PAGO', amount: p.amount };
+        }),
+        ...shipmentHistory.map(h => ({ 
+          type: 'shipping', 
+          date: new Date(h.dateKey + "T12:00:00"), 
+          id: 'ENVIO', 
+          amount: Number(h.shippingCost || 0) 
+        }))
+      ].sort((a, b) => a.date.getTime() - b.date.getTime())
 
       let runningBalance = 0
       const history = ledger.map(entry => {
