@@ -15,7 +15,10 @@ import {
   MoreVertical,
   CalendarDays,
   UserPlus,
-  AlertCircle
+  AlertCircle,
+  FileText,
+  CreditCard,
+  ArrowRight
 } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
@@ -36,12 +39,6 @@ import {
   DialogHeader,
   DialogTitle
 } from "@/components/ui/dialog"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { useFirestore, useDoc, useCollection } from "@/firebase"
 import { 
   doc, 
@@ -51,7 +48,8 @@ import {
   collection, 
   orderBy, 
   updateDoc,
-  limit
+  limit,
+  getDoc
 } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import CustomersHubPage from "../customers/page"
@@ -82,17 +80,19 @@ export default function ShippingHubPage() {
 
   const activeCustomerSuggestions = React.useMemo(() => {
     const shippedInTodayBatch = new Set((logData?.entries || []).map((e: any) => e.customerId))
-    const shippedInHistory = new Set(historyBatches.filter(l => l.date !== dateKey).flatMap(l => (l.entries || []).map((e: any) => e.customerId)))
-
+    // Nota: Un cliente puede estar en otros lotes pasados, pero si tiene boletas activas puede volver a aparecer
     const activeQuoteCustIds = new Set(allQuotes.filter(q => q.status === 'active').map(q => q.customerId))
-    const pendingPaymentCustIds = new Set(allPayments.filter(p => !p.isLocked).map(p => p.customerId))
+    
+    // Verificamos qué pagos no están en NINGÚN lote de logística
+    const allProcessedPaymentIds = new Set(historyBatches.flatMap(b => (b.entries || []).flatMap((e: any) => (e.payments || []).map((p: any) => p.paymentId))))
+    const pendingPaymentCustIds = new Set(allPayments.filter(p => !p.isLocked && !allProcessedPaymentIds.has(p.id)).map(p => p.customerId))
 
     return dbCustomers.filter(c => {
-      const isNotShippedYet = !shippedInHistory.has(c.id) && !shippedInTodayBatch.has(c.id)
+      const isNotAlreadyInToday = !shippedInTodayBatch.has(c.id)
       const hasActivity = activeQuoteCustIds.has(c.id) || pendingPaymentCustIds.has(c.id)
-      return isNotShippedYet && hasActivity
+      return isNotAlreadyInToday && hasActivity
     })
-  }, [dbCustomers, allQuotes, allPayments, historyBatches, logData, dateKey])
+  }, [dbCustomers, allQuotes, allPayments, historyBatches, logData])
 
   const filteredSuggestions = React.useMemo(() => {
     const q = customerSearch.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
@@ -110,8 +110,8 @@ export default function ShippingHubPage() {
     let favor = 0
 
     entries.forEach((e: any) => {
-      const qTotal = (e.quotes || []).reduce((acc: number, q: any) => acc + Number(q.amount), 0)
-      const pTotal = (e.payments || []).reduce((acc: number, p: any) => acc + Number(p.amount), 0)
+      const qTotal = (e.quotes || []).reduce((acc: number, q: any) => acc + Number(q.amount || 0), 0)
+      const pTotal = (e.payments || []).reduce((acc: number, p: any) => acc + Number(p.amount || 0), 0)
       const ship = Number(e.shippingCost || 0)
       const bal = pTotal - (qTotal + ship)
       
@@ -126,9 +126,17 @@ export default function ShippingHubPage() {
   const handleAddCustomer = async (customer: any) => {
     if (!db || !logisticsDocRef) return
     
-    const customerQuotes = allQuotes.filter(q => q.customerId === customer.id && q.status === "active")
-    const customerPayments = allPayments.filter(p => p.customerId === customer.id && !p.isLocked)
-    
+    // Capturar TODO lo activo al momento del registro inicial (Ley de Cierre)
+    const customerQuotes = allQuotes
+      .filter(q => q.customerId === customer.id && q.status === "active")
+      .sort((a, b) => (a.date || "").localeCompare(b.date || "")) // Ordenar por fecha (antiguo arriba)
+
+    // Pagos no procesados en ningún lote
+    const allProcessedPaymentIds = new Set(historyBatches.flatMap(b => (b.entries || []).flatMap((e: any) => (e.payments || []).map((p: any) => p.paymentId))))
+    const customerPayments = allPayments
+      .filter(p => p.customerId === customer.id && !p.isLocked && !allProcessedPaymentIds.has(p.id))
+      .sort((a, b) => (a.date || "").localeCompare(b.date || ""))
+
     for (const q of customerQuotes) {
       updateDoc(doc(db, "quotes", q.id), { status: 'shipped' }).catch(() => {})
     }
@@ -138,8 +146,8 @@ export default function ShippingHubPage() {
       customerName: customer.name,
       addedAt: new Date().toISOString(),
       shippingCost: 0,
-      quotes: customerQuotes.map(q => ({ quoteId: q.id, amount: q.total, qty: (q.items || []).reduce((acc: number, i: any) => acc + Number(i.quantity), 0) })),
-      payments: customerPayments.map(p => ({ paymentId: p.id, amount: p.amount }))
+      quotes: customerQuotes.map(q => ({ quoteId: q.id, amount: q.total, date: q.date || "", qty: (q.items || []).reduce((acc: number, i: any) => acc + Number(i.quantity), 0) })),
+      payments: customerPayments.map(p => ({ paymentId: p.id, amount: p.amount, date: p.date || "", bank: p.bankName }))
     }
 
     const currentEntries = logData?.entries || []
@@ -151,7 +159,83 @@ export default function ShippingHubPage() {
     
     setCustomerSearch("")
     setIsSearchFocused(false)
-    toast({ title: "CLIENTE AÑADIDO" })
+    toast({ title: "CLIENTE AÑADIDO AL LOTE" })
+  }
+
+  const handleUnlinkQuote = async (customerId: string, quoteId: string) => {
+    if (!db || !logisticsDocRef || !logData) return
+    
+    const entry = logData.entries.find((e: any) => e.customerId === customerId)
+    if (!entry) return
+
+    // Cambiar estado a activo en Firestore
+    updateDoc(doc(db, "quotes", quoteId), { status: 'active' }).catch(() => {})
+
+    const updatedEntries = logData.entries.map((e: any) => {
+      if (e.customerId === customerId) {
+        return { ...e, quotes: e.quotes.filter((q: any) => q.quoteId !== quoteId) }
+      }
+      return e
+    })
+
+    await updateDoc(logisticsDocRef, { entries: updatedEntries, updatedAt: serverTimestamp() })
+    toast({ title: "BOLETA DESVINCULADA" })
+  }
+
+  const handleLinkQuote = async (customerId: string, quote: any) => {
+    if (!db || !logisticsDocRef || !logData) return
+
+    updateDoc(doc(db, "quotes", quote.id), { status: 'shipped' }).catch(() => {})
+
+    const updatedEntries = logData.entries.map((e: any) => {
+      if (e.customerId === customerId) {
+        const newQuote = { 
+          quoteId: quote.id, 
+          amount: quote.total, 
+          date: quote.date || "", 
+          qty: (quote.items || []).reduce((acc: number, i: any) => acc + Number(i.quantity), 0) 
+        }
+        return { ...e, quotes: [...(e.quotes || []), newQuote].sort((a, b) => a.date.localeCompare(b.date)) }
+      }
+      return e
+    })
+
+    await updateDoc(logisticsDocRef, { entries: updatedEntries, updatedAt: serverTimestamp() })
+    toast({ title: "BOLETA VINCULADA" })
+  }
+
+  const handleUnlinkPayment = async (customerId: string, paymentId: string) => {
+    if (!db || !logisticsDocRef || !logData) return
+
+    const updatedEntries = logData.entries.map((e: any) => {
+      if (e.customerId === customerId) {
+        return { ...e, payments: e.payments.filter((p: any) => p.paymentId !== paymentId) }
+      }
+      return e
+    })
+
+    await updateDoc(logisticsDocRef, { entries: updatedEntries, updatedAt: serverTimestamp() })
+    toast({ title: "PAGO DESVINCULADO" })
+  }
+
+  const handleLinkPayment = async (customerId: string, payment: any) => {
+    if (!db || !logisticsDocRef || !logData) return
+
+    const updatedEntries = logData.entries.map((e: any) => {
+      if (e.customerId === customerId) {
+        const newPayment = { 
+          paymentId: payment.id, 
+          amount: payment.amount, 
+          date: payment.date || "", 
+          bank: payment.bankName 
+        }
+        return { ...e, payments: [...(e.payments || []), newPayment].sort((a, b) => a.date.localeCompare(b.date)) }
+      }
+      return e
+    })
+
+    await updateDoc(logisticsDocRef, { entries: updatedEntries, updatedAt: serverTimestamp() })
+    toast({ title: "PAGO VINCULADO" })
   }
 
   const handleUpdateShippingCost = async (customerId: string, cost: string) => {
@@ -174,6 +258,7 @@ export default function ShippingHubPage() {
     const updatedEntries = logData.entries.filter((e: any) => e.customerId !== deleteConfirm.id)
     await updateDoc(logisticsDocRef, { entries: updatedEntries, updatedAt: serverTimestamp() })
     setDeleteConfirm(null)
+    toast({ title: "CLIENTE REMOVIDO" })
   }
 
   return (
@@ -194,7 +279,7 @@ export default function ShippingHubPage() {
           <TabsContent value="envios" className="mt-0 space-y-4 focus-visible:outline-none">
             <div className="bg-[#0f172a] rounded-b-[2rem] p-5 pb-7 space-y-4 shadow-2xl relative overflow-visible">
                <div className="flex items-center justify-between relative z-10">
-                  <h1 className="text-[13px] font-black text-white uppercase tracking-widest">REGISTRO DE ENVÍOS</h1>
+                  <h1 className="text-[13px] font-black text-white uppercase tracking-widest">LOTE DE ENVÍO</h1>
                   <input 
                     type="date" 
                     value={dateKey} 
@@ -206,7 +291,7 @@ export default function ShippingHubPage() {
                <div className="relative z-20">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <Input 
-                    placeholder="AGREGAR CLIENTES" 
+                    placeholder="AGREGAR CLIENTE AL LOTE..." 
                     className="h-12 pl-12 bg-white border-slate-300 rounded-xl font-medium text-[11px] uppercase shadow-inner text-slate-800 focus-visible:ring-1 focus-visible:ring-primary/20"
                     value={customerSearch}
                     onChange={e => setCustomerSearch(e.target.value)}
@@ -239,15 +324,15 @@ export default function ShippingHubPage() {
 
             <div className="grid grid-cols-3 gap-2 px-4 -mt-3 relative z-10">
                <div className="bg-white border border-slate-300 rounded-xl p-3 text-center shadow-md">
-                 <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest block">FACTURADO</span>
+                 <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest block">LOTE FACT.</span>
                  <div className="text-[14px] font-headline font-black text-slate-900 mt-0.5 leading-none">S/ {stats.facturado.toFixed(0)}</div>
                </div>
                <div className="bg-white border border-slate-300 rounded-xl p-3 text-center shadow-md">
-                 <span className="text-[7px] font-black text-red-400 uppercase tracking-widest block">DEUDA</span>
+                 <span className="text-[7px] font-black text-red-400 uppercase tracking-widest block">DEUDA LOTE</span>
                  <div className="text-[14px] font-headline font-black text-red-600 mt-0.5 leading-none">S/ {stats.deuda.toFixed(0)}</div>
                </div>
                <div className="bg-white border border-slate-300 rounded-xl p-3 text-center shadow-md">
-                 <span className="text-[7px] font-black text-blue-400 uppercase tracking-widest block">FAVOR</span>
+                 <span className="text-[7px] font-black text-blue-400 uppercase tracking-widest block">SALDO FAVOR</span>
                  <div className="text-[14px] font-headline font-black text-blue-600 mt-0.5 leading-none">S/ {stats.favor.toFixed(0)}</div>
                </div>
             </div>
@@ -261,11 +346,24 @@ export default function ShippingHubPage() {
                ) : (
                  <div className="space-y-1.5">
                     {logData.entries.map((entry: any, index: number) => {
-                      const qTotal = (entry.quotes || []).reduce((acc: number, q: any) => acc + Number(q.amount), 0)
-                      const pTotal = (entry.payments || []).reduce((acc: number, p: any) => acc + Number(p.amount), 0)
+                      const qTotal = (entry.quotes || []).reduce((acc: number, q: any) => acc + Number(q.amount || 0), 0)
+                      const pTotal = (entry.payments || []).reduce((acc: number, p: any) => acc + Number(p.amount || 0), 0)
                       const ship = Number(entry.shippingCost || 0)
                       const bal = pTotal - (qTotal + ship)
                       
+                      // Buscar actividad posterior (Activos no vinculados)
+                      const availableQuotes = allQuotes.filter(q => q.customerId === entry.customerId && q.status === "active")
+                      const allProcessedPaymentIdsInSession = new Set(historyBatches.flatMap(b => (b.entries || []).flatMap((e: any) => (e.payments || []).map((p: any) => p.paymentId))))
+                      // También los pagos que ya están en el lote actual pero que no son este específico
+                      const currentBatchPaymentIds = new Set((logData.entries || []).flatMap((e: any) => (e.payments || []).map((p: any) => p.paymentId)))
+                      
+                      const availablePayments = allPayments.filter(p => 
+                        p.customerId === entry.customerId && 
+                        !p.isLocked && 
+                        !allProcessedPaymentIdsInSession.has(p.id) &&
+                        !currentBatchPaymentIds.has(p.id)
+                      )
+
                       return (
                         <Accordion key={entry.customerId} type="single" collapsible className="w-full">
                           <AccordionItem value={entry.customerId} className="border border-slate-300 rounded-2xl overflow-hidden bg-white shadow-sm">
@@ -282,34 +380,121 @@ export default function ShippingHubPage() {
                                   "px-2.5 py-0.5 rounded-md font-black text-[11px] text-white ml-auto mr-3 shrink-0 shadow-sm leading-tight",
                                   bal < -0.1 ? "bg-red-600" : bal > 0.1 ? "bg-blue-600" : "bg-[#10b981]"
                                 )}>
-                                  {Math.abs(bal).toFixed(1)}
+                                  S/ {Math.abs(bal).toFixed(1)}
                                 </div>
                               </div>
                             </AccordionTrigger>
-                            <AccordionContent className="pb-3 pt-2 px-4 border-t border-slate-100 bg-slate-50/50">
-                               <div className="flex items-center justify-between gap-4 mb-3">
+                            <AccordionContent className="pb-4 pt-2 px-4 border-t border-slate-100 bg-slate-50/30">
+                               <div className="flex items-center justify-between gap-4 mb-4">
                                   <div className="flex-1 space-y-0.5">
-                                    <Label className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">COSTO ENVÍO</Label>
+                                    <Label className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">COSTO ENVÍO S/</Label>
                                     <Input 
                                       type="number" 
                                       value={entry.shippingCost || ""} 
                                       onChange={e => handleUpdateShippingCost(entry.customerId, e.target.value)} 
-                                      className="h-9 text-[11px] font-black text-center border-slate-300 rounded-lg bg-white"
+                                      className="h-10 text-[12px] font-black text-center border-slate-300 rounded-xl bg-white shadow-sm"
                                       placeholder="0.0"
                                     />
                                   </div>
-                                  <Button variant="ghost" size="icon" className="h-9 w-9 text-red-500 hover:bg-red-50 rounded-lg mt-3" onClick={() => setDeleteConfirm({ id: entry.customerId, name: entry.customerName })}>
-                                    <Trash2 className="w-4 h-4" />
+                                  <Button variant="ghost" size="icon" className="h-10 w-10 text-red-500 hover:bg-red-50 rounded-xl mt-3" onClick={() => setDeleteConfirm({ id: entry.customerId, name: entry.customerName })}>
+                                    <Trash2 className="w-5 h-5" />
                                   </Button>
                                </div>
-                               <div className="space-y-1">
-                                  <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1 px-1">BOLETAS ASOCIADAS</div>
-                                  {(entry.quotes || []).map((q: any) => (
-                                    <div key={q.quoteId} className="bg-white border border-slate-200 rounded-xl p-2.5 flex justify-between items-center shadow-sm">
-                                      <span className="text-[10px] font-bold text-slate-600">{q.quoteId}</span>
-                                      <span className="text-[11px] font-black text-slate-900">S/ {Number(q.amount).toFixed(1)}</span>
+
+                               <div className="space-y-4">
+                                 {/* SECCIÓN VINCULADOS */}
+                                 <div className="space-y-2">
+                                    <div className="flex items-center gap-2 px-1">
+                                      <div className="w-1.5 h-1.5 rounded-full bg-[#10b981]" />
+                                      <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">LIQUIDADO EN ESTE LOTE (ANTIGUO ARRIBA)</span>
                                     </div>
-                                  ))}
+                                    
+                                    <div className="space-y-1">
+                                      {(entry.quotes || []).map((q: any) => (
+                                        <div key={q.quoteId} className="bg-white border border-slate-200 rounded-xl p-2 px-3 flex justify-between items-center shadow-sm">
+                                          <div className="flex items-center gap-3">
+                                            <FileText className="w-3.5 h-3.5 text-primary/40" />
+                                            <div className="flex flex-col">
+                                              <span className="text-[10px] font-bold text-slate-800">{q.quoteId}</span>
+                                              <span className="text-[7px] font-medium text-slate-400">{q.date}</span>
+                                            </div>
+                                          </div>
+                                          <div className="flex items-center gap-3">
+                                            <span className="text-[11px] font-black text-slate-900">S/ {Number(q.amount || 0).toFixed(1)}</span>
+                                            <button onClick={() => handleUnlinkQuote(entry.customerId, q.quoteId)} className="text-slate-300 hover:text-red-500 p-1"><X className="w-3.5 h-3.5" /></button>
+                                          </div>
+                                        </div>
+                                      ))}
+
+                                      {(entry.payments || []).map((p: any) => (
+                                        <div key={p.paymentId} className="bg-blue-50/50 border border-blue-100 rounded-xl p-2 px-3 flex justify-between items-center">
+                                          <div className="flex items-center gap-3">
+                                            <CreditCard className="w-3.5 h-3.5 text-blue-400" />
+                                            <div className="flex flex-col">
+                                              <span className="text-[10px] font-bold text-blue-700">{p.bank}</span>
+                                              <span className="text-[7px] font-medium text-blue-400">{p.date}</span>
+                                            </div>
+                                          </div>
+                                          <div className="flex items-center gap-3">
+                                            <span className="text-[11px] font-black text-blue-600">S/ {Number(p.amount || 0).toFixed(1)}</span>
+                                            <button onClick={() => handleUnlinkPayment(entry.customerId, p.paymentId)} className="text-blue-300 hover:text-red-500 p-1"><X className="w-3.5 h-3.5" /></button>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                 </div>
+
+                                 {/* SECCIÓN DISPONIBLES (NUEVA ACTIVIDAD) */}
+                                 {(availableQuotes.length > 0 || availablePayments.length > 0) && (
+                                   <div className="space-y-2 pt-2 border-t border-slate-200 border-dashed">
+                                      <div className="flex items-center gap-2 px-1">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse" />
+                                        <span className="text-[8px] font-black text-orange-600 uppercase tracking-widest">ACTIVIDAD NUEVA (PARA VINCULAR)</span>
+                                      </div>
+                                      
+                                      <div className="space-y-1 opacity-70">
+                                        {availableQuotes.map(q => (
+                                          <button 
+                                            key={q.id} 
+                                            onClick={() => handleLinkQuote(entry.customerId, q)}
+                                            className="w-full bg-slate-100 border border-slate-200 rounded-xl p-2 px-3 flex justify-between items-center hover:bg-slate-200 transition-colors"
+                                          >
+                                            <div className="flex items-center gap-3">
+                                              <FileText className="w-3.5 h-3.5 text-slate-400" />
+                                              <div className="flex flex-col text-left">
+                                                <span className="text-[10px] font-bold text-slate-600">{q.id}</span>
+                                                <span className="text-[7px] font-medium text-slate-400">{q.date}</span>
+                                              </div>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                              <span className="text-[10px] font-black text-slate-500">S/ {Number(q.total || 0).toFixed(1)}</span>
+                                              <Plus className="w-3.5 h-3.5 text-slate-400" />
+                                            </div>
+                                          </button>
+                                        ))}
+
+                                        {availablePayments.map(p => (
+                                          <button 
+                                            key={p.id} 
+                                            onClick={() => handleLinkPayment(entry.customerId, p)}
+                                            className="w-full bg-blue-50/30 border border-blue-100 rounded-xl p-2 px-3 flex justify-between items-center hover:bg-blue-100/50 transition-colors"
+                                          >
+                                            <div className="flex items-center gap-3">
+                                              <CreditCard className="w-3.5 h-3.5 text-blue-300" />
+                                              <div className="flex flex-col text-left">
+                                                <span className="text-[10px] font-bold text-blue-600">{p.bankName}</span>
+                                                <span className="text-[7px] font-medium text-blue-300">{p.date}</span>
+                                              </div>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                              <span className="text-[10px] font-black text-blue-500">S/ {Number(p.amount || 0).toFixed(1)}</span>
+                                              <Plus className="w-3.5 h-3.5 text-blue-300" />
+                                            </div>
+                                          </button>
+                                        ))}
+                                      </div>
+                                   </div>
+                                 )}
                                </div>
                             </AccordionContent>
                           </AccordionItem>
@@ -328,34 +513,40 @@ export default function ShippingHubPage() {
                <div className="space-y-2">
                   {historyBatches.map((batch: any) => {
                     const bTotal = (batch.entries || []).reduce((acc: number, e: any) => {
-                      const qt = (e.quotes || []).reduce((a: number, q: any) => a + Number(q.amount), 0)
+                      const qt = (e.quotes || []).reduce((a: number, q: any) => a + Number(q.amount || 0), 0)
                       return acc + qt
                     }, 0)
                     
                     const bDebt = (batch.entries || []).reduce((acc: number, e: any) => {
-                      const qT = (e.quotes || []).reduce((a: number, q: any) => a + Number(q.amount), 0)
-                      const pT = (e.payments || []).reduce((a: number, p: any) => a + Number(p.amount), 0)
+                      const qT = (e.quotes || []).reduce((a: number, q: any) => a + Number(q.amount || 0), 0)
+                      const pT = (e.payments || []).reduce((a: number, p: any) => a + Number(p.amount || 0), 0)
                       const ship = Number(e.shippingCost || 0)
                       const bal = pT - (qT + ship)
                       return bal < -0.1 ? acc + Math.abs(bal) : acc
                     }, 0)
 
                     const bEntriesCount = (batch.entries || []).length
-                    if (bEntriesCount === 0) return null
+                    if (bEntriesCount === 0 && batch.date !== dateKey) return null
 
                     return (
-                      <Card key={batch.id} className="rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all active:scale-[0.99] group overflow-hidden">
+                      <Card key={batch.id} className={cn(
+                        "rounded-2xl border shadow-sm hover:shadow-md transition-all active:scale-[0.99] group overflow-hidden",
+                        batch.date === dateKey ? "border-primary/40 bg-primary/5" : "border-slate-200 bg-white"
+                      )}>
                         <CardContent className="p-0 flex items-center justify-between h-14 pr-4">
                           <div className="flex items-center gap-4 flex-1 min-w-0">
-                            <div className="w-14 h-14 bg-slate-50 border-r border-slate-100 flex items-center justify-center shrink-0">
-                              <CalendarDays className="w-5 h-5 text-slate-400" />
+                            <div className={cn(
+                              "w-14 h-14 border-r flex items-center justify-center shrink-0",
+                              batch.date === dateKey ? "bg-primary/10 border-primary/10" : "bg-slate-50 border-slate-100"
+                            )}>
+                              <CalendarDays className={cn("w-5 h-5", batch.date === dateKey ? "text-primary" : "text-slate-400")} />
                             </div>
                             <div className="flex flex-col min-w-0">
                               <div className="flex items-center gap-2">
                                 <span className="font-bold text-[12px] text-slate-800 uppercase truncate">{batch.date}</span>
                                 <Badge variant="secondary" className="bg-slate-100 text-slate-500 text-[8px] font-black h-4 px-1.5 border-none uppercase">{bEntriesCount} CL</Badge>
                               </div>
-                              <div className="text-[9px] font-bold text-slate-400">TOTAL FACTURADO: S/ {bTotal.toFixed(0)}</div>
+                              <div className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">Ventas: S/ {bTotal.toFixed(0)}</div>
                             </div>
                           </div>
                           
@@ -372,7 +563,7 @@ export default function ShippingHubPage() {
                               className="h-8 w-8 text-slate-300 hover:text-primary rounded-lg" 
                               onClick={() => { setDate(new Date(batch.date + "T12:00:00")); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
                             >
-                               <Search className="w-4 h-4" />
+                               <ArrowRight className="w-4 h-4" />
                             </Button>
                           </div>
                         </CardContent>
