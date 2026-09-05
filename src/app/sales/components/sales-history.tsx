@@ -54,6 +54,7 @@ export default function SalesHistory() {
   const [daysLimit, setDaysLimit] = React.useState(30)
   const [activeReceipt, setActiveReceipt] = React.useState<any>(null)
   const [printerChar, setPrinterChar] = React.useState<any>(null)
+  const [expandedSales, setExpandedSales] = React.useState<Record<string, boolean>>({})
 
   const receiptRef = React.useRef<HTMLDivElement>(null)
   
@@ -125,6 +126,10 @@ export default function SalesHistory() {
     return Object.values(groups).sort((a, b) => b.dateKey.localeCompare(a.dateKey))
   }, [filteredQuotes])
 
+  const toggleExpand = (id: string) => {
+    setExpandedSales(prev => ({ ...prev, [id]: !prev[id] }))
+  }
+
   const handleAnnul = async (sale: any) => {
     if (!db || !confirm(`¿ANULAR VENTA ${sale.id}?`)) return
     try {
@@ -177,10 +182,9 @@ export default function SalesHistory() {
           { namePrefix: 'MPT' },
           { namePrefix: 'RP' },
           { namePrefix: 'Blue' },
-          { namePrefix: 'POS' },
-          { services: ['000018f0-0000-1000-8000-00805f9b34fb'] }
+          { namePrefix: 'POS' }
         ],
-        optionalServices: ['0000ff00-0000-1000-8000-00805f9b34fb', '000018f0-0000-1000-8000-00805f9b34fb']
+        optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb', '0000ff00-0000-1000-8000-00805f9b34fb']
       })
       
       const server = await device.gatt?.connect()
@@ -192,22 +196,20 @@ export default function SalesHistory() {
         for (const char of characteristics) {
           if (char.properties.write || char.properties.writeWithoutResponse) {
             setPrinterChar(char)
-            toast({ title: "IMPRESORA VINCULADA", description: "Conexión establecida para esta sesión." })
+            toast({ title: "IMPRESORA VINCULADA" })
             return char
           }
         }
       }
       return null
     } catch (error) {
-      toast({ variant: "destructive", title: "ERROR DE CONEXIÓN", description: "No se seleccionó dispositivo compatible." })
+      toast({ variant: "destructive", title: "ERROR DE CONEXIÓN" })
       return null
     }
   }
 
   const printTicket = async (sale: any) => {
     let char = printerChar;
-    
-    // Si no está conectado, conectamos primero y luego procedemos inmediatamente a imprimir
     if (!char) {
       char = await connectPrinter()
       if (!char) return
@@ -272,10 +274,10 @@ export default function SalesHistory() {
       for (let i = 0; i < buffer.length; i += 20) {
         await char.writeValue(buffer.slice(i, i + 20))
       }
-      toast({ title: "TICKET ENVIADO A IMPRESORA" })
+      toast({ title: "TICKET IMPRESO" })
     } catch (error) {
       setPrinterChar(null)
-      toast({ variant: "destructive", title: "ERROR DE IMPRESIÓN", description: "La conexión se perdió. Reconecte la impresora." })
+      toast({ variant: "destructive", title: "ERROR DE IMPRESIÓN" })
     }
   }
 
@@ -355,55 +357,97 @@ export default function SalesHistory() {
               <span className="font-headline font-black text-[13px] text-[#10b981]">S/{group.dayTotal.toFixed(1)}</span>
             </div>
             <div className="space-y-1 px-1">
-              {group.sales.map(s => (
-                <div key={s.id} className={cn(
-                  "bg-white border border-slate-300 rounded-xl p-3 flex justify-between items-center shadow-sm hover:shadow-md transition-all active:scale-[0.98]",
-                  s.status === 'annulled' && "opacity-40 grayscale bg-slate-50"
-                )}>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <span className="text-[10px] font-medium text-primary/70 uppercase tracking-tighter">{s.id}</span>
-                      {s.status === 'shipped' && (
-                        <Badge className="bg-primary/10 text-primary text-[7px] font-bold h-4 px-1.5 border-none flex items-center gap-1">
-                          <Truck className="w-2 h-2" /> ENVIADO
-                        </Badge>
-                      )}
+              {group.sales.map(s => {
+                const isExpanded = expandedSales[s.id] || false;
+                return (
+                  <div key={s.id} className="bg-white border border-slate-300 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all">
+                    <div className={cn(
+                      "p-3 flex justify-between items-center",
+                      s.status === 'annulled' && "opacity-40 grayscale bg-slate-50"
+                    )}>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <button 
+                            className="flex items-center gap-1 group/id hover:text-primary transition-colors"
+                            onClick={() => toggleExpand(s.id)}
+                          >
+                            <span className="text-[10px] font-black text-primary/70 uppercase tracking-tighter">{s.id}</span>
+                            <ChevronDown className={cn("w-3.5 h-3.5 text-slate-300 transition-transform group-hover/id:text-primary", isExpanded && "rotate-180")} />
+                          </button>
+                          {s.status === 'shipped' && (
+                            <Badge className="bg-primary/10 text-primary text-[7px] font-bold h-4 px-1.5 border-none flex items-center gap-1">
+                              <Truck className="w-2 h-2" /> ENVIADO
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="text-[12px] font-normal text-slate-900 uppercase truncate leading-tight">{s.customerName}</div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          <div className="font-headline font-black text-[14px] text-slate-900 leading-none">S/{Number(s.total).toFixed(1)}</div>
+                          <div className="text-[8px] font-bold text-slate-400 uppercase mt-1">{(s.items || []).reduce((acc: number, i: any) => acc + Number(i.quantity), 0)} UND</div>
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:text-primary">
+                              <MoreVertical className="w-4.5 h-4.5" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="rounded-2xl p-2 w-48 shadow-2xl border-slate-300">
+                            <DropdownMenuItem className="text-[10px] font-bold uppercase gap-3 p-3 rounded-xl" onClick={() => printTicket(s)}>
+                              <Printer className="w-4 h-4 text-[#10b981]" /> {printerChar ? "Imprimir Ticket" : "Conectar Impresora"}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="text-[10px] font-bold uppercase gap-3 p-3 rounded-xl" onClick={() => shareReceipt(s)}>
+                              <Share2 className="w-4 h-4 text-blue-500" /> Compartir Imagen
+                            </DropdownMenuItem>
+                            {s.status === 'active' && (
+                              <DropdownMenuItem className="text-[10px] font-bold uppercase gap-3 p-3 rounded-xl" onClick={() => router.push(`/sales?edit=${s.id}&tab=quotes`)}>
+                                <Edit2 className="w-4 h-4 text-primary" /> Editar Venta
+                              </DropdownMenuItem>
+                            )}
+                            {s.status !== 'annulled' && (
+                              <DropdownMenuItem className="text-[10px] font-bold uppercase gap-3 p-3 rounded-xl text-red-500" onClick={() => handleAnnul(s)}>
+                                <Ban className="w-4 h-4" /> Anular Venta
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </div>
-                    <div className="text-[12px] font-normal text-slate-900 uppercase truncate leading-tight">{s.customerName}</div>
+
+                    {isExpanded && (
+                      <div className="px-4 pb-4 pt-1 bg-slate-50/50 border-t border-slate-100 animate-in slide-in-from-top-1 duration-200">
+                        <div className="space-y-2">
+                           <div className="flex items-center gap-2 mb-2">
+                             <div className="w-1 h-3 bg-primary rounded-full" />
+                             <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Desglose de Productos</span>
+                           </div>
+                           {s.items.map((item: any, idx: number) => (
+                             <div key={idx} className="flex justify-between items-start py-2 border-b border-slate-200 last:border-0">
+                               <div className="flex-1 min-w-0 pr-4">
+                                 <div className="text-[10px] font-black text-slate-800 uppercase truncate">{item.name}</div>
+                                 {item.description && <div className="text-[8px] font-medium text-slate-400 uppercase mt-0.5 line-clamp-1 italic">({item.description})</div>}
+                               </div>
+                               <div className="text-right shrink-0">
+                                 <div className="text-[9px] font-bold text-slate-500">
+                                   <span className="text-primary">{item.quantity}</span> x S/ {Number(item.price).toFixed(1)}
+                                 </div>
+                                 <div className="text-[11px] font-headline font-black text-slate-900 mt-0.5">
+                                   S/ {((Number(item.price) * Number(item.quantity)) - (Number(item.discount) || 0)).toFixed(1)}
+                                 </div>
+                               </div>
+                             </div>
+                           ))}
+                           <div className="pt-2 flex justify-between items-center border-t border-slate-300 mt-2">
+                              <span className="text-[9px] font-black text-slate-400 uppercase">Total de Prendas</span>
+                              <span className="text-[12px] font-headline font-black text-slate-900">{(s.items || []).reduce((acc: number, i: any) => acc + Number(i.quantity), 0)} UND</span>
+                           </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <div className="font-headline font-black text-[14px] text-slate-900 leading-none">S/{Number(s.total).toFixed(1)}</div>
-                      <div className="text-[8px] font-bold text-slate-400 uppercase mt-1">{(s.items || []).reduce((acc: number, i: any) => acc + Number(i.quantity), 0)} UND</div>
-                    </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:text-primary">
-                          <MoreVertical className="w-4.5 h-4.5" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="rounded-2xl p-2 w-48 shadow-2xl border-slate-300">
-                        <DropdownMenuItem className="text-[10px] font-bold uppercase gap-3 p-3 rounded-xl" onClick={() => printTicket(s)}>
-                          <Printer className="w-4 h-4 text-[#10b981]" /> {printerChar ? "Imprimir Ticket" : "Conectar Impresora"}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="text-[10px] font-bold uppercase gap-3 p-3 rounded-xl" onClick={() => shareReceipt(s)}>
-                          <Share2 className="w-4 h-4 text-blue-500" /> Compartir Imagen
-                        </DropdownMenuItem>
-                        {s.status === 'active' && (
-                          <DropdownMenuItem className="text-[10px] font-bold uppercase gap-3 p-3 rounded-xl" onClick={() => router.push(`/sales?edit=${s.id}&tab=quotes`)}>
-                            <Edit2 className="w-4 h-4 text-primary" /> Editar Venta
-                          </DropdownMenuItem>
-                        )}
-                        {s.status !== 'annulled' && (
-                          <DropdownMenuItem className="text-[10px] font-bold uppercase gap-3 p-3 rounded-xl text-red-500" onClick={() => handleAnnul(s)}>
-                            <Ban className="w-4 h-4" /> Anular Venta
-                          </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         ))}
