@@ -117,6 +117,7 @@ export default function QuotesView() {
   const [saving, setSaving] = React.useState(false)
   const [registeringCustomer, setRegisteringCustomer] = React.useState(false)
   const [quoteId, setQuoteId] = React.useState("B-001")
+  const [selectedDate, setSelectedDate] = React.useState(new Date().toISOString().split('T')[0])
   const [customerQuery, setCustomerQuery] = React.useState("")
   const [selectedCustomer, setSelectedCustomer] = React.useState<{id: string, name: string} | null>(null)
   const [productQuery, setProductQuery] = React.useState("")
@@ -157,6 +158,7 @@ export default function QuotesView() {
           setSelectedCustomer(parsed.selectedCustomer);
           setItems(parsed.items);
           setQuoteId(parsed.quoteId);
+          if (parsed.selectedDate) setSelectedDate(parsed.selectedDate);
         } catch (e) {}
       }
     }
@@ -168,10 +170,11 @@ export default function QuotesView() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         selectedCustomer,
         items,
-        quoteId
+        quoteId,
+        selectedDate
       }));
     }
-  }, [selectedCustomer, items, quoteId, isInitialized, editId]);
+  }, [selectedCustomer, items, quoteId, isInitialized, editId, selectedDate]);
 
   React.useEffect(() => {
     if (!db || editId) return
@@ -197,6 +200,11 @@ export default function QuotesView() {
           setItems(data.items || [])
           setOldItems(data.items || [])
           setEditQuoteStatus(data.status || 'active')
+          if (data.date) {
+            setSelectedDate(data.date)
+          } else if (data.createdAt?.toDate) {
+            setSelectedDate(data.createdAt.toDate().toISOString().split('T')[0]);
+          }
         }
       })
     }
@@ -350,6 +358,7 @@ export default function QuotesView() {
         subtotal: subtotal,
         total: total,
         status: 'active',
+        date: selectedDate,
         createdAt: serverTimestamp()
       }
 
@@ -406,7 +415,8 @@ export default function QuotesView() {
           <input 
             type="date" 
             className="h-10 w-full bg-white border border-slate-300 rounded-xl px-4 text-[11px] font-medium text-slate-800 uppercase shadow-sm focus:outline-none focus:ring-1 focus:ring-primary/20 transition-all"
-            defaultValue={new Date().toISOString().split('T')[0]}
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
           />
         </div>
         <div className="flex-1 h-10 bg-white border border-slate-300 rounded-xl flex items-center justify-center shadow-sm">

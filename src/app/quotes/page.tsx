@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -119,6 +118,7 @@ export default function QuotesPage() {
 
   const [saving, setSaving] = React.useState(false)
   const [quoteId, setQuoteId] = React.useState("B-001")
+  const [selectedDate, setSelectedDate] = React.useState(new Date().toISOString().split('T')[0])
   const [customerQuery, setCustomerQuery] = React.useState("")
   const [selectedCustomer, setSelectedCustomer] = React.useState<{id: string, name: string} | null>(null)
   const [productQuery, setProductQuery] = React.useState("")
@@ -161,6 +161,7 @@ export default function QuotesPage() {
           setSelectedCustomer(parsed.selectedCustomer);
           setItems(parsed.items);
           setQuoteId(parsed.quoteId);
+          if (parsed.selectedDate) setSelectedDate(parsed.selectedDate);
         } catch (e) {}
       }
     }
@@ -172,10 +173,11 @@ export default function QuotesPage() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         selectedCustomer,
         items,
-        quoteId
+        quoteId,
+        selectedDate
       }));
     }
-  }, [selectedCustomer, items, quoteId, isInitialized, editId]);
+  }, [selectedCustomer, items, quoteId, isInitialized, editId, selectedDate]);
 
   React.useEffect(() => {
     if (!db || editId) return
@@ -201,6 +203,11 @@ export default function QuotesPage() {
           setItems(data.items || [])
           setOldItems(data.items || [])
           setEditQuoteStatus(data.status || 'active')
+          if (data.date) {
+            setSelectedDate(data.date)
+          } else if (data.createdAt?.toDate) {
+            setSelectedDate(data.createdAt.toDate().toISOString().split('T')[0]);
+          }
         }
       })
     }
@@ -333,6 +340,7 @@ export default function QuotesPage() {
         subtotal: subtotal,
         total: total,
         status: 'active',
+        date: selectedDate,
         createdAt: serverTimestamp()
       }
 
@@ -408,6 +416,12 @@ export default function QuotesPage() {
           <h1 className="text-xl md:text-2xl font-headline font-black text-foreground uppercase tracking-tight">COTIZACIÓN</h1>
         </div>
         <div className="flex items-center gap-4">
+          <input 
+            type="date" 
+            className="h-10 bg-white border border-slate-300 rounded-xl px-4 text-[11px] font-medium text-slate-800 uppercase shadow-sm focus:outline-none focus:ring-1 focus:ring-primary/20 transition-all"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+          />
           <span className="text-xl font-headline font-black text-primary uppercase">{quoteId}</span>
         </div>
       </div>

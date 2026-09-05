@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -109,9 +108,16 @@ export default function SalesHistory() {
   const groupedSales = React.useMemo(() => {
     const groups: Record<string, { dateLabel: string, dateKey: string, sales: any[], dayTotal: number }> = {}
     filteredQuotes.forEach(sale => {
-      const date = sale.createdAt?.toDate ? sale.createdAt.toDate() : new Date()
-      const dayLabel = format(date, "EEEE d MMMM", { locale: es }).toUpperCase()
-      const dayKey = format(date, "yyyy-MM-dd")
+      let dateObj: Date;
+      if (sale.date) {
+        dateObj = new Date(sale.date + "T12:00:00");
+      } else {
+        dateObj = sale.createdAt?.toDate ? sale.createdAt.toDate() : new Date();
+      }
+      
+      const dayLabel = format(dateObj, "EEEE d MMMM", { locale: es }).toUpperCase()
+      const dayKey = format(dateObj, "yyyy-MM-dd")
+      
       if (!groups[dayKey]) groups[dayKey] = { dateLabel: dayLabel, dateKey: dayKey, sales: [], dayTotal: 0 }
       groups[dayKey].sales.push(sale)
       if (sale.status !== 'annulled') groups[dayKey].dayTotal += (sale.total || 0)
@@ -164,7 +170,6 @@ export default function SalesHistory() {
         return
       }
       
-      // Filtrar solo dispositivos compatibles (Impresoras Térmicas)
       const device = await navigator.bluetooth.requestDevice({
         filters: [
           { namePrefix: 'Printer' },
@@ -210,34 +215,32 @@ export default function SalesHistory() {
       const left = '\x1B\x61\x00'
       const boldOn = '\x1B\x45\x01'
       const boldOff = '\x1B\x45\x00'
-      const sizeLarge = '\x1D\x21\x11' // Tamaño gigante 2x2
+      const sizeLarge = '\x1D\x21\x11' 
       const sizeNormal = '\x1D\x21\x00'
-      const line = '------------------------------------------------\n' // 48 chars para 80mm
+      const line = '------------------------------------------------\n' 
 
       let data = init + center
-      // Nombre de Empresa Gigante
       data += boldOn + sizeLarge + (companySettings?.companyName || 'STILOSTACK').toUpperCase() + '\n' + sizeNormal + boldOff
       data += line
-      // Boleta Interna Gigante
       data += center + boldOn + sizeLarge + 'BOLETA INTERNA\n' + sale.id + '\n' + sizeNormal + boldOff
-      data += center + format(sale.createdAt?.toDate ? sale.createdAt.toDate() : new Date(), "dd/MM/yy HH:mm") + '\n'
+      
+      const displayDate = sale.date ? format(new Date(sale.date + "T12:00:00"), "dd/MM/yy") : format(sale.createdAt?.toDate ? sale.createdAt.toDate() : new Date(), "dd/MM/yy HH:mm");
+      data += center + displayDate + '\n'
+      
       data += line
       data += left
       data += `CLIENTE: ${sale.customerName}\n`
       data += `ID: ${sale.customerId}\n`
       data += line
       
-      // Productos alineados y enumerados
       sale.items.forEach((item: any, idx: number) => {
         const indexStr = `${idx + 1}- `
         data += indexStr + item.name.toUpperCase() + '\n'
         
-        // Sangría para alinear con el inicio del nombre
         const padding = ' '.repeat(indexStr.length)
         const qtyPrice = `${padding}${item.quantity} x S/ ${Number(item.price).toFixed(1)}`
         const itemTotalStr = `S/ ${((Number(item.price) * Number(item.quantity)) - Number(item.discount)).toFixed(1)}`
         
-        // Alineación de canto a canto (48 columnas)
         const spaces = Math.max(1, 48 - qtyPrice.length - itemTotalStr.length)
         data += qtyPrice + ' '.repeat(spaces) + itemTotalStr + '\n'
         
@@ -248,12 +251,10 @@ export default function SalesHistory() {
       
       data += line
       
-      // Totales Gigantes (Cantidad izquierda, Soles derecha)
       const totalQtyNum = (sale.items || []).reduce((acc: number, i: any) => acc + Number(i.quantity), 0)
       const totalAmtStr = `S/ ${Number(sale.total).toFixed(1)}`
       const qtyLabelStr = `${totalQtyNum} UND`
       
-      // Ancho efectivo para fuente 2x2 es 24 chars (48/2)
       const effWidth = 24
       const totalSpaces = Math.max(1, effWidth - qtyLabelStr.length - totalAmtStr.length)
       
@@ -430,7 +431,12 @@ export default function SalesHistory() {
                 </div>
                 <div className="text-right">
                    <div className="text-[24px] font-black text-slate-400 uppercase">FECHA</div>
-                   <div className="text-[32px] font-black">{format(activeReceipt.createdAt?.toDate ? activeReceipt.createdAt.toDate() : new Date(), "d 'de' MMMM, yyyy", { locale: es }).toUpperCase()}</div>
+                   <div className="text-[32px] font-black">
+                     {activeReceipt.date ? 
+                       format(new Date(activeReceipt.date + "T12:00:00"), "d 'de' MMMM, yyyy", { locale: es }).toUpperCase() :
+                       format(activeReceipt.createdAt?.toDate ? activeReceipt.createdAt.toDate() : new Date(), "d 'de' MMMM, yyyy", { locale: es }).toUpperCase()
+                     }
+                   </div>
                 </div>
              </div>
              <table className="w-full mt-6">
