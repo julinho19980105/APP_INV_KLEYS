@@ -93,6 +93,10 @@ const EMPTY_ENTRY: QuoteItem = {
   manualNote: ""
 }
 
+function getTodayStr() {
+  return new Date().toLocaleDateString('sv-SE');
+}
+
 function getDriveThumb(url: string, size: number = 400) {
   if (!url || !url.includes('drive.google.com')) return url;
   let fileId = '';
@@ -117,7 +121,7 @@ export default function QuotesView() {
   const [saving, setSaving] = React.useState(false)
   const [registeringCustomer, setRegisteringCustomer] = React.useState(false)
   const [quoteId, setQuoteId] = React.useState("B-001")
-  const [selectedDate, setSelectedDate] = React.useState(new Date().toISOString().split('T')[0])
+  const [selectedDate, setSelectedDate] = React.useState(getTodayStr())
   const [customerQuery, setCustomerQuery] = React.useState("")
   const [selectedCustomer, setSelectedCustomer] = React.useState<{id: string, name: string} | null>(null)
   const [productQuery, setProductQuery] = React.useState("")
@@ -158,7 +162,12 @@ export default function QuotesView() {
           setSelectedCustomer(parsed.selectedCustomer);
           setItems(parsed.items);
           setQuoteId(parsed.quoteId);
-          if (parsed.selectedDate) setSelectedDate(parsed.selectedDate);
+          // Solo restauramos la fecha del borrador si es de hoy, de lo contrario forzamos hoy
+          if (parsed.selectedDate && parsed.selectedDate === getTodayStr()) {
+            setSelectedDate(parsed.selectedDate);
+          } else {
+            setSelectedDate(getTodayStr());
+          }
         } catch (e) {}
       }
     }
@@ -203,7 +212,7 @@ export default function QuotesView() {
           if (data.date) {
             setSelectedDate(data.date)
           } else if (data.createdAt?.toDate) {
-            setSelectedDate(data.createdAt.toDate().toISOString().split('T')[0]);
+            setSelectedDate(data.createdAt.toDate().toLocaleDateString('sv-SE'));
           }
         }
       })
@@ -386,6 +395,7 @@ export default function QuotesView() {
       setCurrentEntry(EMPTY_ENTRY);
       setCustomerQuery("");
       setProductQuery("");
+      setSelectedDate(getTodayStr());
 
       toast({ title: editId ? "VENTA ACTUALIZADA" : "VENTA REGISTRADA" })
       router.push('/sales?tab=history')
@@ -403,6 +413,7 @@ export default function QuotesView() {
       setItems([]);
       setQuoteId("B-001");
       setCurrentEntry(EMPTY_ENTRY);
+      setSelectedDate(getTodayStr());
       router.push('/sales');
     }
   }
