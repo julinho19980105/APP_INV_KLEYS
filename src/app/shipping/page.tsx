@@ -80,10 +80,8 @@ export default function ShippingHubPage() {
 
   const activeCustomerSuggestions = React.useMemo(() => {
     const shippedInTodayBatch = new Set((logData?.entries || []).map((e: any) => e.customerId))
-    // Nota: Un cliente puede estar en otros lotes pasados, pero si tiene boletas activas puede volver a aparecer
     const activeQuoteCustIds = new Set(allQuotes.filter(q => q.status === 'active').map(q => q.customerId))
     
-    // Verificamos qué pagos no están en NINGÚN lote de logística
     const allProcessedPaymentIds = new Set(historyBatches.flatMap(b => (b.entries || []).flatMap((e: any) => (e.payments || []).map((p: any) => p.paymentId))))
     const pendingPaymentCustIds = new Set(allPayments.filter(p => !p.isLocked && !allProcessedPaymentIds.has(p.id)).map(p => p.customerId))
 
@@ -126,12 +124,10 @@ export default function ShippingHubPage() {
   const handleAddCustomer = async (customer: any) => {
     if (!db || !logisticsDocRef) return
     
-    // Capturar TODO lo activo al momento del registro inicial (Ley de Cierre)
     const customerQuotes = allQuotes
       .filter(q => q.customerId === customer.id && q.status === "active")
-      .sort((a, b) => (a.date || "").localeCompare(b.date || "")) // Ordenar por fecha (antiguo arriba)
+      .sort((a, b) => (a.date || "").localeCompare(b.date || ""))
 
-    // Pagos no procesados en ningún lote
     const allProcessedPaymentIds = new Set(historyBatches.flatMap(b => (b.entries || []).flatMap((e: any) => (e.payments || []).map((p: any) => p.paymentId))))
     const customerPayments = allPayments
       .filter(p => p.customerId === customer.id && !p.isLocked && !allProcessedPaymentIds.has(p.id))
@@ -168,7 +164,6 @@ export default function ShippingHubPage() {
     const entry = logData.entries.find((e: any) => e.customerId === customerId)
     if (!entry) return
 
-    // Cambiar estado a activo en Firestore
     updateDoc(doc(db, "quotes", quoteId), { status: 'active' }).catch(() => {})
 
     const updatedEntries = logData.entries.map((e: any) => {
@@ -236,13 +231,6 @@ export default function ShippingHubPage() {
 
     await updateDoc(logisticsDocRef, { entries: updatedEntries, updatedAt: serverTimestamp() })
     toast({ title: "PAGO VINCULADO" })
-  }
-
-  const handleUpdateShippingCost = async (customerId: string, cost: string) => {
-    if (!logisticsDocRef || !logData) return
-    const val = Number(cost)
-    const updatedEntries = logData.entries.map((e: any) => e.customerId === customerId ? { ...e, shippingCost: isNaN(val) ? 0 : val } : e)
-    await updateDoc(logisticsDocRef, { entries: updatedEntries, updatedAt: serverTimestamp() })
   }
 
   const handleRemoveEntry = async () => {
@@ -351,10 +339,8 @@ export default function ShippingHubPage() {
                       const ship = Number(entry.shippingCost || 0)
                       const bal = pTotal - (qTotal + ship)
                       
-                      // Buscar actividad posterior (Activos no vinculados)
                       const availableQuotes = allQuotes.filter(q => q.customerId === entry.customerId && q.status === "active")
                       const allProcessedPaymentIdsInSession = new Set(historyBatches.flatMap(b => (b.entries || []).flatMap((e: any) => (e.payments || []).map((p: any) => p.paymentId))))
-                      // También los pagos que ya están en el lote actual pero que no son este específico
                       const currentBatchPaymentIds = new Set((logData.entries || []).flatMap((e: any) => (e.payments || []).map((p: any) => p.paymentId)))
                       
                       const availablePayments = allPayments.filter(p => 
@@ -385,24 +371,13 @@ export default function ShippingHubPage() {
                               </div>
                             </AccordionTrigger>
                             <AccordionContent className="pb-4 pt-2 px-4 border-t border-slate-100 bg-slate-50/30">
-                               <div className="flex items-center justify-between gap-4 mb-4">
-                                  <div className="flex-1 space-y-0.5">
-                                    <Label className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">COSTO ENVÍO S/</Label>
-                                    <Input 
-                                      type="number" 
-                                      value={entry.shippingCost || ""} 
-                                      onChange={e => handleUpdateShippingCost(entry.customerId, e.target.value)} 
-                                      className="h-10 text-[12px] font-black text-center border-slate-300 rounded-xl bg-white shadow-sm"
-                                      placeholder="0.0"
-                                    />
-                                  </div>
-                                  <Button variant="ghost" size="icon" className="h-10 w-10 text-red-500 hover:bg-red-50 rounded-xl mt-3" onClick={() => setDeleteConfirm({ id: entry.customerId, name: entry.customerName })}>
+                               <div className="flex justify-end mb-2">
+                                  <Button variant="ghost" size="icon" className="h-10 w-10 text-red-500 hover:bg-red-50 rounded-xl" onClick={() => setDeleteConfirm({ id: entry.customerId, name: entry.customerName })}>
                                     <Trash2 className="w-5 h-5" />
                                   </Button>
                                </div>
 
                                <div className="space-y-4">
-                                 {/* SECCIÓN VINCULADOS */}
                                  <div className="space-y-2">
                                     <div className="flex items-center gap-2 px-1">
                                       <div className="w-1.5 h-1.5 rounded-full bg-[#10b981]" />
@@ -444,7 +419,6 @@ export default function ShippingHubPage() {
                                     </div>
                                  </div>
 
-                                 {/* SECCIÓN DISPONIBLES (NUEVA ACTIVIDAD) */}
                                  {(availableQuotes.length > 0 || availablePayments.length > 0) && (
                                    <div className="space-y-2 pt-2 border-t border-slate-200 border-dashed">
                                       <div className="flex items-center gap-2 px-1">
