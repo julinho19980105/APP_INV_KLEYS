@@ -50,7 +50,6 @@ export default function SalesHistory() {
   const [searchQuery, setSearchQuery] = React.useState("")
   const [statusFilter, setStatusFilter] = React.useState<string>("active")
   const [timeFilter, setTimeFilter] = React.useState<string>("1m")
-  const [daysLimit, setDaysLimit] = React.useState(30)
   const [activeReceipt, setActiveReceipt] = React.useState<any>(null)
   const [printerChar, setPrinterChar] = React.useState<any>(null)
   const [expandedSales, setExpandedSales] = React.useState<Record<string, boolean>>({})
@@ -90,11 +89,34 @@ export default function SalesHistory() {
   const { data: quotes = [], loading } = useCollection(quotesRef)
 
   const stats = React.useMemo(() => {
-    const periodQuotes = quotes.filter(q => q.status !== 'annulled')
-    const total = periodQuotes.reduce((acc, q) => acc + (q.total || 0), 0)
+    const now = new Date()
+    const currentMonthStart = startOfMonth(now)
+    
+    // Indicadores blindados: siempre calculan sobre el mes actual, sin importar el filtro de tiempo
+    const monthlyQuotes = quotes.filter(q => {
+      if (q.status === 'annulled') return false
+      
+      let qDate: Date;
+      if (q.date) {
+        qDate = new Date(q.date + "T12:00:00");
+      } else {
+        qDate = q.createdAt?.toDate ? q.createdAt.toDate() : new Date();
+      }
+      
+      return qDate >= currentMonthStart
+    })
+
+    const total = monthlyQuotes.reduce((acc, q) => acc + (q.total || 0), 0)
+    // Estimación industrial (Abonos ~89%)
     const abonos = total * 0.89 
     const deuda = total - abonos
-    return { total, abonos, deuda, count: periodQuotes.length }
+    return { 
+      total, 
+      abonos, 
+      deuda, 
+      count: monthlyQuotes.length,
+      monthName: format(now, "MMMM", { locale: es }).toUpperCase()
+    }
   }, [quotes])
 
   const filteredQuotes = React.useMemo(() => {
@@ -239,7 +261,7 @@ export default function SalesHistory() {
       const labelB = "BOLETA INTERNA"
       const idS = sale.id
       const spacesH = Math.max(1, 48 - labelB.length - idS.length)
-      data += left + size100 + boldOn + labelB + ' '.repeat(spacesH) + idS + '\n'
+      data += left + size100 + labelB + ' '.repeat(spacesH) + idS + '\n'
       
       const dispD = sale.date ? format(new Date(sale.date + "T12:00:00"), "dd/MM/yy") : format(sale.createdAt?.toDate ? sale.createdAt.toDate() : new Date(), "dd/MM/yy");
       data += right + size100 + dispD + '\n' + boldOff
@@ -264,7 +286,7 @@ export default function SalesHistory() {
       const tQN = (sale.items || []).reduce((acc: number, i: any) => acc + Number(i.quantity), 0)
       const tAS = `S/ ${Number(sale.total).toFixed(1)}`
       const tQS = `${tQN} UND`
-      const spsT = Math.max(1, 16 - tQS.length - tAS.length)
+      const spsT = Math.max(1, 48 - tQS.length - tAS.length)
       data += left + size300 + boldOn + tQS + ' '.repeat(spsT) + tAS + '\n' + boldOff
       
       data += '\n' + center + size100 + "GRACIAS POR SU COMPRA\n"
@@ -286,15 +308,15 @@ export default function SalesHistory() {
       <div className="grid grid-cols-3 gap-2">
         <div className="bg-[#0f172a] py-3 px-4 rounded-2xl flex flex-col shadow-lg relative overflow-hidden">
           <TrendingUp className="absolute right-[-4px] top-1 opacity-10 w-12 h-12 text-white" />
-          <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest leading-none">TOTAL (PERIODO)</span>
+          <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest leading-none">TOTAL {stats.monthName}</span>
           <div className="text-[16px] font-headline font-black text-white mt-1 leading-none">S/ {stats.total.toFixed(1)}</div>
         </div>
         <div className="bg-white border border-slate-300 py-3 px-4 rounded-2xl flex flex-col shadow-sm">
-          <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest leading-none">ABONOS (EST.)</span>
+          <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest leading-none">ABONOS (MES)</span>
           <div className="text-[16px] font-headline font-black text-[#10b981] mt-1 leading-none">S/ {stats.abonos.toFixed(1)}</div>
         </div>
         <div className="bg-white border border-slate-300 py-3 px-4 rounded-2xl flex flex-col shadow-sm">
-          <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest leading-none">DEUDA (EST.)</span>
+          <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest leading-none">DEUDA (MES)</span>
           <div className="text-[16px] font-headline font-black text-red-500 mt-1 leading-none">S/ {stats.deuda.toFixed(1)}</div>
         </div>
       </div>
