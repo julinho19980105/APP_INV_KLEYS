@@ -158,7 +158,7 @@ export default function SalesHistory() {
     setTimeout(async () => {
       if (receiptRef.current) {
         try {
-          const dataUrl = await toJpeg(receiptRef.current, { quality: 1, pixelRatio: 3, backgroundColor: '#FFFFFF' })
+          const dataUrl = await toJpeg(receiptRef.current, { quality: 0.95, pixelRatio: 2, backgroundColor: '#FFFFFF' })
           const blob = await (await fetch(dataUrl)).blob()
           const file = new File([blob], `Venta-${sale.id}.jpg`, { type: 'image/jpeg' })
           if (navigator.share) await navigator.share({ files: [file] })
@@ -229,10 +229,9 @@ export default function SalesHistory() {
     }
 
     try {
-      // Función de limpieza industrial para eliminar tildes y convertir ñ a n
       const clean = (str: string) => {
         if (!str) return "";
-        return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/ñ/g, "n").replace(/Ñ/g, "N");
       };
 
       const encoder = new TextEncoder()
@@ -242,9 +241,9 @@ export default function SalesHistory() {
       const right = '\x1B\x61\x02'
       const boldOn = '\x1B\x45\x01'
       const boldOff = '\x1B\x45\x00'
-      const size100 = '\x1D\x21\x00' // Normal
-      const size200 = '\x1D\x21\x11' // Doble ancho/alto (2x)
-      const size300 = '\x1D\x21\x22' // Triple ancho/alto (3x)
+      const size100 = '\x1D\x21\x00' 
+      const size200 = '\x1D\x21\x11' 
+      const size300 = '\x1D\x21\x22' 
       const line = '------------------------------------------------\n' 
 
       let data = init + center
@@ -490,58 +489,167 @@ export default function SalesHistory() {
 
       {activeReceipt && (
         <div className="fixed -left-[9999px] top-0">
-          <div ref={receiptRef} className="w-[800px] bg-white p-16 flex flex-col gap-10 text-black">
-             <div className="flex justify-between items-end border-b-8 border-slate-900 pb-8">
-                <h1 className="text-7xl font-black uppercase tracking-tighter" style={{ color: '#0296FF' }}>{companySettings?.companyName || 'STILOSTACK'}</h1>
-                <div className="text-7xl font-black">{activeReceipt.id}</div>
-             </div>
-             <div className="flex justify-between items-start py-4">
-                <div className="flex flex-col gap-2">
-                   <div className="text-[24px] font-black text-slate-400 uppercase">CLIENTE</div>
-                   <div className="text-[36px] font-black uppercase">{activeReceipt.customerName}</div>
-                   <div className="text-[28px] font-black text-slate-500">[{activeReceipt.customerId}]</div>
-                </div>
-                <div className="text-right">
-                   <div className="text-[24px] font-black text-slate-400 uppercase">FECHA</div>
-                   <div className="text-[32px] font-black">
-                     {activeReceipt.date ? 
-                       format(new Date(activeReceipt.date + "T12:00:00"), "d 'de' MMMM, yyyy", { locale: es }).toUpperCase() :
-                       format(activeReceipt.createdAt?.toDate ? activeReceipt.createdAt.toDate() : new Date(), "d 'de' MMMM, yyyy", { locale: es }).toUpperCase()
-                     }
-                   </div>
-                </div>
-             </div>
-             <table className="w-full mt-6">
-                <thead>
-                   <tr className="border-b-4 border-slate-900 text-left">
-                      <th className="py-5 text-[18px] font-black uppercase">PRENDA</th>
-                      <th className="py-5 text-[18px] font-black uppercase text-center">CANT</th>
-                      <th className="py-5 text-[18px] font-black uppercase text-right">TOTAL</th>
-                   </tr>
-                </thead>
-                <tbody className="divide-y-2 divide-slate-100">
-                   {activeReceipt.items.map((item: any, idx: number) => (
-                      <tr key={idx} className="h-24">
-                         <td className="py-4">
-                            <div className="text-[22px] font-black uppercase">{item.name}</div>
-                            <div className="text-[14px] font-medium text-slate-400">{item.description}</div>
-                         </td>
-                         <td className="text-[20px] font-black text-center">{item.quantity}</td>
-                         <td className="text-[24px] font-black text-right">S/ {((Number(item.price) * Number(item.quantity)) - Number(item.discount)).toFixed(1)}</td>
-                      </tr>
-                   ))}
-                </tbody>
-             </table>
-             <div className="mt-8 pt-8 border-t-8 border-slate-900 flex justify-between items-center">
+          <div ref={receiptRef} style={{
+            width: '820px',
+            background: '#ffffff',
+            padding: '30px',
+            fontFamily: 'Arial, sans-serif',
+            color: '#000000',
+            boxSizing: 'border-box'
+          }}>
+            <div style={{
+              border: '2px solid #000000',
+              borderRadius: '8px',
+              overflow: 'hidden',
+              backgroundColor: '#ffffff'
+            }}>
+              {/* CABECERA */}
+              <div style={{
+                padding: '26px 34px 24px',
+                borderBottom: '2px solid #000000',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}>
                 <div>
-                   <div className="text-[22px] font-black text-slate-400 uppercase">TOTAL PRENDAS</div>
-                   <div className="text-[48px] font-black">{activeReceipt.items.reduce((acc: number, i: any) => acc + Number(i.quantity), 0)} UND</div>
+                  <div style={{ fontSize: '31px', fontWeight: 700, lineHeight: 1, letterSpacing: '-0.8px' }}>
+                    {companySettings?.companyName || 'KLEYS KIDS'}
+                  </div>
+                  <div style={{ marginTop: '8px', fontSize: '13px', fontWeight: 600, letterSpacing: '1px' }}>
+                    BOLETA INTERNA
+                  </div>
                 </div>
-                <div className="text-right">
-                   <div className="text-[28px] font-black text-slate-400 uppercase">MONTO TOTAL</div>
-                   <div className="text-[90px] font-black leading-none" style={{ color: '#0296FF' }}>S/ {Number(activeReceipt.total).toFixed(1)}</div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '27px', fontWeight: 700, lineHeight: 1 }}>
+                    {activeReceipt.id}
+                  </div>
+                  <div style={{ marginTop: '7px', fontSize: '10px', fontWeight: 600, letterSpacing: '0.8px' }}>
+                    N.º DE BOLETA
+                  </div>
                 </div>
-             </div>
+              </div>
+
+              {/* INFORMACIÓN CLIENTE / FECHA */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 220px',
+                gap: '35px',
+                padding: '26px 34px 28px'
+              }}>
+                <div>
+                  <div style={{ marginBottom: '7px', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase' }}>
+                    Cliente
+                  </div>
+                  <div style={{ fontSize: '24px', fontWeight: 600, lineHeight: 1.15 }}>
+                    {activeReceipt.customerName}
+                  </div>
+                  <div style={{ marginTop: '5px', fontSize: '13px', fontWeight: 400 }}>
+                    {activeReceipt.customerId}
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ marginBottom: '7px', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase' }}>
+                    Fecha
+                  </div>
+                  <div style={{ fontSize: '18px', fontWeight: 600 }}>
+                    {activeReceipt.date ? 
+                      format(new Date(activeReceipt.date + "T12:00:00"), "dd/MM/yyyy") :
+                      format(activeReceipt.createdAt?.toDate ? activeReceipt.createdAt.toDate() : new Date(), "dd/MM/yyyy")
+                    }
+                  </div>
+                </div>
+              </div>
+
+              {/* TABLA PRODUCTOS */}
+              <div style={{ padding: '0 34px' }}>
+                <div style={{
+                  padding: '12px 16px',
+                  backgroundColor: '#64ABB9',
+                  color: '#ffffff',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  borderRadius: '7px 7px 0 0'
+                }}>
+                  Detalle de productos
+                </div>
+                <table style={{
+                  width: '100%',
+                  borderCollapse: 'collapse',
+                  border: '1.5px solid #000000',
+                  borderTop: 'none'
+                }}>
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid #000000' }}>
+                      <th style={{ padding: '12px 9px', fontSize: '12px', fontWeight: 700, textAlign: 'center', width: '48px' }}>N.º</th>
+                      <th style={{ padding: '12px 9px', fontSize: '12px', fontWeight: 700, textAlign: 'left' }}>Producto</th>
+                      <th style={{ padding: '12px 9px', fontSize: '12px', fontWeight: 700, textAlign: 'right', width: '90px' }}>P.U.</th>
+                      <th style={{ padding: '12px 9px', fontSize: '12px', fontWeight: 700, textAlign: 'right', width: '70px' }}>Cant.</th>
+                      <th style={{ padding: '12px 9px', fontSize: '12px', fontWeight: 700, textAlign: 'right', width: '100px' }}>Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activeReceipt.items.map((item: any, idx: number) => (
+                      <tr key={idx} style={{ borderBottom: '1px solid #000000' }}>
+                        <td style={{ padding: '15px 9px', fontSize: '14px', fontWeight: 600, textAlign: 'center' }}>{idx + 1}</td>
+                        <td style={{ padding: '15px 9px' }}>
+                          <div style={{ fontSize: '14px', fontWeight: 600 }}>{item.name}</div>
+                          {item.description && (
+                            <div style={{ marginTop: '4px', fontSize: '13px', fontWeight: 400 }}>{item.description}</div>
+                          )}
+                        </td>
+                        <td style={{ padding: '15px 9px', fontSize: '14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          S/ {Number(item.price).toFixed(2)}
+                        </td>
+                        <td style={{ padding: '15px 9px', fontSize: '14px', textAlign: 'right' }}>{item.quantity}</td>
+                        <td style={{ padding: '15px 9px', fontSize: '14px', fontWeight: 600, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          S/ {((Number(item.price) * Number(item.quantity)) - (Number(item.discount) || 0)).toFixed(2)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* RESUMEN FINAL */}
+              <div style={{
+                margin: '30px 34px 0',
+                padding: '25px 0',
+                borderTop: '2px solid #000000',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'flex-end'
+              }}>
+                <div>
+                  <div style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase' }}>
+                    Cantidad total
+                  </div>
+                  <div style={{ marginTop: '5px', fontSize: '29px', fontWeight: 600 }}>
+                    {activeReceipt.items.reduce((acc: number, i: any) => acc + Number(i.quantity), 0)} UND
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 700, textTransform: 'uppercase' }}>
+                    Saldo total
+                  </div>
+                  <div style={{ marginTop: '4px', fontSize: '46px', fontWeight: 500, color: '#64ABB9', letterSpacing: '-1.5px' }}>
+                    S/ {Number(activeReceipt.total).toFixed(2)}
+                  </div>
+                </div>
+              </div>
+
+              {/* PIE */}
+              <div style={{
+                margin: '0 34px',
+                padding: '15px 0 20px',
+                borderTop: '1px solid #000000',
+                textAlign: 'center',
+                fontSize: '11px',
+                fontWeight: 400
+              }}>
+                {companySettings?.companyName || 'KLEYS KIDS'} · BOLETA INTERNA
+              </div>
+            </div>
           </div>
         </div>
       )}
