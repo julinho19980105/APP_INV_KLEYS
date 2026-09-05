@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -490,40 +489,40 @@ export default function SalesHistory() {
       {activeReceipt && (
         <div className="fixed -left-[9999px] top-0">
           <div ref={receiptRef} style={{
-            width: '820px',
+            width: '600px',
             background: '#ffffff',
-            padding: '30px',
+            padding: '40px',
             fontFamily: 'Arial, sans-serif',
             color: '#000000',
             boxSizing: 'border-box'
           }}>
             <div style={{
-              border: '2px solid #000000',
-              borderRadius: '8px',
+              border: '3px solid #000000',
+              borderRadius: '12px',
               overflow: 'hidden',
               backgroundColor: '#ffffff'
             }}>
               {/* CABECERA */}
               <div style={{
-                padding: '26px 34px 24px',
-                borderBottom: '2px solid #000000',
+                padding: '30px 40px',
+                borderBottom: '3px solid #000000',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center'
               }}>
                 <div>
-                  <div style={{ fontSize: '31px', fontWeight: 700, lineHeight: 1, letterSpacing: '-0.8px' }}>
+                  <div style={{ fontSize: '40px', fontWeight: 700, lineHeight: 1, letterSpacing: '-1px' }}>
                     {companySettings?.companyName || 'KLEYS KIDS'}
                   </div>
-                  <div style={{ marginTop: '8px', fontSize: '13px', fontWeight: 600, letterSpacing: '1px' }}>
+                  <div style={{ marginTop: '10px', fontSize: '17px', fontWeight: 600, letterSpacing: '1px' }}>
                     BOLETA INTERNA
                   </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: '27px', fontWeight: 700, lineHeight: 1 }}>
+                  <div style={{ fontSize: '35px', fontWeight: 700, lineHeight: 1 }}>
                     {activeReceipt.id}
                   </div>
-                  <div style={{ marginTop: '7px', fontSize: '10px', fontWeight: 600, letterSpacing: '0.8px' }}>
+                  <div style={{ marginTop: '10px', fontSize: '13px', fontWeight: 600, letterSpacing: '1px' }}>
                     N.º DE BOLETA
                   </div>
                 </div>
@@ -531,27 +530,25 @@ export default function SalesHistory() {
 
               {/* INFORMACIÓN CLIENTE / FECHA */}
               <div style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 220px',
-                gap: '35px',
-                padding: '26px 34px 28px'
+                padding: '30px 40px'
               }}>
-                <div>
-                  <div style={{ marginBottom: '7px', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase' }}>
+                <div style={{ marginBottom: '25px' }}>
+                  <div style={{ marginBottom: '10px', fontSize: '16px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px' }}>
                     Cliente
                   </div>
-                  <div style={{ fontSize: '24px', fontWeight: 600, lineHeight: 1.15 }}>
+                  <div style={{ fontSize: '32px', fontWeight: 600, lineHeight: 1.15 }}>
                     {activeReceipt.customerName}
                   </div>
-                  <div style={{ marginTop: '5px', fontSize: '13px', fontWeight: 400 }}>
+                  <div style={{ marginTop: '8px', fontSize: '17px', fontWeight: 400 }}>
                     {activeReceipt.customerId}
                   </div>
                 </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ marginBottom: '7px', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase' }}>
+                
+                <div style={{ borderTop: '1px dashed #000000', paddingTop: '20px' }}>
+                  <div style={{ marginBottom: '10px', fontSize: '16px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px' }}>
                     Fecha
                   </div>
-                  <div style={{ fontSize: '18px', fontWeight: 600 }}>
+                  <div style={{ fontSize: '24px', fontWeight: 600 }}>
                     {activeReceipt.date ? 
                       format(new Date(activeReceipt.date + "T12:00:00"), "dd/MM/yyyy") :
                       format(activeReceipt.createdAt?.toDate ? activeReceipt.createdAt.toDate() : new Date(), "dd/MM/yyyy")
@@ -561,48 +558,48 @@ export default function SalesHistory() {
               </div>
 
               {/* TABLA PRODUCTOS */}
-              <div style={{ padding: '0 34px' }}>
+              <div style={{ padding: '0 40px' }}>
                 <div style={{
-                  padding: '12px 16px',
+                  padding: '16px 20px',
                   backgroundColor: '#64ABB9',
                   color: '#ffffff',
-                  fontSize: '13px',
+                  fontSize: '17px',
                   fontWeight: 700,
                   textTransform: 'uppercase',
-                  borderRadius: '7px 7px 0 0'
+                  borderRadius: '10px 10px 0 0',
+                  letterSpacing: '1px'
                 }}>
                   Detalle de productos
                 </div>
                 <table style={{
                   width: '100%',
                   borderCollapse: 'collapse',
-                  border: '1.5px solid #000000',
+                  border: '2px solid #000000',
                   borderTop: 'none'
                 }}>
                   <thead>
                     <tr style={{ borderBottom: '2px solid #000000' }}>
-                      <th style={{ padding: '12px 9px', fontSize: '12px', fontWeight: 700, textAlign: 'center', width: '48px' }}>N.º</th>
-                      <th style={{ padding: '12px 9px', fontSize: '12px', fontWeight: 700, textAlign: 'left' }}>Producto</th>
-                      <th style={{ padding: '12px 9px', fontSize: '12px', fontWeight: 700, textAlign: 'right', width: '90px' }}>P.U.</th>
-                      <th style={{ padding: '12px 9px', fontSize: '12px', fontWeight: 700, textAlign: 'right', width: '70px' }}>Cant.</th>
-                      <th style={{ padding: '12px 9px', fontSize: '12px', fontWeight: 700, textAlign: 'right', width: '100px' }}>Total</th>
+                      <th style={{ padding: '15px 10px', fontSize: '16px', fontWeight: 700, textAlign: 'center', width: '50px' }}>N.º</th>
+                      <th style={{ padding: '15px 10px', fontSize: '16px', fontWeight: 700, textAlign: 'left' }}>Producto</th>
+                      <th style={{ padding: '15px 10px', fontSize: '16px', fontWeight: 700, textAlign: 'right', width: '90px' }}>Cant.</th>
+                      <th style={{ padding: '15px 10px', fontSize: '16px', fontWeight: 700, textAlign: 'right', width: '120px' }}>Total</th>
                     </tr>
                   </thead>
                   <tbody>
                     {activeReceipt.items.map((item: any, idx: number) => (
-                      <tr key={idx} style={{ borderBottom: '1px solid #000000' }}>
-                        <td style={{ padding: '15px 9px', fontSize: '14px', fontWeight: 600, textAlign: 'center' }}>{idx + 1}</td>
-                        <td style={{ padding: '15px 9px' }}>
-                          <div style={{ fontSize: '14px', fontWeight: 600 }}>{item.name}</div>
+                      <tr key={idx} style={{ borderBottom: '1.5px solid #000000' }}>
+                        <td style={{ padding: '18px 10px', fontSize: '18px', fontWeight: 600, textAlign: 'center' }}>{idx + 1}</td>
+                        <td style={{ padding: '18px 10px' }}>
+                          <div style={{ fontSize: '18px', fontWeight: 600 }}>{item.name}</div>
                           {item.description && (
-                            <div style={{ marginTop: '4px', fontSize: '13px', fontWeight: 400 }}>{item.description}</div>
+                            <div style={{ marginTop: '6px', fontSize: '16px', fontWeight: 400, color: '#333333' }}>{item.description}</div>
                           )}
+                          <div style={{ marginTop: '4px', fontSize: '15px', color: '#666666' }}>
+                             S/ {Number(item.price).toFixed(2)} c/u
+                          </div>
                         </td>
-                        <td style={{ padding: '15px 9px', fontSize: '14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                          S/ {Number(item.price).toFixed(2)}
-                        </td>
-                        <td style={{ padding: '15px 9px', fontSize: '14px', textAlign: 'right' }}>{item.quantity}</td>
-                        <td style={{ padding: '15px 9px', fontSize: '14px', fontWeight: 600, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        <td style={{ padding: '18px 10px', fontSize: '18px', fontWeight: 700, textAlign: 'right' }}>{item.quantity}</td>
+                        <td style={{ padding: '18px 10px', fontSize: '18px', fontWeight: 600, textAlign: 'right', whiteSpace: 'nowrap' }}>
                           S/ {((Number(item.price) * Number(item.quantity)) - (Number(item.discount) || 0)).toFixed(2)}
                         </td>
                       </tr>
@@ -613,26 +610,26 @@ export default function SalesHistory() {
 
               {/* RESUMEN FINAL */}
               <div style={{
-                margin: '30px 34px 0',
-                padding: '25px 0',
-                borderTop: '2px solid #000000',
+                margin: '40px 40px 0',
+                padding: '30px 0',
+                borderTop: '3px solid #000000',
                 display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'flex-end'
+                flexDirection: 'column',
+                gap: '25px'
               }}>
-                <div>
-                  <div style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ fontSize: '17px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>
                     Cantidad total
                   </div>
-                  <div style={{ marginTop: '5px', fontSize: '29px', fontWeight: 600 }}>
+                  <div style={{ fontSize: '38px', fontWeight: 700 }}>
                     {activeReceipt.items.reduce((acc: number, i: any) => acc + Number(i.quantity), 0)} UND
                   </div>
                 </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: '13px', fontWeight: 700, textTransform: 'uppercase' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #eeeeee', paddingTop: '20px' }}>
+                  <div style={{ fontSize: '18px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>
                     Saldo total
                   </div>
-                  <div style={{ marginTop: '4px', fontSize: '46px', fontWeight: 500, color: '#64ABB9', letterSpacing: '-1.5px' }}>
+                  <div style={{ fontSize: '60px', fontWeight: 700, color: '#64ABB9', letterSpacing: '-2px', lineHeight: 1 }}>
                     S/ {Number(activeReceipt.total).toFixed(2)}
                   </div>
                 </div>
@@ -640,12 +637,13 @@ export default function SalesHistory() {
 
               {/* PIE */}
               <div style={{
-                margin: '0 34px',
-                padding: '15px 0 20px',
-                borderTop: '1px solid #000000',
+                margin: '0 40px',
+                padding: '20px 0 30px',
+                borderTop: '1.5px solid #000000',
                 textAlign: 'center',
-                fontSize: '11px',
-                fontWeight: 400
+                fontSize: '14px',
+                fontWeight: 500,
+                letterSpacing: '1px'
               }}>
                 {companySettings?.companyName || 'KLEYS KIDS'} · BOLETA INTERNA
               </div>
