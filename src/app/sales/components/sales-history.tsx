@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -175,9 +176,10 @@ export default function SalesHistory() {
         return null
       }
       
-      // Filtros optimizados para buscar solo dispositivos BLE compatibles con impresión de tickets
       const device = await navigator.bluetooth.requestDevice({
         filters: [
+          { services: ['000018f0-0000-1000-8000-00805f9b34fb'] },
+          { services: ['0000ff00-0000-1000-8000-00805f9b34fb'] },
           { namePrefix: 'Printer' },
           { namePrefix: 'Thermal' },
           { namePrefix: 'MPT' },
@@ -186,7 +188,6 @@ export default function SalesHistory() {
           { namePrefix: 'POS' },
           { namePrefix: 'MTP' },
           { namePrefix: 'BT Printer' },
-          { namePrefix: 'Inner' },
           { namePrefix: 'MTP-II' }
         ],
         optionalServices: [
@@ -206,12 +207,9 @@ export default function SalesHistory() {
           if (char.properties.write || char.properties.writeWithoutResponse) {
             setPrinterChar(char)
             toast({ title: "IMPRESORA VINCULADA" })
-            
-            // Si hay una venta en espera, imprimir de inmediato tras conectar
             if (saleToPrint) {
               setTimeout(() => printTicket(saleToPrint, char), 800);
             }
-            
             return char
           }
         }
@@ -226,7 +224,6 @@ export default function SalesHistory() {
   const printTicket = async (sale: any, existingChar?: any) => {
     let char = existingChar || printerChar;
     if (!char) {
-      // Si no hay conexión, conectar y pasar la venta para impresión automática
       char = await connectPrinter(sale)
       return
     }
@@ -236,24 +233,35 @@ export default function SalesHistory() {
       const init = '\x1B\x40'
       const center = '\x1B\x61\x01'
       const left = '\x1B\x61\x00'
+      const right = '\x1B\x61\x02'
       const boldOn = '\x1B\x45\x01'
       const boldOff = '\x1B\x45\x00'
-      const sizeLarge = '\x1D\x21\x11' 
-      const sizeNormal = '\x1D\x21\x00'
+      const size100 = '\x1D\x21\x00' // Normal
+      const size200 = '\x1D\x21\x11' // Doble ancho/alto (2x)
+      const size300 = '\x1D\x21\x22' // Triple ancho/alto (3x)
       const line = '------------------------------------------------\n' 
 
       let data = init + center
-      data += boldOn + sizeLarge + (companySettings?.companyName || 'STILOSTACK').toUpperCase() + '\n' + sizeNormal + boldOff
+      data += boldOn + size100 + (companySettings?.companyName || 'STILOSTACK').toUpperCase() + '\n' + boldOff
       data += line
-      data += center + boldOn + sizeLarge + 'BOLETA INTERNA\n' + sale.id + '\n' + sizeNormal + boldOff
       
-      const displayDate = sale.date ? format(new Date(sale.date + "T12:00:00"), "dd/MM/yy") : format(sale.createdAt?.toDate ? sale.createdAt.toDate() : new Date(), "dd/MM/yy HH:mm");
-      data += center + displayDate + '\n'
+      // Header: BOLETA INTERNA (Izquierda) + ID (Derecha)
+      // Usamos 2x para "BOLETA INTERNA" y el ID
+      // En 80mm a 2x tenemos aprox 24 columnas.
+      const labelBI = "BOLETA"
+      const idStr = sale.id
+      const spacesHeader = Math.max(1, 24 - labelBI.length - idStr.length)
+      data += left + size200 + boldOn + labelBI + ' '.repeat(spacesHeader) + idStr + '\n'
+      
+      // Fecha resumida debajo del ID (Derecha)
+      const displayDate = sale.date ? format(new Date(sale.date + "T12:00:00"), "dd/MM/yy") : format(sale.createdAt?.toDate ? sale.createdAt.toDate() : new Date(), "dd/MM/yy");
+      data += right + size100 + displayDate + '\n' + boldOff
       
       data += line
-      data += left
-      data += `CLIENTE: ${sale.customerName}\n`
-      data += `ID: ${sale.customerId}\n`
+      
+      // Cliente Gigante (300%)
+      data += left + size300 + boldOn + (sale.customerName || 'CLIENTE').toUpperCase() + '\n' + boldOff
+      data += size100 + `ID: ${sale.customerId}\n`
       data += line
       
       sale.items.forEach((item: any, idx: number) => {
@@ -264,7 +272,6 @@ export default function SalesHistory() {
         const qtyPrice = `${padding}${item.quantity} x S/ ${Number(item.price).toFixed(1)}`
         const itemTotalStr = `S/ ${((Number(item.price) * Number(item.quantity)) - (Number(item.discount) || 0)).toFixed(1)}`
         
-        // Alineación industrial para 80mm (aprox 48 columnas)
         const spaces = Math.max(1, 48 - qtyPrice.length - itemTotalStr.length)
         data += qtyPrice + ' '.repeat(spaces) + itemTotalStr + '\n'
         
@@ -275,16 +282,14 @@ export default function SalesHistory() {
       
       data += line
       
+      // Totales Gigantes (300%)
       const totalQtyNum = (sale.items || []).reduce((acc: number, i: any) => acc + Number(i.quantity), 0)
       const totalAmtStr = `S/ ${Number(sale.total).toFixed(1)}`
-      const qtyLabelStr = `${totalQtyNum} UND`
       
-      const effWidth = 48
-      const totalSpaces = Math.max(1, effWidth - qtyLabelStr.length - totalAmtStr.length)
+      data += left + size100 + `${totalQtyNum} UNIDADES TOTALES\n`
+      data += right + size300 + boldOn + totalAmtStr + '\n' + boldOff
       
-      data += left + boldOn + sizeLarge + qtyLabelStr + ' '.repeat(totalSpaces) + totalAmtStr + '\n' + sizeNormal + boldOff
-      data += '\n'
-      data += center + "GRACIAS POR SU COMPRA\n"
+      data += '\n' + center + size100 + "GRACIAS POR SU COMPRA\n"
       data += '\n\n\n\n'
 
       const buffer = encoder.encode(data)
