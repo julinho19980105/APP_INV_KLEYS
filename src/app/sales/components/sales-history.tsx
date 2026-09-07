@@ -94,8 +94,8 @@ export default function SalesHistory() {
     const monthlyQuotes = quotes.filter(q => {
       if (q.status === 'annulled') return false
       let qDate: Date;
-      if (q.date) {
-        qDate = new Date(q.date + "T12:00:00");
+      if (sale?.date) {
+        qDate = new Date(sale.date + "T12:00:00");
       } else {
         qDate = q.createdAt?.toDate ? q.createdAt.toDate() : new Date();
       }
@@ -189,32 +189,39 @@ export default function SalesHistory() {
         toast({ variant: "destructive", title: "BLUETOOTH NO SOPORTADO" })
         return null
       }
+
+      // BLINDAJE: Usamos acceptAllDevices para encontrar impresoras que no se anuncian con nombres estándar
       const device = await navigator.bluetooth.requestDevice({
-        filters: [
-          { namePrefix: 'Printer' },
-          { namePrefix: 'Thermal' },
-          { namePrefix: 'MTP' },
-          { namePrefix: 'POS' }
-        ],
-        optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb', '0000ff00-0000-1000-8000-00805f9b34fb']
+        acceptAllDevices: true,
+        optionalServices: [
+          '000018f0-0000-1000-8000-00805f9b34fb', // Generic
+          '0000ff00-0000-1000-8000-00805f9b34fb', // ESC/POS
+          '49535343-fe7d-4ae5-8fa9-9fafd205e455', // ISSC
+          'e7810a71-73ae-499d-8c15-faa9aef0c3f2'  // Thermal Chinese
+        ]
       })
+      
       const server = await device.gatt?.connect()
-      const services = await server?.getPrimaryServices()
-      if (!services) return null
+      if (!server) throw new Error("No se pudo conectar GATT");
+
+      const services = await server.getPrimaryServices()
       for (const service of services) {
         const characteristics = await service.getCharacteristics()
         for (const char of characteristics) {
           if (char.properties.write || char.properties.writeWithoutResponse) {
             setPrinterChar(char)
             toast({ title: "IMPRESORA VINCULADA" })
-            if (saleToPrint) setTimeout(() => printTicket(saleToPrint, char), 500);
+            if (saleToPrint) {
+              setTimeout(() => printTicket(saleToPrint, char), 800);
+            }
             return char
           }
         }
       }
       return null
-    } catch (error) {
-      toast({ variant: "destructive", title: "ERROR DE CONEXIÓN" })
+    } catch (error: any) {
+      console.error(error);
+      toast({ variant: "destructive", title: "ERROR DE CONEXIÓN", description: "Asegúrese de que la impresora esté encendida." })
       return null
     }
   }
@@ -261,7 +268,8 @@ export default function SalesHistory() {
       
       sale.items.forEach((item: any, idx: number) => {
         const idxS = `${idx + 1}- `
-        data += idxS + clean(item.name).toUpperCase() + '\n'
+        const prodLabel = item.productId && item.productId !== 'MANUAL' ? `[${item.productId}] ${item.name}` : item.name;
+        data += idxS + clean(prodLabel).toUpperCase() + '\n'
         const pad = ' '.repeat(idxS.length)
         const qP = `${pad}${item.quantity} x S/ ${Number(item.price).toFixed(1)}`
         const iT = `S/ ${((Number(item.price) * Number(item.quantity)) - (Number(item.discount) || 0)).toFixed(1)}`
