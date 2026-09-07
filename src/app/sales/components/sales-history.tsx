@@ -94,8 +94,8 @@ export default function SalesHistory() {
     const monthlyQuotes = quotes.filter(q => {
       if (q.status === 'annulled') return false
       let qDate: Date;
-      if (sale?.date) {
-        qDate = new Date(sale.date + "T12:00:00");
+      if (q.date) {
+        qDate = new Date(q.date + "T12:00:00");
       } else {
         qDate = q.createdAt?.toDate ? q.createdAt.toDate() : new Date();
       }
@@ -190,14 +190,13 @@ export default function SalesHistory() {
         return null
       }
 
-      // BLINDAJE: Usamos acceptAllDevices para encontrar impresoras que no se anuncian con nombres estándar
       const device = await navigator.bluetooth.requestDevice({
         acceptAllDevices: true,
         optionalServices: [
-          '000018f0-0000-1000-8000-00805f9b34fb', // Generic
-          '0000ff00-0000-1000-8000-00805f9b34fb', // ESC/POS
-          '49535343-fe7d-4ae5-8fa9-9fafd205e455', // ISSC
-          'e7810a71-73ae-499d-8c15-faa9aef0c3f2'  // Thermal Chinese
+          '000018f0-0000-1000-8000-00805f9b34fb',
+          '0000ff00-0000-1000-8000-00805f9b34fb',
+          '49535343-fe7d-4ae5-8fa9-9fafd205e455',
+          'e7810a71-73ae-499d-8c15-faa9aef0c3f2'
         ]
       })
       
