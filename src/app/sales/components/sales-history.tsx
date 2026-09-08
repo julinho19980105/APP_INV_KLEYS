@@ -41,6 +41,9 @@ import { toJpeg } from 'html-to-image'
 import { format, startOfMonth, subMonths, startOfYear } from "date-fns"
 import { es } from "date-fns/locale"
 
+// Variable global para persistir la conexión durante la sesión (hasta recarga)
+let persistentPrinterChar: any = null;
+
 export default function SalesHistory() {
   const router = useRouter()
   const db = useFirestore()
@@ -59,6 +62,21 @@ export default function SalesHistory() {
   const { data: companySettings } = useDoc(configDocRef)
   const brandColor = companySettings?.brandColor || "#0296FF"
   const shareColor = "#3E35E9"
+
+  // Sincronizar estado local con variable persistente al montar
+  React.useEffect(() => {
+    if (persistentPrinterChar) {
+      try {
+        if (persistentPrinterChar.service?.device?.gatt?.connected) {
+          setPrinterChar(persistentPrinterChar);
+        } else {
+          persistentPrinterChar = null;
+        }
+      } catch (e) {
+        persistentPrinterChar = null;
+      }
+    }
+  }, []);
 
   const dateLimit = React.useMemo(() => {
     const now = new Date()
@@ -190,44 +208,74 @@ export default function SalesHistory() {
         return null
       }
 
+      // acceptAllDevices: true para asegurar que se encuentre cualquier impresora térmica BLE
       const device = await navigator.bluetooth.requestDevice({
         acceptAllDevices: true,
         optionalServices: [
           '000018f0-0000-1000-8000-00805f9b34fb',
           '0000ff00-0000-1000-8000-00805f9b34fb',
+          '0000ffe0-0000-1000-8000-00805f9b34fb',
           '49535343-fe7d-4ae5-8fa9-9fafd205e455',
           'e7810a71-73ae-499d-8c15-faa9aef0c3f2'
         ]
       })
       
       const server = await device.gatt?.connect()
-      if (!server) throw new Error("No se pudo conectar GATT");
+      if (!server) throw new Error("No se pudo conectar al servidor GATT");
+
+      // Esperar brevemente para que la conexión se estabilice
+      await new Promise(r => setTimeout(r, 600));
 
       const services = await server.getPrimaryServices()
+      let writeChar = null;
+
       for (const service of services) {
         const characteristics = await service.getCharacteristics()
         for (const char of characteristics) {
           if (char.properties.write || char.properties.writeWithoutResponse) {
-            setPrinterChar(char)
-            toast({ title: "IMPRESORA VINCULADA" })
-            if (saleToPrint) {
-              setTimeout(() => printTicket(saleToPrint, char), 800);
-            }
-            return char
+            writeChar = char;
+            break;
           }
         }
+        if (writeChar) break;
       }
-      return null
+
+      if (writeChar) {
+        setPrinterChar(writeChar);
+        persistentPrinterChar = writeChar;
+
+        device.addEventListener('gattserverdisconnected', () => {
+          setPrinterChar(null);
+          persistentPrinterChar = null;
+          toast({ title: "IMPRESORA DESCONECTADA" });
+        });
+
+        toast({ title: "IMPRESORA VINCULADA" })
+        if (saleToPrint) {
+          setTimeout(() => printTicket(saleToPrint, writeChar), 500);
+        }
+        return writeChar
+      } else {
+        throw new Error("No se encontró canal de escritura");
+      }
     } catch (error: any) {
       console.error(error);
-      toast({ variant: "destructive", title: "ERROR DE CONEXIÓN", description: "Asegúrese de que la impresora esté encendida." })
+      if (error.name === 'SecurityError') {
+        toast({ 
+          variant: "destructive", 
+          title: "ERROR DE SEGURIDAD", 
+          description: "Abra la app en una PESTAÑA NUEVA del navegador para habilitar Bluetooth." 
+        });
+      } else {
+        toast({ variant: "destructive", title: "ERROR DE CONEXIÓN", description: error.message || "Asegúrese de que la impresora esté encendida." })
+      }
       return null
     }
   }
 
   const printTicket = async (sale: any, existingChar?: any) => {
     let char = existingChar || printerChar;
-    if (!char) {
+    if (!char || !char.service?.device?.gatt?.connected) {
       await connectPrinter(sale)
       return
     }
@@ -288,13 +336,22 @@ export default function SalesHistory() {
       data += '\n\n\n\n'
       
       const buffer = encoder.encode(data)
+      // Envío por paquetes (chunks) con micro-pausas para evitar saturar el buffer de la impresora BLE
       for (let i = 0; i < buffer.length; i += 20) {
-        await char.writeValue(buffer.slice(i, i + 20))
+        const chunk = buffer.slice(i, i + 20);
+        if (char.properties.writeWithoutResponse) {
+          await char.writeValueWithoutResponse(chunk);
+        } else {
+          await char.writeValue(chunk);
+        }
+        await new Promise(r => setTimeout(r, 25));
       }
       toast({ title: "TICKET IMPRESO" })
     } catch (error) {
-      setPrinterChar(null)
-      toast({ variant: "destructive", title: "ERROR DE IMPRESIÓN" })
+      console.error(error);
+      setPrinterChar(null);
+      persistentPrinterChar = null;
+      toast({ variant: "destructive", title: "ERROR DE IMPRESIÓN", description: "La impresora no respondió. Reintente." })
     }
   }
 
@@ -391,7 +448,10 @@ export default function SalesHistory() {
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild><button className="h-10 w-10 flex items-center justify-center text-slate-300 hover:text-primary transition-all"><MoreVertical className="w-4.5 h-4.5" /></button></DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="rounded-2xl p-2 w-48 shadow-2xl border-slate-300">
-                            <DropdownMenuItem className="text-[10px] font-bold uppercase gap-3 p-3 rounded-xl" onClick={() => printTicket(s)}><Printer className="w-4 h-4 text-[#10b981]" /> {printerChar ? "Imprimir Ticket" : "Conectar Impresora"}</DropdownMenuItem>
+                            <DropdownMenuItem className="text-[10px] font-bold uppercase gap-3 p-3 rounded-xl" onClick={() => printTicket(s)}>
+                              <Printer className="w-4 h-4 text-[#10b981]" /> 
+                              {printerChar ? "Imprimir Ticket" : "Conectar e Imprimir"}
+                            </DropdownMenuItem>
                             <DropdownMenuItem className="text-[10px] font-bold uppercase gap-3 p-3 rounded-xl" onClick={() => shareReceipt(s)}><Share2 className="w-4 h-4 text-blue-500" /> Compartir Imagen</DropdownMenuItem>
                             {s.status === 'active' && <DropdownMenuItem className="text-[10px] font-bold uppercase gap-3 p-3 rounded-xl" onClick={() => router.push(`/sales?edit=${s.id}&tab=quotes`)}><Edit2 className="w-4 h-4 text-primary" /> Editar Venta</DropdownMenuItem>}
                             {s.status !== 'annulled' && <DropdownMenuItem className="text-[10px] font-bold uppercase gap-3 p-3 rounded-xl text-red-500" onClick={() => handleAnnul(s)}><Ban className="w-4 h-4" /> Anular Venta</DropdownMenuItem>}
