@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -124,8 +125,10 @@ export default function CustomersHubPage() {
   }, [customerData, searchQuery])
 
   const sections = React.useMemo(() => {
-    const shipped = filtered.filter(c => c.isShipped)
-    const activeCycle = filtered.filter(c => !c.isShipped && c.hasActiveBusiness)
+    // BLINDAJE: El negocio activo tiene prioridad. 
+    // Un cliente en lote de envío pero con actividad "active" se queda en secciones 1, 2 o 3.
+    const activeCycle = filtered.filter(c => c.hasActiveBusiness)
+    const shipped = filtered.filter(c => c.isShipped && !c.hasActiveBusiness)
     const inactive = filtered.filter(c => c.isInactive)
 
     return [

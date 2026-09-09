@@ -124,26 +124,15 @@ export default function ShippingHubPage() {
   const handleAddCustomer = async (customer: any) => {
     if (!db || !logisticsDocRef) return
     
-    const customerQuotes = allQuotes
-      .filter(q => q.customerId === customer.id && q.status === "active")
-      .sort((a, b) => (a.date || "").localeCompare(b.date || ""))
-
-    const allProcessedPaymentIds = new Set(historyBatches.flatMap(b => (b.entries || []).flatMap((e: any) => (e.payments || []).map((p: any) => p.paymentId))))
-    const customerPayments = allPayments
-      .filter(p => p.customerId === customer.id && !p.isLocked && !allProcessedPaymentIds.has(p.id))
-      .sort((a, b) => (a.date || "").localeCompare(b.date || ""))
-
-    for (const q of customerQuotes) {
-      updateDoc(doc(db, "quotes", q.id), { status: 'shipped' }).catch(() => {})
-    }
-
+    // BLINDAJE DE LÓGICA: Añadir al lote NO cambia estados ni vincula automáticamente.
+    // Solo crea la entrada del cliente para que el usuario vincule manualmente lo que desee.
     const newEntry = {
       customerId: customer.id,
       customerName: customer.name,
       addedAt: new Date().toISOString(),
       shippingCost: 0,
-      quotes: customerQuotes.map(q => ({ quoteId: q.id, amount: q.total, date: q.date || "", qty: (q.items || []).reduce((acc: number, i: any) => acc + Number(i.quantity), 0) })),
-      payments: customerPayments.map(p => ({ paymentId: p.id, amount: p.amount, date: p.date || "", bank: p.bankName }))
+      quotes: [], 
+      payments: []
     }
 
     const currentEntries = logData?.entries || []
@@ -224,7 +213,7 @@ export default function ShippingHubPage() {
           date: payment.date || "", 
           bank: payment.bankName 
         }
-        return { ...e, payments: [...(e.payments || []), newPayment].sort((a, b) => a.date.localeCompare(b.date)) }
+        return { ...e, payments: [...(e.payments || []), newPayment].sort((a, b) => (a.date || "").localeCompare(b.date || "")) }
       }
       return e
     })
