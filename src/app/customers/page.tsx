@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -223,7 +222,7 @@ export default function CustomersHubPage() {
                                 )
                               )}>
                                 {sIdx === 3 ? (
-                                  c.balance < -1 ? `S/ ${Math.abs(c.balance).toFixed(1)}` : "LIQUIDADO"
+                                  c.balance < -1 ? `S/ ${Math.abs(c.balance).toFixed(1)}` : (c.shipmentHistory?.[0]?.dateKey ? format(new Date(c.shipmentHistory[0].dateKey + "T12:00:00"), "dd/MM/yyyy") : "---")
                                 ) : `S/ ${Math.abs(c.balance).toFixed(1)}`}
                               </div>
                             </div>
