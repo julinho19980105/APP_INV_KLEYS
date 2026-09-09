@@ -36,8 +36,8 @@ export const metadata: Metadata = {
     title: 'KLEYS KIDS',
   },
   icons: {
-    icon: 'https://drive.google.com/thumbnail?id=15o8oqYnmbOjXUIBgPFzl-SDi78SdTo2O&sz=w512',
-    apple: 'https://drive.google.com/thumbnail?id=15o8oqYnmbOjXUIBgPFzl-SDi78SdTo2O&sz=w180',
+    icon: 'https://drive.google.com/thumbnail?id=1UPk82DFJlX_ylrbVfxA0iQIDG6L9dJDd&sz=w512',
+    apple: 'https://drive.google.com/thumbnail?id=1UPk82DFJlX_ylrbVfxA0iQIDG6L9dJDd&sz=w180',
   }
 };
 
