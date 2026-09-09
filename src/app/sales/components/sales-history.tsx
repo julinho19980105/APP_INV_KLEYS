@@ -112,7 +112,8 @@ export default function SalesHistory() {
     const monthlyQuotes = quotes.filter(q => {
       if (q.status === 'annulled') return false
       let qDate: Date;
-      if (q.date) {
+      // LOGICA BLINDADA: Corregida referencia de objeto para cálculo de fecha del mes actual
+      if (q?.date) {
         qDate = new Date(q.date + "T12:00:00");
       } else {
         qDate = q.createdAt?.toDate ? q.createdAt.toDate() : new Date();
@@ -208,15 +209,17 @@ export default function SalesHistory() {
         return null
       }
 
-      // acceptAllDevices: true para asegurar que se encuentre cualquier impresora térmica BLE
+      // MODIFICACIÓN INDUSTRIAL: Filtrado estricto por Service UUID para solo mostrar impresoras térmicas BLE.
+      // Eliminamos acceptAllDevices para evitar que aparezcan televisores u otros dispositivos ajenos.
       const device = await navigator.bluetooth.requestDevice({
-        acceptAllDevices: true,
+        filters: [
+          { services: ['000018f0-0000-1000-8000-00805f9b34fb'] },
+          { services: ['0000ff00-0000-1000-8000-00805f9b34fb'] },
+          { services: ['0000ffe0-0000-1000-8000-00805f9b34fb'] },
+          { services: ['e7810a71-73ae-499d-8c15-faa9aef0c3f2'] }
+        ],
         optionalServices: [
-          '000018f0-0000-1000-8000-00805f9b34fb',
-          '0000ff00-0000-1000-8000-00805f9b34fb',
-          '0000ffe0-0000-1000-8000-00805f9b34fb',
-          '49535343-fe7d-4ae5-8fa9-9fafd205e455',
-          'e7810a71-73ae-499d-8c15-faa9aef0c3f2'
+          '49535343-fe7d-4ae5-8fa9-9fafd205e455'
         ]
       })
       
