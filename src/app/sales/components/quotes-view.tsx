@@ -387,12 +387,9 @@ export default function QuotesView() {
         }
       }
 
-      if (typeof window !== "undefined") localStorage.removeItem(STORAGE_KEY);
-      
-      setSelectedCustomer(null);
+      // El cliente NO se borra para permitir ventas consecutivas
       setItems([]);
       setCurrentEntry(EMPTY_ENTRY);
-      setCustomerQuery("");
       setProductQuery("");
 
       toast({ title: editId ? "VENTA ACTUALIZADA" : "VENTA REGISTRADA" })
@@ -406,8 +403,7 @@ export default function QuotesView() {
 
   const handleDiscard = () => {
     if (confirm("¿DESCARTAR OPERACIÓN ACTUAL?")) {
-      if (typeof window !== "undefined") localStorage.removeItem(STORAGE_KEY);
-      setSelectedCustomer(null);
+      // El cliente NO se borra por requerimiento industrial
       setItems([]);
       setQuoteId("B-001");
       setCurrentEntry(EMPTY_ENTRY);

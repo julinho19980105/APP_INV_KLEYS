@@ -117,6 +117,7 @@ export default function PaymentsView() {
           const parsed = JSON.parse(saved)
           if (parsed.date) setDate(new Date(parsed.date))
           if (parsed.amount) setAmount(parsed.amount)
+          if (parsed.selectedCustomer) setSelectedCustomer(parsed.selectedCustomer)
         } catch (e) {}
       }
     }
@@ -126,10 +127,11 @@ export default function PaymentsView() {
     if (!editingPayment) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         date: date.toISOString(),
-        amount
+        amount,
+        selectedCustomer
       }))
     }
-  }, [date, amount, editingPayment])
+  }, [date, amount, editingPayment, selectedCustomer])
 
   React.useEffect(() => {
     if (banks.length > 0 && !selectedBank) {
@@ -142,9 +144,8 @@ export default function PaymentsView() {
     setEditingPayment(null)
     setDate(new Date())
     setAmount("")
-    setSelectedCustomer(null)
+    // selectedCustomer no se borra según requerimiento industrial
     setCustomerSearch("")
-    localStorage.removeItem(STORAGE_KEY)
     const dbDefault = banks.find((b: any) => b.isDefault);
     setSelectedBank(dbDefault || (banks.length > 0 ? banks[0] : null))
   }
@@ -186,9 +187,8 @@ export default function PaymentsView() {
         setEditingPayment(null)
         setDate(new Date())
         setAmount("")
-        setSelectedCustomer(null)
+        // selectedCustomer no se borra para permitir registros masivos
         setCustomerSearch("")
-        localStorage.removeItem(STORAGE_KEY)
         setSaving(false)
         toast({ title: editingPayment ? "PAGO ACTUALIZADO" : "PAGO REGISTRADO" })
       })
