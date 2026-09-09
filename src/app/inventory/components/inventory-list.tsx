@@ -116,7 +116,7 @@ export default function InventoryList() {
       baseList = products.slice(0, 20);
     }
 
-    return baseList.filter(p => {
+    const filtered = baseList.filter(p => {
       const matchesSearch = p.name?.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(q) || p.code?.toLowerCase().includes(q)
       
       if (categoryFilter === "RECIENTES") return matchesSearch;
@@ -125,6 +125,9 @@ export default function InventoryList() {
       const matchesCat = categoryFilter === "all" || (p.category || "").toUpperCase() === categoryFilter.toUpperCase()
       return matchesSearch && matchesCat
     })
+
+    // LÓGICA BLINDADA: Siempre primero de mayor stock y luego de menor stock
+    return filtered.sort((a, b) => Number(b.stock || 0) - Number(a.stock || 0));
   }, [products, searchQuery, categoryFilter])
 
   const groupedByCollection = React.useMemo(() => {
