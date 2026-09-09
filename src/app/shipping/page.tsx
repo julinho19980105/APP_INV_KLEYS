@@ -82,8 +82,9 @@ export default function ShippingHubPage() {
     const shippedInTodayBatch = new Set((logData?.entries || []).map((e: any) => e.customerId))
     const activeQuoteCustIds = new Set(allQuotes.filter(q => q.status === 'active').map(q => q.customerId))
     
+    // Pagos procesados en CUALQUIER lote
     const allProcessedPaymentIds = new Set(historyBatches.flatMap(b => (b.entries || []).flatMap((e: any) => (e.payments || []).map((p: any) => p.paymentId))))
-    const pendingPaymentCustIds = new Set(allPayments.filter(p => !p.isLocked && !allProcessedPaymentIds.has(p.id)).map(p => p.customerId))
+    const pendingPaymentCustIds = new Set(allPayments.filter(p => !allProcessedPaymentIds.has(p.id)).map(p => p.customerId))
 
     return dbCustomers.filter(c => {
       const isNotAlreadyInToday = !shippedInTodayBatch.has(c.id)
@@ -124,8 +125,6 @@ export default function ShippingHubPage() {
   const handleAddCustomer = async (customer: any) => {
     if (!db || !logisticsDocRef) return
     
-    // BLINDAJE DE LÓGICA: Añadir al lote NO cambia estados ni vincula automáticamente.
-    // Solo crea la entrada del cliente para que el usuario vincule manualmente lo que desee.
     const newEntry = {
       customerId: customer.id,
       customerName: customer.name,
@@ -150,9 +149,7 @@ export default function ShippingHubPage() {
   const handleUnlinkQuote = async (customerId: string, quoteId: string) => {
     if (!db || !logisticsDocRef || !logData) return
     
-    const entry = logData.entries.find((e: any) => e.customerId === customerId)
-    if (!entry) return
-
+    // Al desvincular, la boleta vuelve a estado ACTIVE
     updateDoc(doc(db, "quotes", quoteId), { status: 'active' }).catch(() => {})
 
     const updatedEntries = logData.entries.map((e: any) => {
@@ -163,12 +160,13 @@ export default function ShippingHubPage() {
     })
 
     await updateDoc(logisticsDocRef, { entries: updatedEntries, updatedAt: serverTimestamp() })
-    toast({ title: "BOLETA DESVINCULADA" })
+    toast({ title: "BOLETA DESVINCULADA (VUELVE A ACTIVA)" })
   }
 
   const handleLinkQuote = async (customerId: string, quote: any) => {
     if (!db || !logisticsDocRef || !logData) return
 
+    // Al vincular como "Liquidado", la boleta pasa a estado SHIPPED (Ya no se ve en Clientes 1,2,3)
     updateDoc(doc(db, "quotes", quote.id), { status: 'shipped' }).catch(() => {})
 
     const updatedEntries = logData.entries.map((e: any) => {
@@ -185,7 +183,7 @@ export default function ShippingHubPage() {
     })
 
     await updateDoc(logisticsDocRef, { entries: updatedEntries, updatedAt: serverTimestamp() })
-    toast({ title: "BOLETA VINCULADA" })
+    toast({ title: "BOLETA LIQUIDADA (PASA A ENVIADO)" })
   }
 
   const handleUnlinkPayment = async (customerId: string, paymentId: string) => {
@@ -199,7 +197,7 @@ export default function ShippingHubPage() {
     })
 
     await updateDoc(logisticsDocRef, { entries: updatedEntries, updatedAt: serverTimestamp() })
-    toast({ title: "PAGO DESVINCULADO" })
+    toast({ title: "PAGO DESVINCULADO (VUELVE A ACTIVO)" })
   }
 
   const handleLinkPayment = async (customerId: string, payment: any) => {
@@ -219,7 +217,7 @@ export default function ShippingHubPage() {
     })
 
     await updateDoc(logisticsDocRef, { entries: updatedEntries, updatedAt: serverTimestamp() })
-    toast({ title: "PAGO VINCULADO" })
+    toast({ title: "PAGO LIQUIDADO EN LOTE" })
   }
 
   const handleRemoveEntry = async () => {
@@ -228,6 +226,7 @@ export default function ShippingHubPage() {
     const entryToRemove = logData.entries.find((e: any) => e.customerId === deleteConfirm.id)
     if (entryToRemove && entryToRemove.quotes) {
       for (const q of entryToRemove.quotes) {
+        // Al remover del lote, las boletas vuelven a ser activas
         updateDoc(doc(db, "quotes", q.quoteId), { status: 'active' }).catch(() => {})
       }
     }
@@ -235,7 +234,7 @@ export default function ShippingHubPage() {
     const updatedEntries = logData.entries.filter((e: any) => e.customerId !== deleteConfirm.id)
     await updateDoc(logisticsDocRef, { entries: updatedEntries, updatedAt: serverTimestamp() })
     setDeleteConfirm(null)
-    toast({ title: "CLIENTE REMOVIDO" })
+    toast({ title: "CLIENTE REMOVIDO (BOLETAS VUELVEN A ACTIVAS)" })
   }
 
   return (
@@ -334,7 +333,6 @@ export default function ShippingHubPage() {
                       
                       const availablePayments = allPayments.filter(p => 
                         p.customerId === entry.customerId && 
-                        !p.isLocked && 
                         !allProcessedPaymentIdsInSession.has(p.id) &&
                         !currentBatchPaymentIds.has(p.id)
                       )
@@ -405,6 +403,9 @@ export default function ShippingHubPage() {
                                           </div>
                                         </div>
                                       ))}
+                                      {(entry.quotes?.length === 0 && entry.payments?.length === 0) && (
+                                        <div className="py-6 text-center opacity-20 text-[8px] font-black uppercase border border-dashed rounded-xl">Sin documentos liquidados</div>
+                                      )}
                                     </div>
                                  </div>
 

@@ -32,7 +32,6 @@ export default function CustomersHubPage() {
   
   const configDocRef = React.useMemo(() => db ? doc(db, "config", "global") : null, [db])
   const config = useDoc(configDocRef).data
-  const brandColor = config?.brandColor || "#0296FF"
 
   const customersRef = React.useMemo(() => db ? query(collection(db, "customers"), orderBy("name", "asc")) : null, [db])
   const quotesRef = React.useMemo(() => db ? query(collection(db, "quotes"), orderBy("createdAt", "asc")) : null, [db])
@@ -55,65 +54,69 @@ export default function CustomersHubPage() {
   };
 
   const customerData = React.useMemo(() => {
+    // Identificar todos los pagos que ya están en algún lote de envío
+    const allProcessedPaymentIds = new Set(logistics.flatMap(l => 
+      (l.entries || []).flatMap((e: any) => (e.payments || []).map((p: any) => p.paymentId))
+    ))
+
     return customers.map(c => {
+      // Filtrar boletas por cliente
       const cQuotes = quotes.filter(q => q.customerId === c.id && q.status !== 'annulled')
+      
+      // LOGICA BLINDADA: Activos vs Enviados
       const activeQuotes = cQuotes.filter(q => q.status === 'active')
+      const shippedQuotes = cQuotes.filter(q => q.status === 'shipped')
+      
       const cPayments = payments.filter(p => p.customerId === c.id)
+      const activePayments = cPayments.filter(p => !allProcessedPaymentIds.has(p.id))
       
-      const totalInvoiced = cQuotes.reduce((acc, q) => acc + (q.total || 0), 0)
-      const totalPaid = cPayments.reduce((acc, p) => acc + (p.amount || 0), 0)
-      
+      // Balance ACTIVO (para secciones 1, 2, 3)
+      const totalActiveInvoiced = activeQuotes.reduce((acc, q) => acc + (q.total || 0), 0)
+      const totalActivePaid = activePayments.reduce((acc, p) => acc + (p.amount || 0), 0)
+      const activeBalance = totalActivePaid - totalActiveInvoiced
+
+      // Historial de Envíos (para sección 4)
       const shipmentHistory = logistics.flatMap(l => 
         (l.entries || [])
           .filter((e: any) => e.customerId === c.id)
           .map((e: any) => ({ ...e, dateKey: l.date }))
       ).sort((a, b) => b.dateKey.localeCompare(a.dateKey))
 
-      const totalShippingCost = shipmentHistory.reduce((acc, h) => acc + Number(h.shippingCost || 0), 0)
-      const balance = totalPaid - (totalInvoiced + totalShippingCost)
+      // CLASIFICACIÓN
+      const hasActiveBusiness = activeQuotes.length > 0 || activePayments.length > 0
+      const isShipped = shipmentHistory.length > 0
+      const isInactive = !hasActiveBusiness && !isShipped
 
-      // Ledger: Antiguo arriba, Nuevo abajo
-      const ledger = [
-        ...cQuotes.map(q => ({ 
+      // Ledger de Activos: Solo lo que NO ha sido enviado o procesado
+      const activeLedger = [
+        ...activeQuotes.map(q => ({ 
           type: 'quote', 
           date: parseItemDate(q.date, q.createdAt), 
           id: q.id, 
           amount: q.total 
         })),
-        ...cPayments.map(p => ({ 
+        ...activePayments.map(p => ({ 
           type: 'payment', 
           date: parseItemDate(p.date, p.createdAt), 
           id: 'PAGO', 
           amount: p.amount 
-        })),
-        ...shipmentHistory.map(h => ({ 
-          type: 'shipping', 
-          date: new Date(h.dateKey + "T12:00:00"), 
-          id: 'ENVIO', 
-          amount: Number(h.shippingCost || 0) 
         }))
       ].sort((a, b) => a.date.getTime() - b.date.getTime())
 
       let runningBalance = 0
-      const history = ledger.map(entry => {
-        if (entry.type === 'quote' || entry.type === 'shipping') runningBalance -= entry.amount
+      const history = activeLedger.map(entry => {
+        if (entry.type === 'quote') runningBalance -= entry.amount
         else runningBalance += entry.amount
         return { ...entry, currentBalance: runningBalance }
       })
 
-      const isShipped = shipmentHistory.length > 0
-      const hasActiveBusiness = activeQuotes.length > 0 || cPayments.some(p => !p.isLocked)
-      const isInactive = !isShipped && !hasActiveBusiness
-
       return {
         ...c,
-        totalInvoiced,
-        totalPaid,
-        balance,
-        history,
+        balance: activeBalance, // Saldo real de lo pendiente
+        history, // Solo historial activo
         shipmentHistory,
-        isShipped,
         hasActiveBusiness,
+        isShipped,
         isInactive
       }
     })
@@ -125,8 +128,6 @@ export default function CustomersHubPage() {
   }, [customerData, searchQuery])
 
   const sections = React.useMemo(() => {
-    // BLINDAJE: El negocio activo tiene prioridad. 
-    // Un cliente en lote de envío pero con actividad "active" se queda en secciones 1, 2 o 3.
     const activeCycle = filtered.filter(c => c.hasActiveBusiness)
     const shipped = filtered.filter(c => c.isShipped && !c.hasActiveBusiness)
     const inactive = filtered.filter(c => c.isInactive)
@@ -222,7 +223,7 @@ export default function CustomersHubPage() {
                                 )
                               )}>
                                 {sIdx === 3 ? (
-                                  c.balance < -1 ? `S/ ${Math.abs(c.balance).toFixed(1)}` : "0.0"
+                                  c.balance < -1 ? `S/ ${Math.abs(c.balance).toFixed(1)}` : "LIQUIDADO"
                                 ) : `S/ ${Math.abs(c.balance).toFixed(1)}`}
                               </div>
                             </div>
@@ -233,20 +234,9 @@ export default function CustomersHubPage() {
                             ) : sIdx === 3 ? (
                               <div className="space-y-3 px-1">
                                 {c.shipmentHistory.map((h: any, hIdx: number) => {
-                                  // batchItems sorted Old to New (Antiguo arriba)
                                   const batchItems = [
-                                    ...(h.quotes || []).map((q: any) => {
-                                      // Recuperar fecha de la boleta maestra si falta
-                                      const masterQ = quotes.find(mq => mq.id === q.quoteId);
-                                      const itemDate = q.date || masterQ?.date || (masterQ?.createdAt?.toDate ? format(masterQ.createdAt.toDate(), "yyyy-MM-dd") : "");
-                                      return { type: 'quote', date: itemDate, id: q.quoteId, amount: q.amount };
-                                    }),
-                                    ...(h.payments || []).map((p: any) => {
-                                      // Recuperar fecha del pago maestro si falta
-                                      const masterP = payments.find(mp => mp.id === p.paymentId);
-                                      const itemDate = p.date || masterP?.date || (masterP?.createdAt?.toDate ? format(masterP.createdAt.toDate(), "yyyy-MM-dd") : "");
-                                      return { type: 'payment', date: itemDate, id: 'PAGO', amount: p.amount };
-                                    })
+                                    ...(h.quotes || []).map((q: any) => ({ type: 'quote', date: q.date, id: q.quoteId, amount: q.amount })),
+                                    ...(h.payments || []).map((p: any) => ({ type: 'payment', date: p.date, id: 'PAGO', amount: p.amount }))
                                   ].sort((a, b) => (a.date || "").localeCompare(b.date || ""))
 
                                   return (
@@ -307,19 +297,22 @@ export default function CustomersHubPage() {
                                           <div className="flex flex-col gap-0.5">
                                              <span className="text-slate-700 font-medium">{h.id}</span>
                                              <span className={cn("font-bold text-[10px]", 
-                                               h.type === 'quote' || h.type === 'shipping' ? "text-red-500" : "text-blue-500")}>
+                                               h.type === 'quote' ? "text-red-500" : "text-blue-500")}>
                                                S/ {h.amount.toFixed(1)}
                                              </span>
                                           </div>
                                         </td>
                                         <td className={cn(
                                           "px-4 py-3 text-right font-headline font-bold text-[11px]",
-                                          h.currentBalance < -0.1 ? "text-red-500" : h.currentBalance > 0.1 ? "text-emerald-500" : "text-red-500"
+                                          h.currentBalance < -0.1 ? "text-red-500" : "text-emerald-500"
                                         )}>
                                           S/ {h.currentBalance.toFixed(1)}
                                         </td>
                                       </tr>
                                     ))}
+                                    {c.history.length === 0 && (
+                                      <tr><td colSpan={3} className="py-10 text-center opacity-20 font-bold text-[8px] uppercase tracking-widest">Sin actividad activa</td></tr>
+                                    )}
                                   </tbody>
                                 </table>
                               </div>
