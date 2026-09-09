@@ -421,7 +421,7 @@ export default function PaymentsView() {
         {groupedPayments.map(group => (
           <div key={group.dateKey} className="space-y-1">
             <div className={cn(
-              "px-5 py-2.5 rounded-[2rem] flex justify-between items-center shadow-lg border border-slate-700/20 transition-colors",
+              "px-5 py-1 rounded-[2rem] flex justify-between items-center shadow-lg border border-slate-700/20 transition-colors",
               group.isDayLocked ? "bg-red-600" : "bg-[#1e293b]"
             )}>
               <span className="text-[10px] font-bold uppercase text-white tracking-widest">{group.label}</span>
